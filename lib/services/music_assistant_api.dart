@@ -4,6 +4,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:uuid/uuid.dart';
 import '../models/media_item.dart';
 import 'debug_logger.dart';
+import 'settings_service.dart';
 
 enum MAConnectionState {
   disconnected,
@@ -29,6 +30,9 @@ class MusicAssistantAPI {
 
   Completer<void>? _connectionCompleter;
 
+  // Cached custom port setting
+  int? _cachedCustomPort;
+
   MusicAssistantAPI(this.serverUrl);
 
   Future<void> connect() async {
@@ -39,6 +43,9 @@ class MusicAssistantAPI {
 
     try {
       _updateConnectionState(MAConnectionState.connecting);
+
+      // Load and cache custom port setting
+      _cachedCustomPort = await SettingsService.getWebSocketPort();
 
       // Parse server URL and construct WebSocket URL
       var wsUrl = serverUrl;
@@ -65,9 +72,14 @@ class MusicAssistantAPI {
 
       // Add port if not present
       final uri = Uri.parse(wsUrl);
-      if (uri.hasPort) {
-        // Port is already specified, keep it
-        _logger.log('Using specified port: ${uri.port}');
+
+      if (_cachedCustomPort != null) {
+        // Use custom port from settings
+        wsUrl = '${uri.scheme}://${uri.host}:$_cachedCustomPort${uri.path}';
+        _logger.log('Using custom WebSocket port from settings: $_cachedCustomPort');
+      } else if (uri.hasPort) {
+        // Port is already specified in URL, keep it
+        _logger.log('Using port from URL: ${uri.port}');
       } else {
         // No port specified, use defaults based on protocol
         if (useSecure) {
@@ -395,7 +407,11 @@ class MusicAssistantAPI {
 
     // Add port if not specified
     final uri = Uri.parse(baseUrl);
-    if (!uri.hasPort) {
+
+    if (_cachedCustomPort != null) {
+      // Use cached custom port from settings
+      baseUrl = '${uri.scheme}://${uri.host}:$_cachedCustomPort';
+    } else if (!uri.hasPort) {
       if (useSecure) {
         // For HTTPS, default to standard port 443
         baseUrl = '${uri.scheme}://${uri.host}:443';
@@ -428,7 +444,11 @@ class MusicAssistantAPI {
 
     // Add port if not specified
     final uri = Uri.parse(baseUrl);
-    if (!uri.hasPort) {
+
+    if (_cachedCustomPort != null) {
+      // Use cached custom port from settings
+      baseUrl = '${uri.scheme}://${uri.host}:$_cachedCustomPort';
+    } else if (!uri.hasPort) {
       if (useSecure) {
         // For HTTPS, default to standard port 443
         baseUrl = '${uri.scheme}://${uri.host}:443';

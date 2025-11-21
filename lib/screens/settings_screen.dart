@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/music_assistant_api.dart';
+import '../services/settings_service.dart';
 import 'debug_log_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -13,18 +14,29 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _serverUrlController = TextEditingController();
+  final _wsPortController = TextEditingController();
   bool _isConnecting = false;
 
   @override
   void initState() {
     super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
     final provider = context.read<MusicAssistantProvider>();
-    _serverUrlController.text = provider.serverUrl ?? 'music.serverscloud.org';
+    _serverUrlController.text = provider.serverUrl ?? 'ma.serverscloud.org';
+
+    final wsPort = await SettingsService.getWebSocketPort();
+    if (wsPort != null) {
+      _wsPortController.text = wsPort.toString();
+    }
   }
 
   @override
   void dispose() {
     _serverUrlController.dispose();
+    _wsPortController.dispose();
     super.dispose();
   }
 
@@ -33,6 +45,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _showError('Please enter a server URL');
       return;
     }
+
+    // Save WebSocket port setting
+    int? wsPort;
+    if (_wsPortController.text.isNotEmpty) {
+      wsPort = int.tryParse(_wsPortController.text);
+      if (wsPort == null) {
+        _showError('Invalid WebSocket port number');
+        return;
+      }
+    }
+    await SettingsService.setWebSocketPort(wsPort);
 
     setState(() {
       _isConnecting = true;
@@ -182,7 +205,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               controller: _serverUrlController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'music.serverscloud.org or 192.168.1.100',
+                hintText: 'ma.serverscloud.org or 192.168.1.100',
                 hintStyle: const TextStyle(color: Colors.white38),
                 filled: true,
                 fillColor: Colors.white12,
@@ -192,6 +215,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 prefixIcon: const Icon(
                   Icons.dns_rounded,
+                  color: Colors.white54,
+                ),
+              ),
+              enabled: !_isConnecting,
+            ),
+
+            const SizedBox(height: 24),
+
+            // WebSocket Port input
+            const Text(
+              'WebSocket Port (Optional)',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Leave empty for auto-detection. Try 8095 if connection fails.',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            TextField(
+              controller: _wsPortController,
+              style: const TextStyle(color: Colors.white),
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: 'e.g., 8095 or 443 (leave empty for auto)',
+                hintStyle: const TextStyle(color: Colors.white38),
+                filled: true,
+                fillColor: Colors.white12,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(
+                  Icons.settings_ethernet_rounded,
                   color: Colors.white54,
                 ),
               ),
@@ -329,10 +394,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    '• Music Assistant server typically runs on port 8095\n'
-                    '• You can use a domain name or IP address\n'
+                    '• Default ports: 443 for HTTPS, 8095 for HTTP\n'
+                    '• You can override the port in the WebSocket Port field\n'
+                    '• Use domain name or IP address for server\n'
                     '• Make sure your device can reach the server\n'
-                    '• Both HTTP and HTTPS are supported',
+                    '• Check debug logs if connection fails',
                     style: TextStyle(
                       color: Colors.white54,
                       fontSize: 12,
