@@ -73,36 +73,48 @@ class MusicAssistantAPI {
       // Construct WebSocket URL with proper port handling
       final uri = Uri.parse(wsUrl);
 
-      int? port;
+      Uri finalUri;
       if (_cachedCustomPort != null) {
         // Use custom port from settings
-        port = _cachedCustomPort;
+        finalUri = Uri(
+          scheme: uri.scheme,
+          host: uri.host,
+          port: _cachedCustomPort,
+          path: '/ws',
+        );
         _logger.log('Using custom WebSocket port from settings: $_cachedCustomPort');
       } else if (uri.hasPort) {
         // Port is already specified in URL, keep it
-        port = uri.port;
+        finalUri = Uri(
+          scheme: uri.scheme,
+          host: uri.host,
+          port: uri.port,
+          path: '/ws',
+        );
         _logger.log('Using port from URL: ${uri.port}');
       } else {
         // No port specified
         if (!useSecure) {
           // For WS (unsecure WebSocket), add Music Assistant default port 8095
-          port = 8095;
+          finalUri = Uri(
+            scheme: uri.scheme,
+            host: uri.host,
+            port: 8095,
+            path: '/ws',
+          );
           _logger.log('Using port 8095 for unsecure connection');
         } else {
-          // For WSS (secure WebSocket), use port 443
-          // Required for proper WebSocket handshake
-          port = 443;
-          _logger.log('Using port 443 for secure connection');
+          // For WSS (secure WebSocket), DON'T specify port - use implicit default
+          // This is critical for Cloudflare WebSocket support
+          finalUri = Uri(
+            scheme: uri.scheme,
+            host: uri.host,
+            // NO PORT - let it use default 443 implicitly
+            path: '/ws',
+          );
+          _logger.log('Using implicit default port (443) for secure connection');
         }
       }
-
-      // Build final WebSocket URL
-      final finalUri = Uri(
-        scheme: uri.scheme,
-        host: uri.host,
-        port: port,
-        path: '/ws',
-      );
 
       wsUrl = finalUri.toString();
 
