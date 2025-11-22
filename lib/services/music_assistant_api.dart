@@ -434,7 +434,7 @@ class MusicAssistantAPI {
   }
 
   // Get stream URL for a track
-  String getStreamUrl(String provider, String itemId) {
+  String getStreamUrl(String provider, String itemId, {String? uri}) {
     var baseUrl = serverUrl;
     var useSecure = true;
 
@@ -447,26 +447,49 @@ class MusicAssistantAPI {
     }
 
     // Add port if not specified
-    final uri = Uri.parse(baseUrl);
+    final uriObj = Uri.parse(baseUrl);
 
     if (_cachedCustomPort != null) {
       // Use cached custom port from settings
-      baseUrl = '${uri.scheme}://${uri.host}:$_cachedCustomPort';
-    } else if (!uri.hasPort) {
+      baseUrl = '${uriObj.scheme}://${uriObj.host}:$_cachedCustomPort';
+    } else if (!uriObj.hasPort) {
       if (useSecure) {
         // For HTTPS, don't add port 443 (it's the default)
-        baseUrl = '${uri.scheme}://${uri.host}';
+        baseUrl = '${uriObj.scheme}://${uriObj.host}';
       } else {
         // For HTTP, default to Music Assistant port 8095
-        baseUrl = '${uri.scheme}://${uri.host}:8095';
+        baseUrl = '${uriObj.scheme}://${uriObj.host}:8095';
       }
     } else {
-      baseUrl = '${uri.scheme}://${uri.host}:${uri.port}';
+      baseUrl = '${uriObj.scheme}://${uriObj.host}:${uriObj.port}';
+    }
+
+    // If URI is provided, parse it to get the correct provider instance and item_id
+    // URI format: "builtin://track/413" or "opensubsonic--ETwFWrKe://track/1958"
+    String actualProvider = provider;
+    String actualItemId = itemId;
+
+    if (uri != null && uri.isNotEmpty) {
+      try {
+        // Split by "://" to get provider and path
+        final parts = uri.split('://');
+        if (parts.length == 2) {
+          actualProvider = parts[0]; // e.g., "builtin" or "opensubsonic--ETwFWrKe"
+
+          // Get item_id from path: "track/413" -> "413"
+          final pathParts = parts[1].split('/');
+          if (pathParts.isNotEmpty) {
+            actualItemId = pathParts.last;
+          }
+        }
+      } catch (e) {
+        _logger.log('⚠️ Failed to parse track URI: $uri, using provider=$provider, itemId=$itemId');
+      }
     }
 
     // Music Assistant stream endpoint - use /preview endpoint
     // Format: /preview?item_id={itemId}&provider={provider}
-    return '$baseUrl/preview?item_id=$itemId&provider=$provider';
+    return '$baseUrl/preview?item_id=$actualItemId&provider=$actualProvider';
   }
 
   // Get image URL

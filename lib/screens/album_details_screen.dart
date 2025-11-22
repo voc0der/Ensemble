@@ -45,7 +45,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
 
     // Convert Music Assistant tracks to AudioTrack objects with stream URLs
     final audioTracks = _tracks.map((track) {
-      final streamUrl = maProvider.getStreamUrl(track.provider, track.itemId);
+      final streamUrl = maProvider.getStreamUrl(track.provider, track.itemId, uri: track.uri);
       return AudioTrack(
         id: track.itemId,
         title: track.name,
@@ -69,7 +69,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
     final playerProvider = context.read<MusicPlayerProvider>();
 
     final audioTracks = _tracks.map((track) {
-      final streamUrl = maProvider.getStreamUrl(track.provider, track.itemId);
+      final streamUrl = maProvider.getStreamUrl(track.provider, track.itemId, uri: track.uri);
       return AudioTrack(
         id: track.itemId,
         title: track.name,

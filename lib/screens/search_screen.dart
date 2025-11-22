@@ -366,7 +366,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final maProvider = context.read<MusicAssistantProvider>();
     final playerProvider = context.read<MusicPlayerProvider>();
 
-    final streamUrl = maProvider.getStreamUrl(track.provider, track.itemId);
+    final streamUrl = maProvider.getStreamUrl(track.provider, track.itemId, uri: track.uri);
     final audioTrack = AudioTrack(
       id: track.itemId,
       title: track.name,
