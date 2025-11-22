@@ -8,6 +8,7 @@ import '../services/builtin_player_service.dart';
 import '../services/audio_player_service.dart';
 import '../services/auth_service.dart';
 import '../services/debug_logger.dart';
+import '../services/error_handler.dart';
 
 class MusicAssistantProvider with ChangeNotifier {
   MusicAssistantAPI? _api;
@@ -115,8 +116,10 @@ class MusicAssistantProvider with ChangeNotifier {
       await _api!.connect();
       notifyListeners();
     } catch (e) {
-      _error = 'Connection failed: $e';
+      final errorInfo = ErrorHandler.handleError(e, context: 'Connect to server');
+      _error = errorInfo.userMessage;
       _connectionState = MAConnectionState.error;
+      _logger.log('Connection error: ${errorInfo.technicalMessage}');
       notifyListeners();
       rethrow;
     }
@@ -161,8 +164,10 @@ class MusicAssistantProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _error = 'Failed to load library: $e';
+      final errorInfo = ErrorHandler.handleError(e, context: 'Load library');
+      _error = errorInfo.userMessage;
       _isLoading = false;
+      _logger.log('Library load error: ${errorInfo.technicalMessage}');
       notifyListeners();
     }
   }
@@ -184,8 +189,10 @@ class MusicAssistantProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _error = 'Failed to load artists: $e';
+      final errorInfo = ErrorHandler.handleError(e, context: 'Load artists');
+      _error = errorInfo.userMessage;
       _isLoading = false;
+      _logger.log('Artists load error: ${errorInfo.technicalMessage}');
       notifyListeners();
     }
   }
@@ -213,8 +220,10 @@ class MusicAssistantProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _error = 'Failed to load albums: $e';
+      final errorInfo = ErrorHandler.handleError(e, context: 'Load albums');
+      _error = errorInfo.userMessage;
       _isLoading = false;
+      _logger.log('Albums load error: ${errorInfo.technicalMessage}');
       notifyListeners();
     }
   }
@@ -225,7 +234,7 @@ class MusicAssistantProvider with ChangeNotifier {
     try {
       return await _api!.getAlbumTracks(provider, itemId);
     } catch (e) {
-      print('Failed to load album tracks: $e');
+      ErrorHandler.logError('Get album tracks', e);
       return [];
     }
   }
@@ -238,7 +247,7 @@ class MusicAssistantProvider with ChangeNotifier {
     try {
       return await _api!.search(query);
     } catch (e) {
-      print('Search failed: $e');
+      ErrorHandler.logError('Search', e);
       return {'artists': [], 'albums': [], 'tracks': []};
     }
   }
@@ -264,11 +273,27 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   Future<void> playTrack(String playerId, Track track) async {
-    await _api?.playTrack(playerId, track);
+    try {
+      await _api?.playTrack(playerId, track);
+    } catch (e) {
+      final errorInfo = ErrorHandler.handleError(e, context: 'Play track');
+      _error = errorInfo.userMessage;
+      ErrorHandler.logError('Play track', e);
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> playTracks(String playerId, List<Track> tracks, {int? startIndex}) async {
-    await _api?.playTracks(playerId, tracks, startIndex: startIndex);
+    try {
+      await _api?.playTracks(playerId, tracks, startIndex: startIndex);
+    } catch (e) {
+      final errorInfo = ErrorHandler.handleError(e, context: 'Play tracks');
+      _error = errorInfo.userMessage;
+      ErrorHandler.logError('Play tracks', e);
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<String?> getCurrentStreamUrl(String playerId) async {
@@ -276,23 +301,48 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   Future<void> pausePlayer(String playerId) async {
-    await _api?.pausePlayer(playerId);
+    try {
+      await _api?.pausePlayer(playerId);
+    } catch (e) {
+      ErrorHandler.logError('Pause player', e);
+      rethrow;
+    }
   }
 
   Future<void> resumePlayer(String playerId) async {
-    await _api?.resumePlayer(playerId);
+    try {
+      await _api?.resumePlayer(playerId);
+    } catch (e) {
+      ErrorHandler.logError('Resume player', e);
+      rethrow;
+    }
   }
 
   Future<void> nextTrack(String playerId) async {
-    await _api?.nextTrack(playerId);
+    try {
+      await _api?.nextTrack(playerId);
+    } catch (e) {
+      ErrorHandler.logError('Next track', e);
+      rethrow;
+    }
   }
 
   Future<void> previousTrack(String playerId) async {
-    await _api?.previousTrack(playerId);
+    try {
+      await _api?.previousTrack(playerId);
+    } catch (e) {
+      ErrorHandler.logError('Previous track', e);
+      rethrow;
+    }
   }
 
   Future<void> stopPlayer(String playerId) async {
-    await _api?.stopPlayer(playerId);
+    try {
+      await _api?.stopPlayer(playerId);
+    } catch (e) {
+      ErrorHandler.logError('Stop player', e);
+      rethrow;
+    }
   }
 
   // ============================================================================
@@ -339,7 +389,7 @@ class MusicAssistantProvider with ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      _logger.log('Error loading players: $e');
+      ErrorHandler.logError('Load and select players', e);
     }
   }
 
