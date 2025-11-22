@@ -49,6 +49,9 @@ class MusicAssistantProvider with ChangeNotifier {
   List<Player> get availablePlayers => _availablePlayers;
   Track? get currentTrack => _currentTrack;
 
+  // API access
+  MusicAssistantAPI? get api => _api;
+
   MusicAssistantProvider() {
     _initialize();
   }

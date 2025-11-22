@@ -134,9 +134,9 @@ class _AlbumCard extends StatelessWidget {
               ),
             ),
             // Artist name
-            if (album.artists.isNotEmpty)
+            if (album.artists != null && album.artists!.isNotEmpty)
               Text(
-                album.artists.first.name,
+                album.artists!.first.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(

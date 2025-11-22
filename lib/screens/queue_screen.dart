@@ -242,9 +242,9 @@ class _QueueScreenState extends State<QueueScreen> {
               fontWeight: isCurrentItem ? FontWeight.bold : FontWeight.normal,
             ),
           ),
-          subtitle: item.track.artists.isNotEmpty
+          subtitle: item.track.artists != null && item.track.artists!.isNotEmpty
               ? Text(
-                  item.track.artists.first.name,
+                  item.track.artists!.first.name,
                   style: TextStyle(
                     color: isCurrentItem ? Colors.blue[200] : Colors.grey[400],
                   ),

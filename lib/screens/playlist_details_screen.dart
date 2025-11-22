@@ -307,9 +307,9 @@ class _PlaylistDetailsScreenState extends State<PlaylistDetailsScreen> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: track.artists.isNotEmpty
+      subtitle: track.artists != null && track.artists!.isNotEmpty
           ? Text(
-              track.artists.first.name,
+              track.artists!.first.name,
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 12,
