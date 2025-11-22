@@ -511,7 +511,43 @@ class MusicAssistantAPI {
       final result = response['result'];
       if (result == null) return null;
 
-      return PlayerQueue.fromJson(result as Map<String, dynamic>);
+      // The API returns a List of items directly, not a PlayerQueue object
+      final items = (result as List<dynamic>)
+          .map((i) => QueueItem.fromJson(i as Map<String, dynamic>))
+          .toList();
+
+      if (items.isEmpty) {
+        _logger.log('⚠️ Queue is empty');
+        return null;
+      }
+
+      // Get the player to find current_index from current_item_id
+      final players = await getPlayers();
+      final player = players.firstWhere(
+        (p) => p.playerId == playerId,
+        orElse: () => Player(
+          playerId: playerId,
+          name: '',
+          available: false,
+          powered: false,
+          state: 'idle',
+        ),
+      );
+
+      // Find current index by matching current_item_id
+      int? currentIndex;
+      if (player.currentItemId != null) {
+        currentIndex = items.indexWhere(
+          (item) => item.queueItemId == player.currentItemId,
+        );
+        if (currentIndex == -1) currentIndex = null;
+      }
+
+      return PlayerQueue(
+        playerId: playerId,
+        items: items,
+        currentIndex: currentIndex ?? 0, // Default to first item if no current item
+      );
     } catch (e) {
       _logger.log('Error getting queue: $e');
       return null;
