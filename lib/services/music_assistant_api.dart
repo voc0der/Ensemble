@@ -443,7 +443,9 @@ class MusicAssistantAPI {
       baseUrl = '${uri.scheme}://${uri.host}:${uri.port}';
     }
 
-    return '$baseUrl/api/stream/$provider/$itemId';
+    // Add format parameter for better compatibility
+    // Music Assistant supports various formats, mp3 is widely compatible
+    return '$baseUrl/api/stream/$provider/$itemId?fmt=mp3';
   }
 
   // Get image URL

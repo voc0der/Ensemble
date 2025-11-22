@@ -47,10 +47,18 @@ class AudioPlayerService {
 
       try {
         _logger.log('Loading track: ${track.title} from ${track.filePath}');
-        // Use setUrl for HTTP streams, setFilePath for local files
+
+        // Use AudioSource for HTTP streams to allow custom headers
         if (track.filePath.startsWith('http://') ||
             track.filePath.startsWith('https://')) {
-          await _audioPlayer.setUrl(track.filePath);
+          final audioSource = AudioSource.uri(
+            Uri.parse(track.filePath),
+            headers: {
+              'User-Agent': 'MusicAssistantMobile/1.0',
+              // Add any other headers Music Assistant might need
+            },
+          );
+          await _audioPlayer.setAudioSource(audioSource);
           _logger.log('Track loaded from URL successfully');
         } else {
           await _audioPlayer.setFilePath(track.filePath);
@@ -58,6 +66,10 @@ class AudioPlayerService {
         }
       } catch (e) {
         _logger.log('Error loading track: $e');
+        _logger.log('Error details: ${e.toString()}');
+        if (e is PlayerException) {
+          _logger.log('Player exception code: ${e.code}, message: ${e.message}');
+        }
         rethrow;
       }
     }
