@@ -1,7 +1,6 @@
 import 'package:just_audio/just_audio.dart';
 import '../models/audio_track.dart';
 import 'debug_logger.dart';
-import 'stream_tester.dart';
 
 class AudioPlayerService {
   static final AudioPlayerService _instance = AudioPlayerService._internal();
@@ -10,7 +9,6 @@ class AudioPlayerService {
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   final _logger = DebugLogger();
-  final _streamTester = StreamTester();
 
   AudioPlayer get audioPlayer => _audioPlayer;
 
@@ -48,34 +46,38 @@ class AudioPlayerService {
       final track = _playlist[index];
 
       try {
-        _logger.log('Loading track: ${track.title} from ${track.filePath}');
+        _logger.log('Loading track: ${track.title}');
+        _logger.log('Stream URL: ${track.filePath}');
 
-        // Use AudioSource for HTTP streams to allow custom headers
+        // Use different audio source based on URL type
         if (track.filePath.startsWith('http://') ||
             track.filePath.startsWith('https://')) {
-          // Test stream URL before loading
-          _logger.log('Testing stream accessibility...');
-          await _streamTester.testStreamUrl(track.filePath);
-          await _streamTester.testStreamContent(track.filePath);
+          _logger.log('Creating progressive audio source for HTTP stream...');
 
-          final audioSource = AudioSource.uri(
+          // Use ProgressiveAudioSource for HTTP/HTTPS streams
+          // This is specifically designed for progressive streaming
+          final audioSource = ProgressiveAudioSource(
             Uri.parse(track.filePath),
             headers: {
               'User-Agent': 'MusicAssistantMobile/1.0',
-              // Add any other headers Music Assistant might need
             },
           );
+
+          _logger.log('Setting audio source...');
           await _audioPlayer.setAudioSource(audioSource);
-          _logger.log('Track loaded from URL successfully');
+          _logger.log('✓ Track loaded successfully');
         } else {
+          _logger.log('Loading from local file path...');
           await _audioPlayer.setFilePath(track.filePath);
-          _logger.log('Track loaded from file path successfully');
+          _logger.log('✓ Track loaded from file path');
         }
       } catch (e) {
-        _logger.log('Error loading track: $e');
-        _logger.log('Error details: ${e.toString()}');
+        _logger.log('✗ Error loading track: $e');
         if (e is PlayerException) {
-          _logger.log('Player exception code: ${e.code}, message: ${e.message}');
+          _logger.log('PlayerException - code: ${e.code}, message: ${e.message}');
+        }
+        if (e is PlayerInterruptedException) {
+          _logger.log('PlayerInterruptedException - message: ${e.message}');
         }
         rethrow;
       }
