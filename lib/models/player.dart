@@ -17,6 +17,9 @@ class Player {
     this.currentItemId,
   });
 
+  // Derived properties
+  bool get isPlaying => state == 'playing';
+
   factory Player.fromJson(Map<String, dynamic> json) {
     return Player(
       playerId: json['player_id'] as String,

@@ -298,6 +298,11 @@ class MusicAssistantProvider with ChangeNotifier {
       _availablePlayers = await getPlayers();
       _logger.log('Loaded ${_availablePlayers.length} players');
 
+      // Log each player for debugging
+      for (final player in _availablePlayers) {
+        _logger.log('  - ${player.name} (${player.playerId}) - available: ${player.available}, state: ${player.state}');
+      }
+
       if (_availablePlayers.isNotEmpty) {
         // Auto-select the built-in player if available
         final builtinPlayer = _availablePlayers.firstWhere(
@@ -305,6 +310,8 @@ class MusicAssistantProvider with ChangeNotifier {
           orElse: () => _availablePlayers.first,
         );
         selectPlayer(builtinPlayer);
+      } else {
+        _logger.log('⚠️ No players available');
       }
 
       notifyListeners();
