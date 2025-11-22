@@ -87,8 +87,13 @@ class QueueItem {
   });
 
   factory QueueItem.fromJson(Map<String, dynamic> json) {
+    // Queue items may have queue_item_id, or we fall back to item_id from the track
+    final queueItemId = json['queue_item_id'] as String? ??
+                        json['item_id']?.toString() ??
+                        '';
+
     return QueueItem(
-      queueItemId: json['queue_item_id'] as String,
+      queueItemId: queueItemId,
       track: Track.fromJson(json),
       streamdetails: json['streamdetails'] != null
           ? StreamDetails.fromJson(json['streamdetails'] as Map<String, dynamic>)
