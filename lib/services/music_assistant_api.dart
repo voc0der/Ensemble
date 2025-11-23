@@ -757,6 +757,12 @@ class MusicAssistantAPI {
             ),
           );
 
+          _logger.log('🎵 Player ${player.name} current_item_id: ${player.currentItemId}');
+          _logger.log('🎵 Queue has ${items.length} items:');
+          for (var i = 0; i < items.length && i < 3; i++) {
+            _logger.log('  [$i] queue_item_id: ${items[i].queueItemId} - ${items[i].track.name}');
+          }
+
           // Find current index by matching current_item_id
           int? currentIndex;
           if (player.currentItemId != null) {
