@@ -442,12 +442,61 @@ class MusicAssistantProvider with ChangeNotifier {
       }
 
       if (_availablePlayers.isNotEmpty) {
-        // Auto-select the built-in player if available
-        final builtinPlayer = _availablePlayers.firstWhere(
-          (p) => p.playerId == builtinPlayerId,
-          orElse: () => _availablePlayers.first,
-        );
-        selectPlayer(builtinPlayer);
+        // Smart player selection logic:
+        // 1. If a player is already selected and still available, keep it
+        // 2. Otherwise, select the first player that's currently playing
+        // 3. Fall back to builtin player if available
+        // 4. Finally, just pick the first available player
+
+        Player? playerToSelect;
+
+        // Keep current selection if still valid
+        if (_selectedPlayer != null) {
+          final stillAvailable = _availablePlayers.any(
+            (p) => p.playerId == _selectedPlayer!.playerId && p.available,
+          );
+          if (stillAvailable) {
+            playerToSelect = _availablePlayers.firstWhere(
+              (p) => p.playerId == _selectedPlayer!.playerId,
+            );
+            _logger.log('Keeping current player: ${playerToSelect.name}');
+          }
+        }
+
+        // If no current selection, find first playing player
+        if (playerToSelect == null) {
+          try {
+            playerToSelect = _availablePlayers.firstWhere(
+              (p) => p.state == 'playing' && p.available,
+            );
+            _logger.log('Auto-selected playing player: ${playerToSelect.name}');
+          } catch (e) {
+            // No playing player found
+          }
+        }
+
+        // Fall back to builtin player
+        if (playerToSelect == null && builtinPlayerId != null) {
+          try {
+            playerToSelect = _availablePlayers.firstWhere(
+              (p) => p.playerId == builtinPlayerId && p.available,
+            );
+            _logger.log('Selected builtin player: ${playerToSelect.name}');
+          } catch (e) {
+            // Builtin player not found
+          }
+        }
+
+        // Final fallback to first available player
+        if (playerToSelect == null) {
+          playerToSelect = _availablePlayers.firstWhere(
+            (p) => p.available,
+            orElse: () => _availablePlayers.first,
+          );
+          _logger.log('Selected first available player: ${playerToSelect.name}');
+        }
+
+        selectPlayer(playerToSelect);
       } else {
         _logger.log('⚠️ No players available');
       }
@@ -489,6 +538,9 @@ class MusicAssistantProvider with ChangeNotifier {
     if (_selectedPlayer == null || _api == null) return;
 
     try {
+      // Refresh players list to get latest player state
+      await refreshPlayers();
+
       // Get the player's queue
       final queue = await getQueue(_selectedPlayer!.playerId);
 
@@ -536,6 +588,20 @@ class MusicAssistantProvider with ChangeNotifier {
   /// Refresh the list of available players
   Future<void> refreshPlayers() async {
     await _loadAndSelectPlayers(forceRefresh: true);
+
+    // Update the selected player with fresh data
+    if (_selectedPlayer != null && _availablePlayers.isNotEmpty) {
+      try {
+        final updatedPlayer = _availablePlayers.firstWhere(
+          (p) => p.playerId == _selectedPlayer!.playerId,
+        );
+        _selectedPlayer = updatedPlayer;
+        _logger.log('Updated selected player state: ${updatedPlayer.name} - ${updatedPlayer.state}');
+      } catch (e) {
+        // Selected player no longer available
+        _logger.log('Selected player no longer in list');
+      }
+    }
   }
 
   // ============================================================================
