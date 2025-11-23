@@ -21,7 +21,7 @@ class NewHomeScreen extends StatelessWidget {
         elevation: 0,
         title: Image.asset(
           'assets/images/logo.png',
-          height: 32,
+          height: 48,
           fit: BoxFit.contain,
         ),
         centerTitle: true,
