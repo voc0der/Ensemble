@@ -731,11 +731,11 @@ class MusicAssistantAPI {
           String? repeatMode;
 
           try {
+            _logger.log('🎯 Calling player_queues/get with queue_id: $playerId');
             final queueResponse = await _sendCommand(
               'player_queues/get',
               args: {'queue_id': playerId},
             );
-            _logger.log('🔍 DEBUG: Queue object response: ${queueResponse.toString()}');
 
             // Extract metadata from the queue object
             final queueResult = queueResponse['result'] as Map<String, dynamic>?;
@@ -743,22 +743,36 @@ class MusicAssistantAPI {
               currentIndex = queueResult['current_index'] as int?;
               shuffleEnabled = queueResult['shuffle_enabled'] as bool?;
               repeatMode = queueResult['repeat_mode'] as String?;
-              _logger.log('✅ Got queue metadata: currentIndex=$currentIndex, shuffle=$shuffleEnabled, repeat=$repeatMode');
+
+              final currentItemData = queueResult['current_item'] as Map<String, dynamic>?;
+              final currentItemName = currentItemData?['name'] as String?;
+              final totalItems = queueResult['items'] as int?;
+
+              _logger.log('✅ Queue metadata from player_queues/get:');
+              _logger.log('   - queue_id: ${queueResult['queue_id']}');
+              _logger.log('   - Total items in queue: $totalItems');
+              _logger.log('   - Current index: $currentIndex');
+              _logger.log('   - Current item: $currentItemName');
+              _logger.log('   - Shuffle: $shuffleEnabled, Repeat: $repeatMode');
             }
           } catch (e) {
             _logger.log('⚠️ player_queues/get not available: $e');
           }
 
           // Now get the queue items
+          _logger.log('🎯 Calling player_queues/items with queue_id: $playerId');
           final response = await _sendCommand(
             'player_queues/items',
             args: {'queue_id': playerId},
           );
 
           final result = response['result'];
-          if (result == null) return null;
+          if (result == null) {
+            _logger.log('❌ player_queues/items returned null result');
+            return null;
+          }
 
-          _logger.log('🔍 player_queues/items returned ${result is List ? result.length : '?'} items');
+          _logger.log('📦 player_queues/items returned ${result is List ? result.length : '?'} items');
 
           // The API returns a List of items directly, not a PlayerQueue object
           final items = <QueueItem>[];
@@ -776,19 +790,31 @@ class MusicAssistantAPI {
             return null;
           }
 
-          _logger.log('🎵 Queue has ${items.length} items, currentIndex: $currentIndex');
+          _logger.log('🎵 Parsed queue: ${items.length} items, currentIndex: $currentIndex');
 
-          // Log first 5 items to see what we got
-          _logger.log('📋 First 5 queue items:');
-          for (var i = 0; i < items.length && i < 5; i++) {
-            _logger.log('  [$i] ${items[i].track.name} - ${items[i].track.artistsString}');
-          }
-
+          // Log items around the current index
           if (currentIndex != null && currentIndex >= 0 && currentIndex < items.length) {
+            _logger.log('📋 Queue items around current index ($currentIndex):');
+            final start = (currentIndex - 2).clamp(0, items.length - 1);
+            final end = (currentIndex + 3).clamp(0, items.length);
+            for (var i = start; i < end; i++) {
+              final marker = i == currentIndex ? '>>> ' : '    ';
+              _logger.log('$marker[$i] ${items[i].track.name} - ${items[i].track.artistsString}');
+            }
             _logger.log('✅ Current track at index $currentIndex: ${items[currentIndex].track.name}');
           } else if (currentIndex != null) {
             _logger.log('⚠️ Current index $currentIndex is out of range (0-${items.length - 1})');
+            _logger.log('📋 First 5 items in returned queue:');
+            for (var i = 0; i < items.length && i < 5; i++) {
+              _logger.log('  [$i] ${items[i].track.name} - ${items[i].track.artistsString}');
+            }
             currentIndex = null;
+          } else {
+            _logger.log('⚠️ No currentIndex provided');
+            _logger.log('📋 First 5 items in returned queue:');
+            for (var i = 0; i < items.length && i < 5; i++) {
+              _logger.log('  [$i] ${items[i].track.name} - ${items[i].track.artistsString}');
+            }
           }
 
           return PlayerQueue(
