@@ -777,6 +777,11 @@ class MusicAssistantAPI {
             }
           } else {
             _logger.log('⚠️ Player has no current_item_id');
+            // Workaround: If player is playing but has no current_item_id, default to first item
+            if (player.state == 'playing' && items.isNotEmpty) {
+              currentIndex = 0;
+              _logger.log('🔧 Workaround: Defaulting to first queue item for playing player');
+            }
           }
 
           // Check if API provides queue metadata
