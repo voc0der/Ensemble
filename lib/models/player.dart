@@ -48,26 +48,26 @@ class Player {
     double? elapsedTime;
     double? elapsedTimeLastUpdated;
 
+    // IMPORTANT: Check top-level fields FIRST - they have the most current data
+    elapsedTime = (json['elapsed_time'] as num?)?.toDouble();
+    elapsedTimeLastUpdated = (json['elapsed_time_last_updated'] as num?)?.toDouble();
+
+    if (elapsedTime != null) {
+      print('✅ Player ${json['name']}: Using top-level elapsed_time: $elapsedTime seconds (updated: $elapsedTimeLastUpdated)');
+    }
+
+    // Extract current_item_id from current_media
     if (json.containsKey('current_media')) {
       final currentMedia = json['current_media'] as Map<String, dynamic>?;
       if (currentMedia != null) {
         currentItemId ??= currentMedia['queue_item_id'] as String?;
-        elapsedTime = (currentMedia['elapsed_time'] as num?)?.toDouble();
-        elapsedTimeLastUpdated = (currentMedia['elapsed_time_last_updated'] as num?)?.toDouble();
 
-        if (elapsedTime != null) {
-          print('📊 Player ${json['name']}: elapsed_time from current_media: $elapsedTime seconds');
+        // Only use current_media elapsed_time if we don't have top-level (fallback)
+        if (elapsedTime == null) {
+          elapsedTime = (currentMedia['elapsed_time'] as num?)?.toDouble();
+          elapsedTimeLastUpdated = (currentMedia['elapsed_time_last_updated'] as num?)?.toDouble();
+          print('⚠️ Player ${json['name']}: Falling back to current_media elapsed_time: $elapsedTime seconds');
         }
-      }
-    }
-
-    // Also check top-level elapsed time fields
-    if (elapsedTime == null) {
-      elapsedTime = (json['elapsed_time'] as num?)?.toDouble();
-      elapsedTimeLastUpdated = (json['elapsed_time_last_updated'] as num?)?.toDouble();
-
-      if (elapsedTime != null) {
-        print('📊 Player ${json['name']}: elapsed_time from top-level: $elapsedTime seconds');
       }
     }
 

@@ -108,6 +108,26 @@ class _QueueScreenState extends State<QueueScreen> {
       );
     }
 
+    // Filter to show only current and upcoming items (not history)
+    final currentIndex = _queue!.currentIndex ?? 0;
+    final upcomingItems = _queue!.items.sublist(currentIndex);
+
+    if (upcomingItems.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.queue_music, size: 64, color: Colors.grey[700]),
+            const SizedBox(height: 16),
+            Text(
+              'No upcoming tracks',
+              style: TextStyle(color: Colors.grey[600], fontSize: 18),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -119,7 +139,7 @@ class _QueueScreenState extends State<QueueScreen> {
               Icon(Icons.queue_music, color: Colors.grey[400]),
               const SizedBox(width: 8),
               Text(
-                '${_queue!.items.length} track${_queue!.items.length != 1 ? 's' : ''}',
+                '${upcomingItems.length} track${upcomingItems.length != 1 ? 's' : ''} in queue',
                 style: TextStyle(
                   color: Colors.grey[400],
                   fontSize: 14,
@@ -129,26 +149,16 @@ class _QueueScreenState extends State<QueueScreen> {
           ),
         ),
 
-        // Queue items
+        // Queue items (current + upcoming only)
         Expanded(
-          child: ReorderableListView.builder(
-            itemCount: _queue!.items.length,
-            onReorder: (oldIndex, newIndex) {
-              // TODO: Implement queue reordering via API
-              // For now, just update local state
-              setState(() {
-                if (newIndex > oldIndex) {
-                  newIndex -= 1;
-                }
-                final item = _queue!.items.removeAt(oldIndex);
-                _queue!.items.insert(newIndex, item);
-              });
-            },
+          child: ListView.builder(
+            itemCount: upcomingItems.length,
             itemBuilder: (context, index) {
-              final item = _queue!.items[index];
-              final isCurrentItem = _queue!.currentIndex == index;
+              final item = upcomingItems[index];
+              final actualIndex = currentIndex + index;
+              final isCurrentItem = index == 0; // First item in filtered list is current
 
-              return _buildQueueItem(item, index, isCurrentItem, maProvider);
+              return _buildQueueItem(item, actualIndex, isCurrentItem, maProvider);
             },
           ),
         ),

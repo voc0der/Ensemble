@@ -1037,13 +1037,16 @@ class MusicAssistantAPI {
 
   Future<void> _sendPlayerCommand(String playerId, String command) async {
     try {
-      _logger.log('Sending player command: $command to $playerId');
-      await _sendCommand(
+      _logger.log('🎮 Sending player command: $command to player $playerId');
+      final response = await _sendCommand(
         'player_command/$command',
         args: {'player_id': playerId},
       );
+      _logger.log('✅ Player command $command completed successfully');
+      _logger.log('   Response: ${response.toString()}');
     } catch (e) {
-      _logger.log('Error sending player command: $e');
+      _logger.log('❌ Error sending player command $command: $e');
+      _logger.log('   Stack trace: ${StackTrace.current}');
       rethrow;
     }
   }
