@@ -696,6 +696,14 @@ class MusicAssistantAPI {
         final items = response['result'] as List<dynamic>?;
         if (items == null) return <Player>[];
 
+        // Debug: Log raw player data for the first playing player
+        for (var item in items) {
+          if (item['state'] == 'playing') {
+            _logger.log('🔍 RAW PLAYER DATA: ${item.toString()}');
+            break;
+          }
+        }
+
         final players = items
             .map((item) => Player.fromJson(item as Map<String, dynamic>))
             .toList();
@@ -715,6 +723,18 @@ class MusicAssistantAPI {
       operation: () async {
         try {
           _logger.log('Fetching queue for player: $playerId');
+
+          // Try to get full queue object first
+          try {
+            final queueResponse = await _sendCommand(
+              'player_queues/get',
+              args: {'queue_id': playerId},
+            );
+            _logger.log('🔍 DEBUG: Queue object response: ${queueResponse.toString()}');
+          } catch (e) {
+            _logger.log('⚠️ player_queues/get not available: $e');
+          }
+
           final response = await _sendCommand(
             'player_queues/items',
             args: {'queue_id': playerId},
@@ -726,6 +746,15 @@ class MusicAssistantAPI {
           // Debug: Log the first queue item to see structure
           if (result is List && result.isNotEmpty) {
             _logger.log('🔍 DEBUG: First queue item raw data: ${result[0]}');
+          }
+
+          // Debug: Check if there's any current item indicator in the response
+          _logger.log('🔍 DEBUG: Full queue response keys: ${response.keys.toList()}');
+          if (response.containsKey('current_index')) {
+            _logger.log('🔍 DEBUG: Response has current_index: ${response['current_index']}');
+          }
+          if (response.containsKey('current_item')) {
+            _logger.log('🔍 DEBUG: Response has current_item: ${response['current_item']}');
           }
 
           // The API returns a List of items directly, not a PlayerQueue object
