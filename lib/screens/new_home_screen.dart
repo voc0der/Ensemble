@@ -19,12 +19,17 @@ class NewHomeScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Image.asset(
-          'assets/images/logo.png',
-          height: 48,
-          fit: BoxFit.contain,
+        title: Padding(
+          padding: const EdgeInsets.only(left: 8.0),
+          child: Image.asset(
+            'assets/images/logo.png',
+            height: 56,
+            fit: BoxFit.contain,
+            alignment: Alignment.centerLeft,
+          ),
         ),
-        centerTitle: true,
+        titleSpacing: 0,
+        centerTitle: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
