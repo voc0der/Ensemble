@@ -69,7 +69,7 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
     return ChangeNotifierProvider.value(
       value: _provider,
       child: MaterialApp(
-        title: 'Music Assistant',
+        title: 'Amass',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
