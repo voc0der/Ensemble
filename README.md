@@ -28,7 +28,7 @@
 
 ## Download
 
-Download the latest APK from [GitHub Actions](https://github.com/CollotsSpot/Amass/actions) - look for the "amass-apk" artifact in successful builds.
+Download the latest release from the [Releases page](https://github.com/CollotsSpot/Amass/releases).
 
 ## Setup
 
