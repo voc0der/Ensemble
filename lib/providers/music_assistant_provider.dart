@@ -45,6 +45,11 @@ class MusicAssistantProvider with ChangeNotifier {
   List<Player> get availablePlayers => _availablePlayers;
   Track? get currentTrack => _currentTrack;
 
+  // Debug: Get ALL players including filtered ones
+  Future<List<Player>> getAllPlayersUnfiltered() async {
+    return await getPlayers();
+  }
+
   // API access
   MusicAssistantAPI? get api => _api;
 
@@ -420,12 +425,15 @@ class MusicAssistantProvider with ChangeNotifier {
       // These were registered during development but are no longer used
       // Keep "this device" (web UI player) and all other legitimate players
       int filteredCount = 0;
+      final List<String> ghostPlayerIds = [];
+
       _availablePlayers = allPlayers.where((player) {
         final nameLower = player.name.toLowerCase();
         // Exclude players that are exactly "music assistant mobile" or similar
         // but keep "this device" and other players
         if (nameLower.contains('music assistant mobile')) {
           filteredCount++;
+          ghostPlayerIds.add('${player.playerId} (available: ${player.available})');
           return false;
         }
         return true;
@@ -433,9 +441,16 @@ class MusicAssistantProvider with ChangeNotifier {
 
       _playersLastFetched = DateTime.now();
 
-      // Only log summary, not every single player
+      // Log details about ghost players
       if (filteredCount > 0) {
-        _logger.log('Loaded ${_availablePlayers.length} players (filtered out $filteredCount leftover players from ${allPlayers.length} total)');
+        _logger.log('🧹 Filtered out $filteredCount ghost "Music Assistant Mobile" players:');
+        for (int i = 0; i < ghostPlayerIds.length && i < 5; i++) {
+          _logger.log('   - ${ghostPlayerIds[i]}');
+        }
+        if (ghostPlayerIds.length > 5) {
+          _logger.log('   ... and ${ghostPlayerIds.length - 5} more');
+        }
+        _logger.log('📊 Result: ${_availablePlayers.length} valid players from ${allPlayers.length} total');
       }
 
       if (_availablePlayers.isNotEmpty) {

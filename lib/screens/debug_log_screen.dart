@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../services/debug_logger.dart';
+import '../providers/music_assistant_provider.dart';
+import '../models/player.dart';
 
 class DebugLogScreen extends StatefulWidget {
   const DebugLogScreen({super.key});
@@ -53,6 +56,95 @@ class _DebugLogScreenState extends State<DebugLogScreen> {
     );
   }
 
+  Future<void> _showAllPlayers() async {
+    final maProvider = context.read<MusicAssistantProvider>();
+
+    try {
+      final allPlayers = await maProvider.getAllPlayersUnfiltered();
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF2a2a2a),
+          title: const Text(
+            'All Players (Including Hidden)',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: allPlayers.length,
+              itemBuilder: (context, index) {
+                final player = allPlayers[index];
+                final isGhost = player.name.toLowerCase().contains('music assistant mobile');
+
+                return Card(
+                  color: isGhost ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(
+                      player.name,
+                      style: TextStyle(
+                        color: isGhost ? Colors.red[300] : Colors.white,
+                        fontWeight: isGhost ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ID: ${player.playerId}',
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                        Text(
+                          'Available: ${player.available} | State: ${player.state}',
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                    trailing: isGhost
+                        ? const Icon(Icons.warning, color: Colors.red, size: 20)
+                        : null,
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final text = allPlayers.map((p) =>
+                  'Name: ${p.name}\nID: ${p.playerId}\nAvailable: ${p.available}\nState: ${p.state}\n---'
+                ).join('\n');
+                await Clipboard.setData(ClipboardData(text: text));
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Player list copied to clipboard!')),
+                  );
+                }
+              },
+              child: const Text('Copy List'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading players: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -75,6 +167,12 @@ class _DebugLogScreenState extends State<DebugLogScreen> {
         ),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.speaker_group_rounded),
+            onPressed: _showAllPlayers,
+            color: Colors.white,
+            tooltip: 'View all players',
+          ),
           IconButton(
             icon: const Icon(Icons.copy_rounded),
             onPressed: _copyLogs,
