@@ -1025,7 +1025,7 @@ class MusicAssistantAPI {
     try {
       _logger.log('Setting volume to $volumeLevel for player $playerId');
       await _sendCommand(
-        'player_command/volume_set',
+        'players/cmd/volume_set',
         args: {
           'player_id': playerId,
           'volume_level': volumeLevel.clamp(0, 100),
@@ -1042,7 +1042,7 @@ class MusicAssistantAPI {
     try {
       _logger.log('${muted ? "Muting" : "Unmuting"} player $playerId');
       await _sendCommand(
-        'player_command/volume_mute',
+        'players/cmd/volume_mute',
         args: {
           'player_id': playerId,
           'muted': muted,

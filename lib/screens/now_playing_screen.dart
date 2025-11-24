@@ -258,8 +258,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                       });
                     },
                     onChangeEnd: (value) async {
+                      final targetPosition = value.round();
+                      print('🎯 Seek slider released at $targetPosition seconds');
                       try {
-                        await maProvider.seek(selectedPlayer.playerId, value.round());
+                        await maProvider.seek(selectedPlayer.playerId, targetPosition);
+                        print('✅ Seek command completed');
                       } catch (e) {
                         print('❌ Error seeking: $e');
                         if (mounted) {
@@ -268,9 +271,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           );
                         }
                       } finally {
-                        setState(() {
-                          _seekPosition = null;
-                        });
+                        if (mounted) {
+                          setState(() {
+                            _seekPosition = null;
+                            print('🎯 Cleared seek position');
+                          });
+                        }
                       }
                     },
                     activeColor: Colors.white,
