@@ -26,6 +26,14 @@
 - Queue management and viewing
 - Multi-player support
 
+## Screenshots
+
+<div align="center">
+  <img src="assets/screenshots/Screenshot_20251124-193838.png" alt="Home Screen" width="250">
+  <img src="assets/screenshots/Screenshot_20251124-193915.png" alt="Now Playing" width="250">
+  <img src="assets/screenshots/Screenshot_20251124-193936.png" alt="Player Selection" width="250">
+</div>
+
 ## Download
 
 Download the latest release from the [Releases page](https://github.com/CollotsSpot/Amass/releases).
