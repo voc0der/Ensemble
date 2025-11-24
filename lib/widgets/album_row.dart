@@ -111,7 +111,7 @@ class _AlbumCard extends StatelessWidget {
           children: [
             // Album artwork with Hero animation
             Hero(
-              tag: HeroTags.albumCover + album.uri,
+              tag: HeroTags.albumCover + (album.uri ?? album.itemId),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8.0),
                 child: imageUrl != null
@@ -140,7 +140,7 @@ class _AlbumCard extends StatelessWidget {
             const SizedBox(height: 8),
             // Album title with Hero animation
             Hero(
-              tag: HeroTags.albumTitle + album.uri,
+              tag: HeroTags.albumTitle + (album.uri ?? album.itemId),
               child: Material(
                 color: Colors.transparent,
                 child: Text(
@@ -157,7 +157,7 @@ class _AlbumCard extends StatelessWidget {
             // Artist name with Hero animation
             if (album.artists != null && album.artists!.isNotEmpty)
               Hero(
-                tag: HeroTags.artistName + album.uri,
+                tag: HeroTags.artistName + (album.uri ?? album.itemId),
                 child: Material(
                   color: Colors.transparent,
                   child: Text(

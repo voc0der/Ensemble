@@ -157,7 +157,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                 children: [
                   const SizedBox(height: 60),
                   Hero(
-                    tag: HeroTags.albumCover + widget.album.uri,
+                    tag: HeroTags.albumCover + (widget.album.uri ?? widget.album.itemId),
                     child: Container(
                       width: 200,
                       height: 200,
@@ -198,7 +198,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Hero(
-                    tag: HeroTags.albumTitle + widget.album.uri,
+                    tag: HeroTags.albumTitle + (widget.album.uri ?? widget.album.itemId),
                     child: Material(
                       color: Colors.transparent,
                       child: Text(
@@ -213,7 +213,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Hero(
-                    tag: HeroTags.artistName + widget.album.uri,
+                    tag: HeroTags.artistName + (widget.album.uri ?? widget.album.itemId),
                     child: Material(
                       color: Colors.transparent,
                       child: Text(
