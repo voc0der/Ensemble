@@ -389,16 +389,16 @@ class MusicAssistantAPI {
     }
   }
 
-  /// Get recently added albums
+  /// Get recently played albums
   Future<List<Album>> getRecentAlbums({int limit = 10}) async {
     try {
-      _logger.log('Fetching recently added albums (limit=$limit)');
+      _logger.log('Fetching recently played albums (limit=$limit)');
       final response = await _sendCommand(
         'music/albums/library_items',
         args: {
           'limit': limit,
-          'sort': 'timestamp_added',  // Sort by when added to library
-          'order': 'desc',             // Newest first
+          'sort': 'timestamp_played',  // Sort by when last played
+          'order': 'desc',              // Most recent first
         },
       );
 

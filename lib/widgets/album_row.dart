@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
 import '../screens/album_details_screen.dart';
+import '../constants/hero_tags.dart';
 
 class AlbumRow extends StatefulWidget {
   final String title;
@@ -108,51 +109,66 @@ class _AlbumCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Album artwork
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8.0),
-              child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
-                      width: 150,
-                      height: 150,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 150,
-                          height: 150,
-                          color: Colors.grey[800],
-                          child: const Icon(Icons.album, size: 64),
-                        );
-                      },
-                    )
-                  : Container(
-                      width: 150,
-                      height: 150,
-                      color: Colors.grey[800],
-                      child: const Icon(Icons.album, size: 64),
-                    ),
-            ),
-            const SizedBox(height: 8),
-            // Album title
-            Text(
-              album.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
+            // Album artwork with Hero animation
+            Hero(
+              tag: HeroTags.albumCover + album.uri,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: imageUrl != null
+                    ? Image.network(
+                        imageUrl,
+                        width: 150,
+                        height: 150,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 150,
+                            height: 150,
+                            color: Colors.grey[800],
+                            child: const Icon(Icons.album, size: 64),
+                          );
+                        },
+                      )
+                    : Container(
+                        width: 150,
+                        height: 150,
+                        color: Colors.grey[800],
+                        child: const Icon(Icons.album, size: 64),
+                      ),
               ),
             ),
-            // Artist name
+            const SizedBox(height: 8),
+            // Album title with Hero animation
+            Hero(
+              tag: HeroTags.albumTitle + album.uri,
+              child: Material(
+                color: Colors.transparent,
+                child: Text(
+                  album.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+            // Artist name with Hero animation
             if (album.artists != null && album.artists!.isNotEmpty)
-              Text(
-                album.artists!.first.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[400],
+              Hero(
+                tag: HeroTags.artistName + album.uri,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Text(
+                    album.artists!.first.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[400],
+                    ),
+                  ),
                 ),
               ),
           ],

@@ -416,9 +416,24 @@ class MusicAssistantProvider with ChangeNotifier {
       }
 
       _logger.log('Fetching fresh player list...');
-      _availablePlayers = await getPlayers();
+      final allPlayers = await getPlayers();
+
+      // Filter out leftover "Music Assistant Mobile" players from old app builds
+      // These were registered during development but are no longer used
+      // Keep "this device" (web UI player) and all other legitimate players
+      _availablePlayers = allPlayers.where((player) {
+        final nameLower = player.name.toLowerCase();
+        // Exclude players that are exactly "music assistant mobile" or similar
+        // but keep "this device" and other players
+        if (nameLower.contains('music assistant mobile')) {
+          _logger.log('Filtering out leftover player: ${player.name}');
+          return false;
+        }
+        return true;
+      }).toList();
+
       _playersLastFetched = DateTime.now();
-      _logger.log('Loaded ${_availablePlayers.length} players');
+      _logger.log('Loaded ${_availablePlayers.length} players (filtered from ${allPlayers.length} total)');
 
       // Log each player for debugging
       for (final player in _availablePlayers) {

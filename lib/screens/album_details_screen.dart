@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
+import '../constants/hero_tags.dart';
 
 class AlbumDetailsScreen extends StatefulWidget {
   final Album album;
@@ -155,33 +156,36 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 60),
-                  Container(
-                    width: 200,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.white12,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                      image: imageUrl != null
-                          ? DecorationImage(
-                              image: NetworkImage(imageUrl),
-                              fit: BoxFit.cover,
+                  Hero(
+                    tag: HeroTags.albumCover + widget.album.uri,
+                    child: Container(
+                      width: 200,
+                      height: 200,
+                      decoration: BoxDecoration(
+                        color: Colors.white12,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                        image: imageUrl != null
+                            ? DecorationImage(
+                                image: NetworkImage(imageUrl),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: imageUrl == null
+                          ? const Icon(
+                              Icons.album_rounded,
+                              size: 100,
+                              color: Colors.white54,
                             )
                           : null,
                     ),
-                    child: imageUrl == null
-                        ? const Icon(
-                            Icons.album_rounded,
-                            size: 100,
-                            color: Colors.white54,
-                          )
-                        : null,
                   ),
                 ],
               ),
@@ -193,20 +197,32 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.album.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                  Hero(
+                    tag: HeroTags.albumTitle + widget.album.uri,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Text(
+                        widget.album.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    widget.album.artistsString,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
+                  Hero(
+                    tag: HeroTags.artistName + widget.album.uri,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Text(
+                        widget.album.artistsString,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
