@@ -32,9 +32,13 @@ class Player {
 
   // Calculate current elapsed time (interpolated if playing)
   double get currentElapsedTime {
-    if (elapsedTime == null) return 0;
+    if (elapsedTime == null) {
+      print('⚠️ elapsedTime is null, returning 0');
+      return 0;
+    }
 
     if (!isPlaying || elapsedTimeLastUpdated == null) {
+      print('🕐 Not playing or no last updated time, returning base: $elapsedTime');
       return elapsedTime!;
     }
 
@@ -42,14 +46,25 @@ class Player {
     final now = DateTime.now().millisecondsSinceEpoch / 1000.0;
     final timeSinceUpdate = now - elapsedTimeLastUpdated!;
 
+    print('🕐 Time calculation:');
+    print('   Base elapsed: $elapsedTime seconds');
+    print('   Last updated: $elapsedTimeLastUpdated (Unix timestamp)');
+    print('   Now:          $now (Unix timestamp)');
+    print('   Delta:        $timeSinceUpdate seconds');
+
     // Safety check: if time since update is negative or too large, just return elapsed time
-    if (timeSinceUpdate < 0 || timeSinceUpdate > 10) {
-      print('⚠️ Suspicious time delta: $timeSinceUpdate seconds. Now: $now, Last update: $elapsedTimeLastUpdated');
+    if (timeSinceUpdate < 0) {
+      print('⚠️ Negative time delta! Clock skew detected.');
+      return elapsedTime!;
+    }
+
+    if (timeSinceUpdate > 30) {
+      print('⚠️ Time delta too large (${timeSinceUpdate}s), using base elapsed time');
       return elapsedTime!;
     }
 
     final calculatedTime = elapsedTime! + timeSinceUpdate;
-    print('🕐 Elapsed time calc: base=$elapsedTime, delta=$timeSinceUpdate, result=$calculatedTime');
+    print('   Result:       $calculatedTime seconds');
     return calculatedTime;
   }
 

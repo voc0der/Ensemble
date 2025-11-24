@@ -19,6 +19,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   PlayerQueue? _queue;
   bool _isLoadingQueue = true;
   Timer? _progressTimer;
+  double? _seekPosition; // Track seek position while dragging
 
   @override
   void initState() {
@@ -249,10 +250,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                     ),
                   ),
                   child: Slider(
-                    value: selectedPlayer.currentElapsedTime.clamp(0, currentTrack.duration!.inSeconds.toDouble()),
+                    value: (_seekPosition ?? selectedPlayer.currentElapsedTime).clamp(0, currentTrack.duration!.inSeconds.toDouble()),
                     max: currentTrack.duration!.inSeconds.toDouble(),
                     onChanged: (value) {
-                      // Optional: could add visual feedback during drag
+                      setState(() {
+                        _seekPosition = value;
+                      });
                     },
                     onChangeEnd: (value) async {
                       try {
@@ -264,6 +267,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                             SnackBar(content: Text('Error seeking: $e')),
                           );
                         }
+                      } finally {
+                        setState(() {
+                          _seekPosition = null;
+                        });
                       }
                     },
                     activeColor: Colors.white,
@@ -276,7 +283,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _formatDuration(selectedPlayer.currentElapsedTime.toInt()),
+                        _formatDuration((_seekPosition ?? selectedPlayer.currentElapsedTime).toInt()),
                         style: const TextStyle(color: Colors.white54, fontSize: 12),
                       ),
                       Text(

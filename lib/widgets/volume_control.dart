@@ -90,18 +90,25 @@ class _VolumeControlState extends State<VolumeControl> {
               },
               onChangeEnd: (value) async {
                 final volumeLevel = (value * 100).round();
+                print('🔊 Volume slider released at $volumeLevel');
                 try {
                   // Unmute if changing volume while muted
                   if (isMuted) {
+                    print('🔇 Unmuting player before setting volume');
                     await maProvider.setMute(player.playerId, false);
                   }
+                  print('🔊 Calling setVolume with $volumeLevel');
                   await maProvider.setVolume(player.playerId, volumeLevel);
+                  print('✅ Volume set complete');
                 } catch (e) {
-                  // Error already logged by provider
+                  print('❌ Error setting volume: $e');
                 } finally {
+                  // Wait a moment before clearing pending volume to ensure state is updated
+                  await Future.delayed(const Duration(milliseconds: 300));
                   setState(() {
                     _pendingVolume = null;
                   });
+                  print('🔊 Cleared pending volume');
                 }
               },
             ),
