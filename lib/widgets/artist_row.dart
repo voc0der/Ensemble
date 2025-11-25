@@ -94,6 +94,7 @@ class _ArtistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final maProvider = context.read<MusicAssistantProvider>();
     final imageUrl = maProvider.api?.getImageUrl(artist, size: 200);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return GestureDetector(
       onTap: () {
@@ -117,10 +118,10 @@ class _ArtistCard extends StatelessWidget {
               tag: HeroTags.artistImage + (artist.uri ?? artist.itemId),
               child: CircleAvatar(
                 radius: 60,
-                backgroundColor: Colors.grey[800],
+                backgroundColor: colorScheme.surfaceVariant,
                 backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
                 child: imageUrl == null
-                    ? const Icon(Icons.person_rounded, size: 60, color: Colors.white54)
+                    ? Icon(Icons.person_rounded, size: 60, color: colorScheme.onSurfaceVariant)
                     : null,
               ),
             ),

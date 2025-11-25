@@ -12,6 +12,8 @@ class MiniPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Consumer<MusicAssistantProvider>(
       builder: (context, maProvider, child) {
         final selectedPlayer = maProvider.selectedPlayer;
@@ -36,7 +38,7 @@ class MiniPlayer extends StatelessWidget {
           child: Hero(
             tag: HeroTags.nowPlayingBackground,
             child: Material(
-              color: const Color(0xFF2a2a2a),
+              color: colorScheme.surface,
               elevation: 0,
               child: Container(
                 height: 64,
@@ -55,8 +57,8 @@ class MiniPlayer extends StatelessWidget {
                     Container(
                       height: 2,
                       color: selectedPlayer.isPlaying
-                          ? Colors.white.withOpacity(0.3)
-                          : Colors.white.withOpacity(0.1),
+                          ? colorScheme.primary.withOpacity(0.7)
+                          : colorScheme.onSurface.withOpacity(0.1),
                     ),
                     // Player content
                     Expanded(
@@ -81,20 +83,20 @@ class MiniPlayer extends StatelessWidget {
                                           filterQuality: FilterQuality.medium,
                                           errorBuilder: (context, error, stackTrace) {
                                             return Container(
-                                              color: Colors.white12,
-                                              child: const Icon(
+                                              color: colorScheme.surfaceVariant,
+                                              child: Icon(
                                                 Icons.music_note_rounded,
-                                                color: Colors.white54,
+                                                color: colorScheme.onSurfaceVariant,
                                                 size: 24,
                                               ),
                                             );
                                           },
                                         )
                                       : Container(
-                                          color: Colors.white12,
-                                          child: const Icon(
+                                          color: colorScheme.surfaceVariant,
+                                          child: Icon(
                                             Icons.music_note_rounded,
-                                            color: Colors.white54,
+                                            color: colorScheme.onSurfaceVariant,
                                             size: 24,
                                           ),
                                         ),
@@ -110,8 +112,8 @@ class MiniPlayer extends StatelessWidget {
                                 children: [
                                   Text(
                                     currentTrack.name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -121,8 +123,8 @@ class MiniPlayer extends StatelessWidget {
                                   const SizedBox(height: 2),
                                   Text(
                                     currentTrack.artistsString,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface.withOpacity(0.7),
                                       fontSize: 12,
                                     ),
                                     maxLines: 1,
@@ -134,7 +136,7 @@ class MiniPlayer extends StatelessWidget {
                             // Queue button
                             IconButton(
                               icon: const Icon(Icons.queue_music),
-                              color: Colors.white70,
+                              color: colorScheme.onSurface.withOpacity(0.7),
                               iconSize: 22,
                               onPressed: () {
                                 Navigator.push(
@@ -154,7 +156,7 @@ class MiniPlayer extends StatelessWidget {
                                 color: Colors.transparent,
                                 child: AnimatedIconButton(
                                   icon: Icons.skip_previous_rounded,
-                                  color: Colors.white,
+                                  color: colorScheme.onSurface,
                                   iconSize: 26,
                                   onPressed: () async {
                                     try {
@@ -179,7 +181,7 @@ class MiniPlayer extends StatelessWidget {
                                   icon: selectedPlayer.isPlaying
                                       ? Icons.pause_rounded
                                       : Icons.play_arrow_rounded,
-                                  color: Colors.white,
+                                  color: colorScheme.onSurface,
                                   iconSize: 32,
                                   onPressed: () async {
                                     try {
@@ -202,7 +204,7 @@ class MiniPlayer extends StatelessWidget {
                                 color: Colors.transparent,
                                 child: AnimatedIconButton(
                                   icon: Icons.skip_next_rounded,
-                                  color: Colors.white,
+                                  color: colorScheme.onSurface,
                                   iconSize: 28,
                                   onPressed: () async {
                                     try {

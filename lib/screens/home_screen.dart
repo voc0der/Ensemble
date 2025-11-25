@@ -24,8 +24,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a1a),
+      backgroundColor: colorScheme.background,
       body: _screens[_selectedIndex],
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
@@ -36,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Bottom navigation bar
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF2a2a2a),
+              color: colorScheme.surface,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.3),
@@ -53,8 +56,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               },
               backgroundColor: Colors.transparent,
-              selectedItemColor: Colors.white,
-              unselectedItemColor: Colors.white54,
+              selectedItemColor: colorScheme.primary,
+              unselectedItemColor: colorScheme.onSurface.withOpacity(0.54),
               elevation: 0,
               type: BottomNavigationBarType.fixed,
               selectedFontSize: 12,

@@ -94,6 +94,7 @@ class _AlbumCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final maProvider = context.read<MusicAssistantProvider>();
     final imageUrl = maProvider.api?.getImageUrl(album, size: 200);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return GestureDetector(
       onTap: () {
@@ -130,16 +131,16 @@ class _AlbumCard extends StatelessWidget {
                           return Container(
                             width: 150,
                             height: 150,
-                            color: Colors.grey[800],
-                            child: const Icon(Icons.album, size: 64),
+                            color: colorScheme.surfaceVariant,
+                            child: Icon(Icons.album, size: 64, color: colorScheme.onSurfaceVariant),
                           );
                         },
                       )
                     : Container(
                         width: 150,
                         height: 150,
-                        color: Colors.grey[800],
-                        child: const Icon(Icons.album, size: 64),
+                        color: colorScheme.surfaceVariant,
+                        child: Icon(Icons.album, size: 64, color: colorScheme.onSurfaceVariant),
                       ),
               ),
             ),
@@ -172,7 +173,7 @@ class _AlbumCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[400],
+                      color: colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                 ),
