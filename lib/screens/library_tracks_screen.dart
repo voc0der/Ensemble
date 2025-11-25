@@ -9,22 +9,23 @@ class LibraryTracksScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MusicAssistantProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a1a),
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
-          color: Colors.white,
+          color: colorScheme.onBackground,
         ),
-        title: const Text(
+        title: Text(
           'Tracks',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
+          style: textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onBackground,
             fontWeight: FontWeight.w300,
           ),
         ),
@@ -36,9 +37,11 @@ class LibraryTracksScreen extends StatelessWidget {
 
   Widget _buildTracksList(
       BuildContext context, MusicAssistantProvider provider) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (provider.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
       );
     }
 
@@ -47,16 +50,16 @@ class LibraryTracksScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.music_note_outlined,
               size: 64,
-              color: Colors.white54,
+              color: colorScheme.onSurface.withOpacity(0.54),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No tracks found',
               style: TextStyle(
-                color: Colors.white70,
+                color: colorScheme.onSurface.withOpacity(0.7),
                 fontSize: 16,
               ),
             ),
@@ -66,8 +69,8 @@ class LibraryTracksScreen extends StatelessWidget {
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Refresh'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF1a1a1a),
+                backgroundColor: colorScheme.surfaceVariant,
+                foregroundColor: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -94,13 +97,15 @@ class LibraryTracksScreen extends StatelessWidget {
     final imageUrl = track.album != null
         ? maProvider.getImageUrl(track.album!, size: 128)
         : null;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return ListTile(
       leading: Container(
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: Colors.white12,
+          color: colorScheme.surfaceVariant,
           borderRadius: BorderRadius.circular(8),
           image: imageUrl != null
               ? DecorationImage(
@@ -110,25 +115,25 @@ class LibraryTracksScreen extends StatelessWidget {
               : null,
         ),
         child: imageUrl == null
-            ? const Icon(Icons.music_note_rounded, color: Colors.white54)
+            ? Icon(Icons.music_note_rounded, color: colorScheme.onSurfaceVariant)
             : null,
       ),
       title: Text(
         track.name,
-        style: const TextStyle(color: Colors.white),
+        style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurface),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
         track.artistsString,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
+        style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: track.duration != null
           ? Text(
               _formatDuration(track.duration!),
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface.withOpacity(0.54)),
             )
           : null,
       onTap: () => _playTrack(context, maProvider, index),

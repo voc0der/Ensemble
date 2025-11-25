@@ -43,35 +43,38 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MusicAssistantProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a1a),
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
-          color: Colors.white,
+          color: colorScheme.onBackground,
         ),
-        title: const Text(
+        title: Text(
           'Playlists',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
+          style: textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onBackground,
             fontWeight: FontWeight.w300,
           ),
         ),
         centerTitle: true,
       ),
-      body: _buildPlaylistsList(provider),
+      body: _buildPlaylistsList(context, provider),
     );
   }
 
-  Widget _buildPlaylistsList(MusicAssistantProvider provider) {
+  Widget _buildPlaylistsList(BuildContext context, MusicAssistantProvider provider) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
       );
     }
 
@@ -80,16 +83,16 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.playlist_play_outlined,
               size: 64,
-              color: Colors.white54,
+              color: colorScheme.onSurface.withOpacity(0.54),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No playlists found',
               style: TextStyle(
-                color: Colors.white70,
+                color: colorScheme.onSurface.withOpacity(0.7),
                 fontSize: 16,
               ),
             ),
@@ -99,8 +102,8 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Refresh'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF1a1a1a),
+                backgroundColor: colorScheme.surfaceVariant,
+                foregroundColor: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -109,20 +112,24 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
     }
 
     return RefreshIndicator(
+      color: colorScheme.primary,
+      backgroundColor: colorScheme.surface,
       onRefresh: _loadPlaylists,
       child: ListView.builder(
         itemCount: _playlists.length,
         padding: const EdgeInsets.all(8),
         itemBuilder: (context, index) {
           final playlist = _playlists[index];
-          return _buildPlaylistTile(playlist, provider);
+          return _buildPlaylistTile(context, playlist, provider);
         },
       ),
     );
   }
 
-  Widget _buildPlaylistTile(Playlist playlist, MusicAssistantProvider provider) {
+  Widget _buildPlaylistTile(BuildContext context, Playlist playlist, MusicAssistantProvider provider) {
     final imageUrl = provider.api?.getImageUrl(playlist, size: 128);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Builder(
       builder: (context) => ListTile(
@@ -130,7 +137,7 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: Colors.white12,
+            color: colorScheme.surfaceVariant,
             borderRadius: BorderRadius.circular(8),
             image: imageUrl != null
                 ? DecorationImage(
@@ -140,13 +147,13 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
                 : null,
           ),
           child: imageUrl == null
-              ? const Icon(Icons.playlist_play_rounded, color: Colors.white54)
+              ? Icon(Icons.playlist_play_rounded, color: colorScheme.onSurfaceVariant)
               : null,
         ),
         title: Text(
           playlist.name,
-          style: const TextStyle(
-            color: Colors.white,
+          style: textTheme.titleMedium?.copyWith(
+            color: colorScheme.onSurface,
             fontWeight: FontWeight.w500,
           ),
           maxLines: 1,
@@ -156,7 +163,9 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
           playlist.trackCount != null
               ? '${playlist.trackCount} tracks'
               : playlist.owner ?? 'Playlist',
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
+          style: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurface.withOpacity(0.7),
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

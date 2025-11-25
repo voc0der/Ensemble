@@ -11,35 +11,38 @@ class LibraryAlbumsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MusicAssistantProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a1a),
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
-          color: Colors.white,
+          color: colorScheme.onBackground,
         ),
-        title: const Text(
+        title: Text(
           'Albums',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
+          style: textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onBackground,
             fontWeight: FontWeight.w300,
           ),
         ),
         centerTitle: true,
       ),
-      body: _buildAlbumsList(provider),
+      body: _buildAlbumsList(context, provider),
     );
   }
 
-  Widget _buildAlbumsList(MusicAssistantProvider provider) {
+  Widget _buildAlbumsList(BuildContext context, MusicAssistantProvider provider) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (provider.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
       );
     }
 
@@ -48,16 +51,16 @@ class LibraryAlbumsScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.album_outlined,
               size: 64,
-              color: Colors.white54,
+              color: colorScheme.onSurface.withOpacity(0.54),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No albums found',
               style: TextStyle(
-                color: Colors.white70,
+                color: colorScheme.onSurface.withOpacity(0.7),
                 fontSize: 16,
               ),
             ),
@@ -67,8 +70,8 @@ class LibraryAlbumsScreen extends StatelessWidget {
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Refresh'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF1a1a1a),
+                backgroundColor: colorScheme.surfaceVariant,
+                foregroundColor: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -77,6 +80,8 @@ class LibraryAlbumsScreen extends StatelessWidget {
     }
 
     return RefreshIndicator(
+      color: colorScheme.primary,
+      backgroundColor: colorScheme.surface,
       onRefresh: () async {
         await provider.loadLibrary();
       },
@@ -100,6 +105,8 @@ class LibraryAlbumsScreen extends StatelessWidget {
   Widget _buildAlbumCard(
       BuildContext context, Album album, MusicAssistantProvider provider) {
     final imageUrl = provider.getImageUrl(album, size: 256);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return InkWell(
       onTap: () {
@@ -118,7 +125,7 @@ class LibraryAlbumsScreen extends StatelessWidget {
               tag: HeroTags.albumCover + (album.uri ?? album.itemId),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white12,
+                  color: colorScheme.surfaceVariant,
                   borderRadius: BorderRadius.circular(12),
                   image: imageUrl != null
                       ? DecorationImage(
@@ -128,11 +135,11 @@ class LibraryAlbumsScreen extends StatelessWidget {
                       : null,
                 ),
                 child: imageUrl == null
-                    ? const Center(
+                    ? Center(
                         child: Icon(
                           Icons.album_rounded,
                           size: 64,
-                          color: Colors.white54,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       )
                     : null,
@@ -146,9 +153,8 @@ class LibraryAlbumsScreen extends StatelessWidget {
               color: Colors.transparent,
               child: Text(
                 album.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
+                style: textTheme.titleSmall?.copyWith(
+                  color: colorScheme.onSurface,
                   fontWeight: FontWeight.w500,
                 ),
                 maxLines: 1,
@@ -162,9 +168,8 @@ class LibraryAlbumsScreen extends StatelessWidget {
               color: Colors.transparent,
               child: Text(
                 album.artistsString,
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withOpacity(0.7),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
