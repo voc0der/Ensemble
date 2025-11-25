@@ -33,17 +33,18 @@ class _LibraryScreenState extends State<LibraryScreen>
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MusicAssistantProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a1a),
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Library',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
+          style: textTheme.titleLarge?.copyWith(
+            color: colorScheme.onBackground,
             fontWeight: FontWeight.w300,
           ),
         ),
@@ -59,14 +60,14 @@ class _LibraryScreenState extends State<LibraryScreen>
                 ),
               );
             },
-            color: Colors.white,
+            color: colorScheme.onBackground,
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
+          indicatorColor: colorScheme.primary,
+          labelColor: colorScheme.primary,
+          unselectedLabelColor: colorScheme.onSurfaceVariant,
           tabs: const [
             Tab(text: 'Artists'),
             Tab(text: 'Albums'),
@@ -88,22 +89,24 @@ class _LibraryScreenState extends State<LibraryScreen>
   }
 
   Widget _buildDisconnectedView(MusicAssistantProvider provider) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.cloud_off_rounded,
               size: 64,
-              color: Colors.white54,
+              color: colorScheme.onSurface.withOpacity(0.54),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Not connected to Music Assistant',
               style: TextStyle(
-                color: Colors.white70,
+                color: colorScheme.onSurface.withOpacity(0.7),
                 fontSize: 16,
               ),
               textAlign: TextAlign.center,
@@ -121,8 +124,8 @@ class _LibraryScreenState extends State<LibraryScreen>
               icon: const Icon(Icons.settings_rounded),
               label: const Text('Configure Server'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF1a1a1a),
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 12,
@@ -139,9 +142,11 @@ class _LibraryScreenState extends State<LibraryScreen>
   }
 
   Widget _buildArtistsList(MusicAssistantProvider provider) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (provider.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
       );
     }
 
@@ -150,16 +155,16 @@ class _LibraryScreenState extends State<LibraryScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.person_outline_rounded,
               size: 64,
-              color: Colors.white54,
+              color: colorScheme.onSurface.withOpacity(0.54),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No artists found',
               style: TextStyle(
-                color: Colors.white70,
+                color: colorScheme.onSurface.withOpacity(0.7),
                 fontSize: 16,
               ),
             ),
@@ -169,8 +174,8 @@ class _LibraryScreenState extends State<LibraryScreen>
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Refresh'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF1a1a1a),
+                backgroundColor: colorScheme.surfaceVariant,
+                foregroundColor: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -190,20 +195,21 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   Widget _buildArtistTile(Artist artist, MusicAssistantProvider provider) {
     final imageUrl = provider.getImageUrl(artist, size: 128);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListTile(
       leading: CircleAvatar(
         radius: 24,
-        backgroundColor: Colors.white12,
+        backgroundColor: colorScheme.surfaceVariant,
         backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
         child: imageUrl == null
-            ? const Icon(Icons.person_rounded, color: Colors.white54)
+            ? Icon(Icons.person_rounded, color: colorScheme.onSurfaceVariant)
             : null,
       ),
       title: Text(
         artist.name,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: colorScheme.onSurface,
           fontWeight: FontWeight.w500,
         ),
         maxLines: 1,
@@ -220,9 +226,11 @@ class _LibraryScreenState extends State<LibraryScreen>
   }
 
   Widget _buildAlbumsList(MusicAssistantProvider provider) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (provider.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
       );
     }
 
@@ -231,16 +239,16 @@ class _LibraryScreenState extends State<LibraryScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.album_outlined,
               size: 64,
-              color: Colors.white54,
+              color: colorScheme.onSurface.withOpacity(0.54),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No albums found',
               style: TextStyle(
-                color: Colors.white70,
+                color: colorScheme.onSurface.withOpacity(0.7),
                 fontSize: 16,
               ),
             ),
@@ -250,8 +258,8 @@ class _LibraryScreenState extends State<LibraryScreen>
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Refresh'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF1a1a1a),
+                backgroundColor: colorScheme.surfaceVariant,
+                foregroundColor: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -277,6 +285,7 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   Widget _buildAlbumCard(Album album, MusicAssistantProvider provider) {
     final imageUrl = provider.getImageUrl(album, size: 256);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return InkWell(
       onTap: () {
@@ -293,7 +302,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white12,
+                color: colorScheme.surfaceVariant,
                 borderRadius: BorderRadius.circular(12),
                 image: imageUrl != null
                     ? DecorationImage(
@@ -303,11 +312,11 @@ class _LibraryScreenState extends State<LibraryScreen>
                     : null,
               ),
               child: imageUrl == null
-                  ? const Center(
+                  ? Center(
                       child: Icon(
                         Icons.album_rounded,
                         size: 64,
-                        color: Colors.white54,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     )
                   : null,
@@ -316,8 +325,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           const SizedBox(height: 8),
           Text(
             album.name,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -326,8 +335,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           ),
           Text(
             album.artistsString,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: colorScheme.onSurface.withOpacity(0.7),
               fontSize: 12,
             ),
             maxLines: 1,
@@ -339,9 +348,11 @@ class _LibraryScreenState extends State<LibraryScreen>
   }
 
   Widget _buildTracksList(MusicAssistantProvider provider) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (provider.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
       );
     }
 
@@ -350,16 +361,16 @@ class _LibraryScreenState extends State<LibraryScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.music_note_outlined,
               size: 64,
-              color: Colors.white54,
+              color: colorScheme.onSurface.withOpacity(0.54),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No tracks found',
               style: TextStyle(
-                color: Colors.white70,
+                color: colorScheme.onSurface.withOpacity(0.7),
                 fontSize: 16,
               ),
             ),
@@ -369,8 +380,8 @@ class _LibraryScreenState extends State<LibraryScreen>
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Refresh'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF1a1a1a),
+                backgroundColor: colorScheme.surfaceVariant,
+                foregroundColor: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -392,13 +403,14 @@ class _LibraryScreenState extends State<LibraryScreen>
     final imageUrl = track.album != null
         ? provider.getImageUrl(track.album!, size: 128)
         : null;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListTile(
       leading: Container(
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: Colors.white12,
+          color: colorScheme.surfaceVariant,
           borderRadius: BorderRadius.circular(8),
           image: imageUrl != null
               ? DecorationImage(
@@ -408,25 +420,25 @@ class _LibraryScreenState extends State<LibraryScreen>
               : null,
         ),
         child: imageUrl == null
-            ? const Icon(Icons.music_note_rounded, color: Colors.white54)
+            ? Icon(Icons.music_note_rounded, color: colorScheme.onSurfaceVariant)
             : null,
       ),
       title: Text(
         track.name,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: colorScheme.onSurface),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
         track.artistsString,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
+        style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7), fontSize: 12),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: track.duration != null
           ? Text(
               _formatDuration(track.duration!),
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.54), fontSize: 12),
             )
           : null,
       onTap: () {

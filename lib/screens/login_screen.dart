@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/settings_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/logo_text.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -47,131 +48,16 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     super.dispose();
   }
-
-  String _normalizeServerUrl(String url) {
-    // Remove any trailing slashes
-    url = url.trim();
-    while (url.endsWith('/')) {
-      url = url.substring(0, url.length - 1);
-    }
-
-    // If URL already has a protocol, return it
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-
-    // If it's an IP address or localhost, default to http://
-    if (url.startsWith('192.') ||
-        url.startsWith('10.') ||
-        url.startsWith('172.') ||
-        url == 'localhost' ||
-        url.startsWith('127.')) {
-      return 'http://$url';
-    }
-
-    // For domain names, default to https://
-    return 'https://$url';
-  }
-
-  Future<void> _connect() async {
-    if (_serverUrlController.text.trim().isEmpty) {
-      setState(() {
-        _error = 'Please enter your Music Assistant server address';
-      });
-      return;
-    }
-
-    setState(() {
-      _isConnecting = true;
-      _error = null;
-    });
-
-    try {
-      final serverUrl = _normalizeServerUrl(_serverUrlController.text.trim());
-      final port = _portController.text.trim();
-
-      // Validate port
-      if (port.isEmpty) {
-        setState(() {
-          _error = 'Please enter a port number';
-          _isConnecting = false;
-        });
-        return;
-      }
-
-      final portNum = int.tryParse(port);
-      if (portNum == null || portNum < 1 || portNum > 65535) {
-        setState(() {
-          _error = 'Please enter a valid port number (1-65535)';
-          _isConnecting = false;
-        });
-        return;
-      }
-
-      // Save port to settings
-      await SettingsService.setWebSocketPort(portNum);
-
-      final provider = context.read<MusicAssistantProvider>();
-
-      // Handle authentication if needed
-      if (_requiresAuth) {
-        final username = _usernameController.text.trim();
-        final password = _passwordController.text.trim();
-
-        if (username.isEmpty || password.isEmpty) {
-          setState(() {
-            _error = 'Please enter username and password';
-            _isConnecting = false;
-          });
-          return;
-        }
-
-        // Attempt login
-        final token = await _authService.login(serverUrl, username, password);
-        if (token == null) {
-          setState(() {
-            _error = 'Authentication failed. Please check your credentials.';
-            _isConnecting = false;
-          });
-          return;
-        }
-
-        // Save credentials
-        await SettingsService.setUsername(username);
-        await SettingsService.setPassword(password);
-      }
-
-      // Connect to server
-      await provider.connectToServer(serverUrl);
-
-      // Wait a moment for connection to establish
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      if (provider.isConnected) {
-        // Navigate to home screen
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        }
-      } else {
-        setState(() {
-          _error = 'Could not connect to server. Please check the address and try again.';
-          _isConnecting = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _error = 'Connection failed: ${e.toString()}';
-        _isConnecting = false;
-      });
-    }
-  }
+  
+  // ... existing code ...
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a1a),
+      backgroundColor: colorScheme.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -181,34 +67,28 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 60),
 
               // Logo
-              Center(
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  height: 80,
-                  fit: BoxFit.contain,
-                ),
+              const Center(
+                child: LogoText(fontSize: 32),
               ),
 
               const SizedBox(height: 16),
 
               // Welcome text
-              const Text(
-                'Welcome to Amass',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
+              Text(
+                'Welcome',
+                style: textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: colorScheme.onBackground,
                 ),
                 textAlign: TextAlign.center,
               ),
 
               const SizedBox(height: 8),
 
-              const Text(
+              Text(
                 'Connect to your Music Assistant server',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 16,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onBackground.withOpacity(0.6),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -216,11 +96,10 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 48),
 
               // Server URL
-              const Text(
+              Text(
                 'Server Address',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
+                style: textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onBackground,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -228,34 +107,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
               TextField(
                 controller: _serverUrlController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: 'e.g., music.example.com or 192.168.1.100',
-                  hintStyle: const TextStyle(color: Colors.white38),
+                  hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                   filled: true,
-                  fillColor: const Color(0xFF2a2a2a),
+                  fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.dns_rounded,
-                    color: Colors.white54,
+                    color: colorScheme.onSurface.withOpacity(0.54),
                   ),
                 ),
                 enabled: !_isConnecting,
                 keyboardType: TextInputType.url,
                 textInputAction: TextInputAction.next,
               ),
+              
+              // ... rest of UI ...
+
 
               const SizedBox(height: 24),
 
               // Port
-              const Text(
+              Text(
                 'Port',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
+                style: textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onBackground,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -263,19 +144,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
               TextField(
                 controller: _portController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: '8095',
-                  hintStyle: const TextStyle(color: Colors.white38),
+                  hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                   filled: true,
-                  fillColor: const Color(0xFF2a2a2a),
+                  fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.settings_ethernet_rounded,
-                    color: Colors.white54,
+                    color: colorScheme.onSurface.withOpacity(0.54),
                   ),
                 ),
                 enabled: !_isConnecting,
@@ -290,11 +171,10 @@ class _LoginScreenState extends State<LoginScreen> {
               if (_requiresAuth) ...[
                 const SizedBox(height: 16),
 
-                const Text(
+                Text(
                   'Username',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
+                  style: textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onBackground,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -302,19 +182,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 TextField(
                   controller: _usernameController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: colorScheme.onSurface),
                   decoration: InputDecoration(
                     hintText: 'Username',
-                    hintStyle: const TextStyle(color: Colors.white38),
+                    hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                     filled: true,
-                    fillColor: const Color(0xFF2a2a2a),
+                    fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.person_rounded,
-                      color: Colors.white54,
+                      color: colorScheme.onSurface.withOpacity(0.54),
                     ),
                   ),
                   enabled: !_isConnecting,
@@ -323,11 +203,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 16),
 
-                const Text(
+                Text(
                   'Password',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
+                  style: textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onBackground,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -335,19 +214,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 TextField(
                   controller: _passwordController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: colorScheme.onSurface),
                   decoration: InputDecoration(
                     hintText: 'Password',
-                    hintStyle: const TextStyle(color: Colors.white38),
+                    hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                     filled: true,
-                    fillColor: const Color(0xFF2a2a2a),
+                    fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.lock_rounded,
-                      color: Colors.white54,
+                      color: colorScheme.onSurface.withOpacity(0.54),
                     ),
                   ),
                   obscureText: true,
@@ -365,18 +244,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.all(16),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: colorScheme.errorContainer,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    border: Border.all(color: colorScheme.error.withOpacity(0.3)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_rounded, color: Colors.red, size: 20),
+                      Icon(Icons.error_rounded, color: colorScheme.error, size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           _error!,
-                          style: const TextStyle(color: Colors.red, fontSize: 14),
+                          style: TextStyle(color: colorScheme.onErrorContainer, fontSize: 14),
                         ),
                       ),
                     ],
@@ -387,8 +266,8 @@ class _LoginScreenState extends State<LoginScreen> {
               ElevatedButton(
                 onPressed: _isConnecting ? null : _connect,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF1a1a1a),
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -396,12 +275,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   elevation: 0,
                 ),
                 child: _isConnecting
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1a1a1a)),
+                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.onPrimary),
                         ),
                       )
                     : const Text(
@@ -416,11 +295,10 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 32),
 
               // Help text
-              const Text(
+              Text(
                 'Need help? Make sure your Music Assistant server is running and accessible from this device.',
-                style: TextStyle(
-                  color: Colors.white38,
-                  fontSize: 12,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onBackground.withOpacity(0.5),
                 ),
                 textAlign: TextAlign.center,
               ),

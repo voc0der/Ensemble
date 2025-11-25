@@ -165,46 +165,23 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
     final maProvider = context.watch<MusicAssistantProvider>();
     final themeProvider = context.watch<ThemeProvider>();
     final imageUrl = maProvider.getImageUrl(widget.album, size: 512);
-
-    // Determine if we should use adaptive theme colors
-    final useAdaptiveTheme = themeProvider.adaptiveTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // Get the color scheme to use
-    ColorScheme? adaptiveScheme;
-    if (useAdaptiveTheme) {
-      adaptiveScheme = isDark ? _darkColorScheme : _lightColorScheme;
-    }
-
-    // Determine colors to use
-    final backgroundColor = useAdaptiveTheme && adaptiveScheme != null
-        ? adaptiveScheme.background
-        : const Color(0xFF1a1a1a);
-
-    final surfaceColor = useAdaptiveTheme && adaptiveScheme != null
-        ? adaptiveScheme.surface
-        : const Color(0xFF2a2a2a);
-
-    final primaryColor = useAdaptiveTheme && adaptiveScheme != null
-        ? adaptiveScheme.primary
-        : Colors.white;
-
-    final textColor = useAdaptiveTheme && adaptiveScheme != null
-        ? adaptiveScheme.onSurface
-        : Colors.white;
+    
+    // Use theme colors
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: colorScheme.background,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 300,
+            expandedHeight: 350, // Increased height for bigger art
             pinned: true,
-            backgroundColor: backgroundColor,
+            backgroundColor: colorScheme.background,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: () => Navigator.pop(context),
-              color: textColor,
+              color: colorScheme.onBackground,
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Column(
@@ -214,11 +191,11 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                   Hero(
                     tag: HeroTags.albumCover + (widget.album.uri ?? widget.album.itemId),
                     child: Container(
-                      width: 200,
-                      height: 200,
+                      width: 280, // Increased size
+                      height: 280,
                       decoration: BoxDecoration(
-                        color: Colors.white12,
-                        borderRadius: BorderRadius.circular(12),
+                        color: colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(16), // Slightly more rounded
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.3),
@@ -234,10 +211,10 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                             : null,
                       ),
                       child: imageUrl == null
-                          ? const Icon(
+                          ? Icon(
                               Icons.album_rounded,
-                              size: 100,
-                              color: Colors.white54,
+                              size: 120,
+                              color: colorScheme.onSurfaceVariant,
                             )
                           : null,
                     ),
@@ -258,9 +235,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                       color: Colors.transparent,
                       child: Text(
                         widget.album.name,
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 24,
+                        style: textTheme.headlineMedium?.copyWith(
+                          color: colorScheme.onBackground,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -273,9 +249,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                       color: Colors.transparent,
                       child: Text(
                         widget.album.artistsString,
-                        style: TextStyle(
-                          color: textColor.withOpacity(0.7),
-                          fontSize: 16,
+                        style: textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onBackground.withOpacity(0.7),
                         ),
                       ),
                     ),
@@ -283,17 +258,19 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                   const SizedBox(height: 24),
                   Row(
                     children: [
+                      // Main Play Button
                       Expanded(
+                        flex: 2,
                         child: SizedBox(
                           height: 50,
                           child: ElevatedButton.icon(
                             onPressed: _isLoading || _tracks.isEmpty ? null : _playAlbum,
                             icon: const Icon(Icons.play_arrow_rounded),
-                            label: const Text('Play Album'),
+                            label: const Text('Play'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              foregroundColor: backgroundColor,
-                              disabledBackgroundColor: primaryColor.withOpacity(0.38),
+                              backgroundColor: colorScheme.primary,
+                              foregroundColor: colorScheme.onPrimary,
+                              disabledBackgroundColor: colorScheme.primary.withOpacity(0.38),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -302,18 +279,39 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
+                      
+                      // "Play on..." Button
+                      Expanded(
+                        flex: 1,
+                        child: SizedBox(
+                          height: 50,
+                          child: FilledButton.tonal(
+                            onPressed: _isLoading || _tracks.isEmpty ? null : () => _showPlayOnMenu(context),
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Icon(Icons.speaker_group_outlined),
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(width: 12),
+                      
+                      // Favorite Button
                       Container(
                         height: 50,
                         width: 50,
                         decoration: BoxDecoration(
-                          color: _isFavorite ? Colors.red : Colors.white24,
+                          color: _isFavorite ? colorScheme.errorContainer : colorScheme.surfaceVariant,
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
                           onPressed: _toggleFavorite,
                           icon: Icon(
                             _isFavorite ? Icons.favorite : Icons.favorite_border,
-                            color: _isFavorite ? Colors.white : Colors.white70,
+                            color: _isFavorite ? colorScheme.error : colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -322,9 +320,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                   const SizedBox(height: 24),
                   Text(
                     'Tracks',
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 18,
+                    style: textTheme.titleLarge?.copyWith(
+                      color: colorScheme.onBackground,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -336,7 +333,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
           if (_isLoading)
             SliverFillRemaining(
               child: Center(
-                child: CircularProgressIndicator(color: primaryColor),
+                child: CircularProgressIndicator(color: colorScheme.primary),
               ),
             )
           else if (_tracks.isEmpty)
@@ -345,7 +342,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                 child: Text(
                   'No tracks found',
                   style: TextStyle(
-                    color: textColor.withOpacity(0.54),
+                    color: colorScheme.onBackground.withOpacity(0.54),
                     fontSize: 16,
                   ),
                 ),
@@ -361,14 +358,14 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: surfaceColor,
+                        color: colorScheme.surfaceVariant,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Center(
                         child: Text(
                           '${track.position ?? index + 1}',
                           style: TextStyle(
-                            color: textColor.withOpacity(0.7),
+                            color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -376,8 +373,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                     ),
                     title: Text(
                       track.name,
-                      style: TextStyle(
-                        color: textColor,
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurface,
                         fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
@@ -385,9 +382,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                     ),
                     subtitle: Text(
                       track.artistsString,
-                      style: TextStyle(
-                        color: textColor.withOpacity(0.54),
-                        fontSize: 12,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.6),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -395,9 +391,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                     trailing: track.duration != null
                         ? Text(
                             _formatDuration(track.duration!),
-                            style: TextStyle(
-                              color: textColor.withOpacity(0.54),
-                              fontSize: 12,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.5),
                             ),
                           )
                         : null,
@@ -408,6 +403,61 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  void _showPlayOnMenu(BuildContext context) {
+    final maProvider = context.read<MusicAssistantProvider>();
+    final players = maProvider.availablePlayers;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            Text(
+              'Play on...',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            if (players.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Text('No players available'),
+              )
+            else
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: players.length,
+                  itemBuilder: (context, index) {
+                    final player = players[index];
+                    return ListTile(
+                      leading: Icon(
+                        Icons.speaker, 
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      title: Text(player.name),
+                      onTap: () {
+                        Navigator.pop(context);
+                        // Play on this specific player
+                        maProvider.playTracks(player.playerId, _tracks);
+                      },
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

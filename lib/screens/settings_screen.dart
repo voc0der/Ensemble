@@ -155,6 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<MusicAssistantProvider>();
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -164,13 +165,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
-          color: Colors.white,
+          color: colorScheme.onBackground,
         ),
-        title: const Text(
+        title: Text(
           'Settings',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
+          style: textTheme.titleLarge?.copyWith(
+            color: colorScheme.onBackground,
             fontWeight: FontWeight.w300,
           ),
         ),
@@ -186,7 +186,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               );
             },
-            color: Colors.white,
+            color: colorScheme.onBackground,
             tooltip: 'Debug Logs',
           ),
         ],
@@ -200,14 +200,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white12,
+                color: colorScheme.surfaceVariant.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   Icon(
                     _getStatusIcon(provider.connectionState),
-                    color: _getStatusColor(provider.connectionState),
+                    color: _getStatusColor(provider.connectionState, colorScheme),
                     size: 24,
                   ),
                   const SizedBox(width: 12),
@@ -215,19 +215,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Connection Status',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           _getStatusText(provider.connectionState),
-                          style: TextStyle(
-                            color: _getStatusColor(provider.connectionState),
-                            fontSize: 16,
+                          style: textTheme.titleMedium?.copyWith(
+                            color: _getStatusColor(provider.connectionState, colorScheme),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -241,39 +239,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 32),
 
             // Server URL input
-            const Text(
+            Text(
               'Music Assistant Server',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+              style: textTheme.titleMedium?.copyWith(
+                color: colorScheme.onBackground,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Enter your Music Assistant server URL or IP address',
-              style: TextStyle(
-                color: Colors.white54,
-                fontSize: 12,
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onBackground.withOpacity(0.6),
               ),
             ),
             const SizedBox(height: 16),
 
             TextField(
               controller: _serverUrlController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colorScheme.onSurface),
               decoration: InputDecoration(
                 hintText: 'e.g., music.example.com or 192.168.1.100',
-                hintStyle: const TextStyle(color: Colors.white38),
+                hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                 filled: true,
-                fillColor: Colors.white12,
+                fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.dns_rounded,
-                  color: Colors.white54,
+                  color: colorScheme.onSurface.withOpacity(0.54),
                 ),
               ),
               enabled: !_isConnecting,
@@ -282,40 +278,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
 
             // Port input
-            const Text(
+            Text(
               'Port',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+              style: textTheme.titleMedium?.copyWith(
+                color: colorScheme.onBackground,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Music Assistant WebSocket port (usually 8095)',
-              style: TextStyle(
-                color: Colors.white54,
-                fontSize: 12,
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onBackground.withOpacity(0.6),
               ),
             ),
             const SizedBox(height: 16),
 
             TextField(
               controller: _portController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colorScheme.onSurface),
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 hintText: '8095',
-                hintStyle: const TextStyle(color: Colors.white38),
+                hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                 filled: true,
-                fillColor: Colors.white12,
+                fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.settings_ethernet_rounded,
-                  color: Colors.white54,
+                  color: colorScheme.onSurface.withOpacity(0.54),
                 ),
               ),
               enabled: !_isConnecting,
@@ -373,8 +367,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     }
                   },
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white38),
+                    foregroundColor: colorScheme.error,
+                    side: BorderSide(color: colorScheme.error.withOpacity(0.5)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -393,11 +387,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 32),
 
             // Theme section
-            const Text(
+            Text(
               'Theme',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+              style: textTheme.titleMedium?.copyWith(
+                color: colorScheme.onBackground,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -407,17 +400,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white12,
+                color: colorScheme.surfaceVariant.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Theme Mode',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -448,15 +440,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: ButtonStyle(
                           backgroundColor: MaterialStateProperty.resolveWith((states) {
                             if (states.contains(MaterialState.selected)) {
-                              return Colors.white;
+                              return colorScheme.primaryContainer;
                             }
                             return Colors.transparent;
                           }),
                           foregroundColor: MaterialStateProperty.resolveWith((states) {
                             if (states.contains(MaterialState.selected)) {
-                              return colorScheme.onPrimary;
+                              return colorScheme.onPrimaryContainer;
                             }
-                            return colorScheme.onSurface.withOpacity(0.7);
+                            return colorScheme.onSurfaceVariant;
                           }),
                         ),
                       );
@@ -474,24 +466,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white12,
+                    color: colorScheme.surfaceVariant.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: SwitchListTile(
-                    title: const Text(
+                    title: Text(
                       'Material You',
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                     ),
-                    subtitle: const Text(
+                    subtitle: Text(
                       'Use system colors (Android 12+)',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
                     ),
                     value: themeProvider.useMaterialTheme,
                     onChanged: (value) {
                       themeProvider.setUseMaterialTheme(value);
                     },
-                    activeColor: Colors.white,
-                    activeTrackColor: Colors.white54,
+                    activeColor: colorScheme.primary,
                     contentPadding: EdgeInsets.zero,
                   ),
                 );
@@ -506,24 +497,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white12,
+                    color: colorScheme.surfaceVariant.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: SwitchListTile(
-                    title: const Text(
+                    title: Text(
                       'Adaptive Theme',
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                     ),
-                    subtitle: const Text(
+                    subtitle: Text(
                       'Extract colors from album and artist artwork',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
                     ),
                     value: themeProvider.adaptiveTheme,
                     onChanged: (value) {
                       themeProvider.setAdaptiveTheme(value);
                     },
-                    activeColor: Colors.white,
-                    activeTrackColor: Colors.white54,
+                    activeColor: colorScheme.primary,
                     contentPadding: EdgeInsets.zero,
                   ),
                 );
@@ -548,8 +538,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: const Icon(Icons.bug_report_rounded),
                 label: const Text('View Debug Logs'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white38),
+                  foregroundColor: colorScheme.onBackground,
+                  side: BorderSide(color: colorScheme.outline),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -563,10 +553,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: colorScheme.surfaceVariant.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: colorScheme.outline.withOpacity(0.3),
                 ),
               ),
               child: Column(
@@ -574,32 +564,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.info_outline_rounded,
-                        color: Colors.white70,
+                        color: colorScheme.onSurfaceVariant,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Connection Info',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
+                        style: textTheme.titleSmall?.copyWith(
+                          color: colorScheme.onSurface,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     '• Default ports: 443 for HTTPS, 8095 for HTTP\n'
                     '• You can override the port in the WebSocket Port field\n'
                     '• Use domain name or IP address for server\n'
                     '• Make sure your device can reach the server\n'
                     '• Check debug logs if connection fails',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 12,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                       height: 1.5,
                     ),
                   ),
@@ -625,16 +613,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Color _getStatusColor(MAConnectionState state) {
+  Color _getStatusColor(MAConnectionState state, ColorScheme colorScheme) {
     switch (state) {
       case MAConnectionState.connected:
-        return Colors.green;
+        return Colors.green; // Keep green for success
       case MAConnectionState.connecting:
-        return Colors.orange;
+        return Colors.orange; // Keep orange for pending
       case MAConnectionState.error:
-        return Colors.red;
+        return colorScheme.error;
       case MAConnectionState.disconnected:
-        return Colors.white54;
+        return colorScheme.onSurface.withOpacity(0.5);
     }
   }
 

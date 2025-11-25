@@ -65,23 +65,26 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final maProvider = context.watch<MusicAssistantProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a1a),
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2a2a2a),
+        backgroundColor: colorScheme.surface,
         elevation: 0,
         title: TextField(
           controller: _searchController,
           focusNode: _focusNode,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: colorScheme.onSurface),
+          cursorColor: colorScheme.primary,
           decoration: InputDecoration(
             hintText: 'Search music...',
-            hintStyle: const TextStyle(color: Colors.white54),
+            hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
             border: InputBorder.none,
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear_rounded, color: Colors.white54),
+                    icon: Icon(Icons.clear_rounded, color: colorScheme.onSurface.withOpacity(0.5)),
                     onPressed: () {
                       _searchController.clear();
                       _performSearch('');
@@ -103,22 +106,24 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildDisconnectedView() {
-    return const Center(
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(32.0),
+        padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.cloud_off_rounded,
               size: 64,
-              color: Colors.white54,
+              color: colorScheme.onBackground.withOpacity(0.54),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'Not connected to Music Assistant',
               style: TextStyle(
-                color: Colors.white70,
+                color: colorScheme.onBackground.withOpacity(0.7),
                 fontSize: 16,
               ),
               textAlign: TextAlign.center,
@@ -130,9 +135,11 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildSearchContent() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_isSearching) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
       );
     }
 
@@ -144,13 +151,13 @@ class _SearchScreenState extends State<SearchScreen> {
             Icon(
               Icons.search_rounded,
               size: 80,
-              color: Colors.white.withOpacity(0.3),
+              color: colorScheme.onBackground.withOpacity(0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'Search for artists, albums, or tracks',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: colorScheme.onBackground.withOpacity(0.5),
                 fontSize: 16,
               ),
             ),
@@ -173,13 +180,13 @@ class _SearchScreenState extends State<SearchScreen> {
             Icon(
               Icons.search_off_rounded,
               size: 64,
-              color: Colors.white.withOpacity(0.3),
+              color: colorScheme.onBackground.withOpacity(0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'No results found',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: colorScheme.onBackground.withOpacity(0.5),
                 fontSize: 16,
               ),
             ),
@@ -217,8 +224,8 @@ class _SearchScreenState extends State<SearchScreen> {
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         '$title ($count)',
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onBackground,
           fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
@@ -229,28 +236,29 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildArtistTile(Artist artist) {
     final maProvider = context.read<MusicAssistantProvider>();
     final imageUrl = maProvider.getImageUrl(artist, size: 128);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListTile(
       leading: CircleAvatar(
         radius: 24,
-        backgroundColor: Colors.white12,
+        backgroundColor: colorScheme.surfaceVariant,
         backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
         child: imageUrl == null
-            ? const Icon(Icons.person_rounded, color: Colors.white54)
+            ? Icon(Icons.person_rounded, color: colorScheme.onSurfaceVariant)
             : null,
       ),
       title: Text(
         artist.name,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: colorScheme.onSurface,
           fontWeight: FontWeight.w500,
         ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: const Text(
+      subtitle: Text(
         'Artist',
-        style: TextStyle(color: Colors.white54, fontSize: 12),
+        style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
       ),
       onTap: () {
         Navigator.push(
@@ -266,13 +274,14 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildAlbumTile(Album album) {
     final maProvider = context.read<MusicAssistantProvider>();
     final imageUrl = maProvider.getImageUrl(album, size: 128);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListTile(
       leading: Container(
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: Colors.white12,
+          color: colorScheme.surfaceVariant,
           borderRadius: BorderRadius.circular(8),
           image: imageUrl != null
               ? DecorationImage(
@@ -282,13 +291,13 @@ class _SearchScreenState extends State<SearchScreen> {
               : null,
         ),
         child: imageUrl == null
-            ? const Icon(Icons.album_rounded, color: Colors.white54)
+            ? Icon(Icons.album_rounded, color: colorScheme.onSurfaceVariant)
             : null,
       ),
       title: Text(
         album.name,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: colorScheme.onSurface,
           fontWeight: FontWeight.w500,
         ),
         maxLines: 1,
@@ -296,7 +305,7 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
       subtitle: Text(
         album.artistsString,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
+        style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -316,13 +325,14 @@ class _SearchScreenState extends State<SearchScreen> {
     final imageUrl = track.album != null
         ? maProvider.getImageUrl(track.album!, size: 128)
         : null;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListTile(
       leading: Container(
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: Colors.white12,
+          color: colorScheme.surfaceVariant,
           borderRadius: BorderRadius.circular(8),
           image: imageUrl != null
               ? DecorationImage(
@@ -332,13 +342,13 @@ class _SearchScreenState extends State<SearchScreen> {
               : null,
         ),
         child: imageUrl == null
-            ? const Icon(Icons.music_note_rounded, color: Colors.white54)
+            ? Icon(Icons.music_note_rounded, color: colorScheme.onSurfaceVariant)
             : null,
       ),
       title: Text(
         track.name,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: colorScheme.onSurface,
           fontWeight: FontWeight.w500,
         ),
         maxLines: 1,
@@ -346,14 +356,14 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
       subtitle: Text(
         track.artistsString,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
+        style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: track.duration != null
           ? Text(
               _formatDuration(track.duration!),
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontSize: 12),
             )
           : null,
       onTap: () => _playTrack(track),

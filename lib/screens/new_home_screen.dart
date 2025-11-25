@@ -4,6 +4,7 @@ import '../providers/music_assistant_provider.dart';
 import '../widgets/player_selector.dart';
 import '../widgets/album_row.dart';
 import '../widgets/artist_row.dart';
+import '../widgets/logo_text.dart';
 import 'settings_screen.dart';
 import 'search_screen.dart';
 
@@ -19,14 +20,9 @@ class NewHomeScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Padding(
-          padding: const EdgeInsets.only(left: 8.0),
-          child: Image.asset(
-            'assets/images/logo.png',
-            height: 72,
-            fit: BoxFit.contain,
-            alignment: Alignment.centerLeft,
-          ),
+        title: const Padding(
+          padding: EdgeInsets.only(left: 8.0),
+          child: LogoText(fontSize: 24),
         ),
         titleSpacing: 0,
         centerTitle: false,

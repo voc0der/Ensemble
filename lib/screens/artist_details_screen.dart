@@ -64,7 +64,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
       final allAlbums = await provider.api!.getAlbums();
 
       // Filter albums that include this artist
-      final artistAlbums = allAlbums.where((album) {
+      var artistAlbums = allAlbums.where((album) {
         if (album.artists == null) return false;
         return album.artists!.any((artist) =>
           artist.itemId == widget.artist.itemId || 
@@ -72,16 +72,45 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
         );
       }).toList();
 
-      print('   Got ${artistAlbums.length} albums for this artist (from ${allAlbums.length} total)');
+      print('   Got ${artistAlbums.length} library albums for this artist');
 
-      setState(() {
-        _albums = artistAlbums;
-        _isLoading = false;
-      });
+      // Fallback: If no library albums, try searching the provider
+      if (artistAlbums.isEmpty && widget.artist.name.isNotEmpty) {
+        print('🔍 No library albums found. Searching provider for "${widget.artist.name}"...');
+        try {
+          final searchResults = await provider.search(widget.artist.name);
+          final searchAlbums = searchResults['albums'] ?? [];
+          
+          // Filter search results to ensure they are actually for this artist
+          final validSearchAlbums = searchAlbums.where((album) {
+             return album.artists?.any((a) => 
+               a.name.toLowerCase() == widget.artist.name.toLowerCase()
+             ) ?? false;
+          }).toList();
+
+          if (validSearchAlbums.isNotEmpty) {
+            print('✅ Found ${validSearchAlbums.length} albums via search fallback');
+            artistAlbums = validSearchAlbums as List<Album>;
+          } else {
+            print('⚠️ Search returned no valid albums for this artist');
+          }
+        } catch (e) {
+          print('❌ Error searching for artist albums: $e');
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _albums = artistAlbums;
+          _isLoading = false;
+        });
+      }
     } else {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -91,45 +120,22 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
     final themeProvider = context.watch<ThemeProvider>();
     final imageUrl = maProvider.getImageUrl(widget.artist, size: 512);
 
-    // Determine if we should use adaptive theme colors
-    final useAdaptiveTheme = themeProvider.adaptiveTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // Get the color scheme to use
-    ColorScheme? adaptiveScheme;
-    if (useAdaptiveTheme) {
-      adaptiveScheme = isDark ? _darkColorScheme : _lightColorScheme;
-    }
-
-    // Determine colors to use
-    final backgroundColor = useAdaptiveTheme && adaptiveScheme != null
-        ? adaptiveScheme.background
-        : const Color(0xFF1a1a1a);
-
-    final surfaceColor = useAdaptiveTheme && adaptiveScheme != null
-        ? adaptiveScheme.surface
-        : const Color(0xFF2a2a2a);
-
-    final primaryColor = useAdaptiveTheme && adaptiveScheme != null
-        ? adaptiveScheme.primary
-        : Colors.white;
-
-    final textColor = useAdaptiveTheme && adaptiveScheme != null
-        ? adaptiveScheme.onSurface
-        : Colors.white;
+    // Theme colors
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: colorScheme.background,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
-            backgroundColor: backgroundColor,
+            backgroundColor: colorScheme.background,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: () => Navigator.pop(context),
-              color: textColor,
+              color: colorScheme.onBackground,
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Column(
@@ -140,14 +146,14 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                     tag: HeroTags.artistImage + (widget.artist.uri ?? widget.artist.itemId),
                     child: CircleAvatar(
                       radius: 100,
-                      backgroundColor: Colors.white12,
+                      backgroundColor: colorScheme.surfaceVariant,
                       backgroundImage:
                           imageUrl != null ? NetworkImage(imageUrl) : null,
                       child: imageUrl == null
-                          ? const Icon(
+                          ? Icon(
                               Icons.person_rounded,
                               size: 100,
-                              color: Colors.white54,
+                              color: colorScheme.onSurfaceVariant,
                             )
                           : null,
                     ),
@@ -168,9 +174,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                       color: Colors.transparent,
                       child: Text(
                         widget.artist.name,
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 32,
+                        style: textTheme.headlineMedium?.copyWith(
+                          color: colorScheme.onBackground,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -179,9 +184,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                   const SizedBox(height: 24),
                   Text(
                     'Albums',
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 18,
+                    style: textTheme.titleLarge?.copyWith(
+                      color: colorScheme.onBackground,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -193,7 +197,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
           if (_isLoading)
             SliverFillRemaining(
               child: Center(
-                child: CircularProgressIndicator(color: primaryColor),
+                child: CircularProgressIndicator(color: colorScheme.primary),
               ),
             )
           else if (_albums.isEmpty)
@@ -202,7 +206,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                 child: Text(
                   'No albums found',
                   style: TextStyle(
-                    color: textColor.withOpacity(0.54),
+                    color: colorScheme.onBackground.withOpacity(0.54),
                     fontSize: 16,
                   ),
                 ),
@@ -234,6 +238,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
 
   Widget _buildAlbumCard(Album album, MusicAssistantProvider provider) {
     final imageUrl = provider.getImageUrl(album, size: 256);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return InkWell(
       onTap: () {
@@ -250,7 +256,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white12,
+                color: colorScheme.surfaceVariant,
                 borderRadius: BorderRadius.circular(12),
                 image: imageUrl != null
                     ? DecorationImage(
@@ -260,11 +266,11 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                     : null,
               ),
               child: imageUrl == null
-                  ? const Center(
+                  ? Center(
                       child: Icon(
                         Icons.album_rounded,
                         size: 64,
-                        color: Colors.white54,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     )
                   : null,
@@ -273,9 +279,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
           const SizedBox(height: 8),
           Text(
             album.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
+            style: textTheme.titleSmall?.copyWith(
+              color: colorScheme.onSurface,
               fontWeight: FontWeight.w500,
             ),
             maxLines: 1,
@@ -283,9 +288,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
           ),
           Text(
             album.artistsString,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withOpacity(0.7),
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -294,4 +298,3 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
       ),
     );
   }
-}
