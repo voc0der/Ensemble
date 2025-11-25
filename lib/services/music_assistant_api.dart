@@ -341,7 +341,7 @@ class MusicAssistantAPI {
         if (offset != null) 'offset': offset,
         if (search != null) 'search': search,
         if (favoriteOnly != null) 'favorite': favoriteOnly,
-        if (artistId != null) 'artist': artistId,
+        if (artistId != null) 'artist_id': artistId,
       };
       _logger.log('Albums API args: $args');
 
@@ -411,7 +411,7 @@ class MusicAssistantAPI {
         'music/albums/library_items',
         args: {
           'limit': limit,
-          'sort': 'timestamp_played',  // Sort by when last played
+          'sort': 'last_played',  // Sort by when last played
           'order': 'desc',              // Most recent first
         },
       );
@@ -1014,6 +1014,15 @@ class MusicAssistantAPI {
   }
 
   // Player control commands
+  Future<void> togglePower(String playerId) async {
+    await _sendCommand(
+      'players/cmd/power',
+      args: {
+        'player_id': playerId,
+      },
+    );
+  }
+
   Future<void> pausePlayer(String playerId) async {
     await _sendQueueCommand(playerId, 'pause');
   }

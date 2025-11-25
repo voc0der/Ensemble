@@ -106,7 +106,7 @@ class PlayerSelector extends StatelessWidget {
                             padding: const EdgeInsets.all(16),
                             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
-                              childAspectRatio: 1.3,
+                              childAspectRatio: 1.6, // Shorter cards
                               crossAxisSpacing: 12,
                               mainAxisSpacing: 12,
                             ),
@@ -115,7 +115,7 @@ class PlayerSelector extends StatelessWidget {
                               final player = players[index];
                               final isSelected =
                                   player.playerId == provider.selectedPlayer?.playerId;
-                              final isOn = player.available && player.state != 'off';
+                              final isOn = player.available && player.state != 'off'; // Assuming 'off' state or unavailable means off
 
                               return InkWell(
                                 onTap: () {
@@ -124,22 +124,33 @@ class PlayerSelector extends StatelessWidget {
                                 },
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: Colors.white12,
+                                    // Tint whole card instead of border
+                                    color: isSelected
+                                        ? Colors.green.withOpacity(0.2)
+                                        : Colors.white12,
                                     borderRadius: BorderRadius.circular(16),
-                                    border: isSelected
-                                        ? Border.all(color: Colors.greenAccent, width: 2)
-                                        : Border.all(color: Colors.transparent, width: 2),
+                                    border: Border.all(color: Colors.transparent, width: 2),
                                   ),
                                   child: Stack(
                                     children: [
-                                      // Power/Status Indicator
+                                      // Power/Status Indicator (Functional)
                                       Positioned(
-                                        top: 12,
-                                        right: 12,
-                                        child: Icon(
-                                          Icons.power_settings_new_rounded,
-                                          size: 24,
-                                          color: isOn ? Colors.greenAccent : Colors.white24,
+                                        top: 0,
+                                        right: 0,
+                                        child: IconButton(
+                                          icon: Icon(
+                                            Icons.power_settings_new_rounded,
+                                            size: 24,
+                                            color: player.available 
+                                                ? (isOn ? Colors.greenAccent : Colors.white24) // Green if on, Grey if off (but available)
+                                                : Colors.white10, // Dim if unavailable
+                                          ),
+                                          onPressed: player.available
+                                              ? () {
+                                                  provider.togglePower(player.playerId);
+                                                  // Don't close the sheet when toggling power
+                                                }
+                                              : null,
                                         ),
                                       ),
                                       // Content

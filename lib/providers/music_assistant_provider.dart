@@ -337,6 +337,16 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
+  Future<void> togglePower(String playerId) async {
+    try {
+      await _api?.togglePower(playerId);
+      // Player state will be updated on next poll
+    } catch (e) {
+      ErrorHandler.logError('Toggle power', e);
+      rethrow;
+    }
+  }
+
   Future<void> setVolume(String playerId, int volumeLevel) async {
     try {
       await _api?.setVolume(playerId, volumeLevel);
@@ -430,22 +440,35 @@ class MusicAssistantProvider with ChangeNotifier {
       }
 
       final allPlayers = await getPlayers();
+      final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
 
-      // Filter out leftover "Music Assistant Mobile" players from old app builds
-      // These were registered during development but are no longer used
-      // Keep "this device" (web UI player) and all other legitimate players
+      // Filter out ghost players and duplicates
+      // 1. "Music Assistant Mobile" players are legacy/ghosts
+      // 2. "This Device" players: Only keep the one matching our client ID
       int filteredCount = 0;
       final List<String> ghostPlayerIds = [];
 
       _availablePlayers = allPlayers.where((player) {
         final nameLower = player.name.toLowerCase();
-        // Exclude players that are exactly "music assistant mobile" or similar
-        // but keep "this device" and other players
+
+        // Legacy ghosts
         if (nameLower.contains('music assistant mobile')) {
           filteredCount++;
-          ghostPlayerIds.add('${player.playerId} (available: ${player.available})');
+          ghostPlayerIds.add('${player.playerId} (Mobile Ghost)');
           return false;
         }
+
+        // Filter "This Device" duplicates
+        if (nameLower.contains('this device')) {
+          // If we have a builtin ID, only keep the player that matches it
+          if (builtinPlayerId != null && player.playerId != builtinPlayerId) {
+            filteredCount++;
+            ghostPlayerIds.add('${player.playerId} (Duplicate This Device)');
+            return false;
+          }
+          // If we don't have a builtin ID yet (rare), or this matches, keep it
+        }
+
         return true;
       }).toList();
 
@@ -453,7 +476,7 @@ class MusicAssistantProvider with ChangeNotifier {
 
       // Log details about ghost players
       if (filteredCount > 0) {
-        _logger.log('🧹 Filtered out $filteredCount ghost "Music Assistant Mobile" players:');
+        _logger.log('🧹 Filtered out $filteredCount ghost players:');
         for (int i = 0; i < ghostPlayerIds.length && i < 5; i++) {
           _logger.log('   - ${ghostPlayerIds[i]}');
         }
