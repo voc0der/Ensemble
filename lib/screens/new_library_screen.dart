@@ -197,6 +197,7 @@ class NewLibraryScreen extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Card(
+      elevation: 0, // Remove shadow
       color: colorScheme.surfaceVariant.withOpacity(0.3),
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       shape: RoundedRectangleBorder(
