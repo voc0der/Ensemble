@@ -190,32 +190,10 @@ class _LoginScreenState extends State<LoginScreen> {
               Center(
                 child: Image.asset(
                   'assets/images/attm_long_logo.png',
-                  height: 120,
+                  height: 160,
                   fit: BoxFit.contain,
                   color: colorScheme.onBackground, // Tints the logo to match theme
                 ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Welcome text
-              Text(
-                'Welcome',
-                style: textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onBackground,
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 8),
-
-              Text(
-                'Connect to your Music Assistant server',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onBackground.withOpacity(0.6),
-                ),
-                textAlign: TextAlign.center,
               ),
 
               const SizedBox(height: 48),
@@ -415,17 +393,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Help text
-              Text(
-                'Need help? Make sure your Music Assistant server is running and accessible from this device.',
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onBackground.withOpacity(0.5),
-                ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),

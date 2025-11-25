@@ -452,12 +452,14 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> {
                     final player = players[index];
                     return ListTile(
                       leading: Icon(
-                        Icons.speaker, 
+                        Icons.speaker,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                       title: Text(player.name),
                       onTap: () {
                         Navigator.pop(context);
+                        // Set this as the active player
+                        maProvider.selectPlayer(player);
                         // Play on this specific player
                         maProvider.playTracks(player.playerId, _tracks);
                       },
