@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/images/attm_long_logo.png" alt="Assistant To The Music Logo" height="120">
+  <img src="assets/images/attm_long_logo.png" alt="Assistant To The Music Logo" height="160">
 
 ---
 
