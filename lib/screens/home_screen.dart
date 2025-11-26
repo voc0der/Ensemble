@@ -69,13 +69,19 @@ class _HomeScreenState extends State<HomeScreen> {
               child: BottomNavigationBar(
                 currentIndex: _selectedIndex,
                 onTap: (index) {
+                  if (_selectedIndex == index) return;
+
+                  // Always dismiss keyboard when switching tabs
+                  FocusScope.of(context).unfocus();
+
                   setState(() {
                     _selectedIndex = index;
                   });
+
                   // Focus search field if Search tab is selected
                   if (index == 2) {
                     // Small delay to ensure the widget is visible before requesting focus
-                    Future.delayed(const Duration(milliseconds: 100), () {
+                    Future.delayed(const Duration(milliseconds: 300), () {
                       _searchScreenKey.currentState?.focusSearchField();
                     });
                   }
