@@ -103,32 +103,37 @@ class SearchScreenState extends State<SearchScreen> {
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         elevation: 0,
-        title: TextField(
-          controller: _searchController,
-          focusNode: _focusNode,
-          enabled: widget.isSearchActive,
-          style: TextStyle(color: colorScheme.onSurface),
-          cursorColor: colorScheme.primary,
-          decoration: InputDecoration(
-            hintText: 'Search music...',
-            hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
-            border: InputBorder.none,
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: Icon(Icons.clear_rounded, color: colorScheme.onSurface.withOpacity(0.5)),
-                    onPressed: () {
-                      _searchController.clear();
-                      _performSearch('');
-                    },
-                  )
-                : null,
-          ),
-          onChanged: (value) {
-            setState(() {});
-            _performSearch(value);
-          },
-          onSubmitted: _performSearch,
-        ),
+        title: widget.isSearchActive 
+          ? TextField(
+              controller: _searchController,
+              focusNode: _focusNode,
+              enabled: widget.isSearchActive,
+              style: TextStyle(color: colorScheme.onSurface),
+              cursorColor: colorScheme.primary,
+              decoration: InputDecoration(
+                hintText: 'Search music...',
+                hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+                border: InputBorder.none,
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear_rounded, color: colorScheme.onSurface.withOpacity(0.5)),
+                        onPressed: () {
+                          _searchController.clear();
+                          _performSearch('');
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (value) {
+                setState(() {});
+                _performSearch(value);
+              },
+              onSubmitted: _performSearch,
+            )
+          : Text(
+              'Search',
+              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+            ),
       ),
       body: !maProvider.isConnected
           ? _buildDisconnectedView()
