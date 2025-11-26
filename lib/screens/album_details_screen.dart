@@ -10,8 +10,13 @@ import 'artist_details_screen.dart';
 
 class AlbumDetailsScreen extends StatefulWidget {
   final Album album;
+  final String? heroTagSuffix;
 
-  const AlbumDetailsScreen({super.key, required this.album});
+  const AlbumDetailsScreen({
+    super.key, 
+    required this.album,
+    this.heroTagSuffix,
+  });
 
   @override
   State<AlbumDetailsScreen> createState() => _AlbumDetailsScreenState();
@@ -26,6 +31,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
   int? _expandedTrackIndex;
   bool _isDescriptionExpanded = false;
   String? _albumDescription;
+  
+  String get _heroTagSuffix => widget.heroTagSuffix != null ? '_${widget.heroTagSuffix}' : '';
 
   @override
   void initState() {
@@ -339,7 +346,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                 children: [
                   const SizedBox(height: 60),
                   Hero(
-                    tag: HeroTags.albumCover + (widget.album.uri ?? widget.album.itemId),
+                    tag: HeroTags.albumCover + (widget.album.uri ?? widget.album.itemId) + _heroTagSuffix,
                     child: Container(
                       width: 280, // Increased size
                       height: 280,
@@ -380,7 +387,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Hero(
-                    tag: HeroTags.albumTitle + (widget.album.uri ?? widget.album.itemId),
+                    tag: HeroTags.albumTitle + (widget.album.uri ?? widget.album.itemId) + _heroTagSuffix,
                     child: Material(
                       color: Colors.transparent,
                       child: Text(
@@ -394,7 +401,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                   ),
                   const SizedBox(height: 8),
                   Hero(
-                    tag: HeroTags.artistName + (widget.album.uri ?? widget.album.itemId),
+                    tag: HeroTags.artistName + (widget.album.uri ?? widget.album.itemId) + _heroTagSuffix,
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(

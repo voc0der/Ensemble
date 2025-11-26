@@ -7,11 +7,13 @@ import 'album_card.dart';
 class AlbumRow extends StatefulWidget {
   final String title;
   final Future<List<Album>> Function() loadAlbums;
+  final String? heroTagSuffix;
 
   const AlbumRow({
     super.key,
     required this.title,
     required this.loadAlbums,
+    this.heroTagSuffix,
   });
 
   @override
@@ -80,7 +82,10 @@ class _AlbumRowState extends State<AlbumRow> {
                   return Container(
                     width: 150,
                     margin: const EdgeInsets.symmetric(horizontal: 6.0),
-                    child: AlbumCard(album: album),
+                    child: AlbumCard(
+                      album: album,
+                      heroTagSuffix: widget.heroTagSuffix,
+                    ),
                   );
                 },
               );

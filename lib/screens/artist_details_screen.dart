@@ -10,8 +10,13 @@ import '../services/metadata_service.dart';
 
 class ArtistDetailsScreen extends StatefulWidget {
   final Artist artist;
+  final String? heroTagSuffix;
 
-  const ArtistDetailsScreen({super.key, required this.artist});
+  const ArtistDetailsScreen({
+    super.key, 
+    required this.artist,
+    this.heroTagSuffix,
+  });
 
   @override
   State<ArtistDetailsScreen> createState() => _ArtistDetailsScreenState();
@@ -25,6 +30,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
   ColorScheme? _darkColorScheme;
   bool _isDescriptionExpanded = false;
   String? _artistDescription;
+
+  String get _heroTagSuffix => widget.heroTagSuffix != null ? '_${widget.heroTagSuffix}' : '';
 
   @override
   void initState() {
@@ -167,7 +174,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                 children: [
                   const SizedBox(height: 60),
                   Hero(
-                    tag: HeroTags.artistImage + (widget.artist.uri ?? widget.artist.itemId),
+                    tag: HeroTags.artistImage + (widget.artist.uri ?? widget.artist.itemId) + _heroTagSuffix,
                     child: CircleAvatar(
                       radius: 100,
                       backgroundColor: colorScheme.surfaceVariant,
@@ -193,7 +200,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Hero(
-                    tag: HeroTags.artistName + (widget.artist.uri ?? widget.artist.itemId),
+                    tag: HeroTags.artistName + (widget.artist.uri ?? widget.artist.itemId) + _heroTagSuffix,
                     child: Material(
                       color: Colors.transparent,
                       child: Text(

@@ -8,11 +8,13 @@ import '../constants/hero_tags.dart';
 class AlbumCard extends StatelessWidget {
   final Album album;
   final VoidCallback? onTap;
+  final String? heroTagSuffix;
 
   const AlbumCard({
     super.key, 
     required this.album,
     this.onTap,
+    this.heroTagSuffix,
   });
 
   @override
@@ -21,13 +23,18 @@ class AlbumCard extends StatelessWidget {
     final imageUrl = maProvider.api?.getImageUrl(album, size: 256);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    
+    final suffix = heroTagSuffix != null ? '_$heroTagSuffix' : '';
 
     return GestureDetector(
       onTap: onTap ?? () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => AlbumDetailsScreen(album: album),
+            builder: (context) => AlbumDetailsScreen(
+              album: album,
+              heroTagSuffix: heroTagSuffix,
+            ),
           ),
         );
       },
@@ -36,46 +43,61 @@ class AlbumCard extends StatelessWidget {
         children: [
           // Album artwork
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12.0),
-                color: colorScheme.surfaceVariant,
-                image: imageUrl != null
-                    ? DecorationImage(
-                        image: NetworkImage(imageUrl),
-                        fit: BoxFit.cover,
+            child: Hero(
+              tag: HeroTags.albumCover + (album.uri ?? album.itemId) + suffix,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12.0),
+                  color: colorScheme.surfaceVariant,
+                  image: imageUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(imageUrl),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: imageUrl == null
+                    ? Center(
+                        child: Icon(
+                          Icons.album_rounded,
+                          size: 64,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       )
                     : null,
               ),
-              child: imageUrl == null
-                  ? Center(
-                      child: Icon(
-                        Icons.album_rounded,
-                        size: 64,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    )
-                  : null,
             ),
           ),
           const SizedBox(height: 8),
           // Album title
-          Text(
-            album.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: textTheme.titleSmall?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
+          Hero(
+            tag: HeroTags.albumTitle + (album.uri ?? album.itemId) + suffix,
+            child: Material(
+              color: Colors.transparent,
+              child: Text(
+                album.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.titleSmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ),
           // Artist name
-          Text(
-            album.artistsString,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.7),
+          Hero(
+            tag: HeroTags.artistName + (album.uri ?? album.itemId) + suffix,
+            child: Material(
+              color: Colors.transparent,
+              child: Text(
+                album.artistsString,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
             ),
           ),
         ],

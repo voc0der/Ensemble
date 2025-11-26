@@ -95,7 +95,10 @@ class LibraryAlbumsScreen extends StatelessWidget {
         itemCount: provider.albums.length,
         itemBuilder: (context, index) {
           final album = provider.albums[index];
-          return AlbumCard(album: album);
+          return AlbumCard(
+            album: album,
+            heroTagSuffix: 'library',
+          );
         },
       ),
     );

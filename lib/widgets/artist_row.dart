@@ -7,11 +7,13 @@ import 'artist_card.dart';
 class ArtistRow extends StatefulWidget {
   final String title;
   final Future<List<Artist>> Function() loadArtists;
+  final String? heroTagSuffix;
 
   const ArtistRow({
     super.key,
     required this.title,
     required this.loadArtists,
+    this.heroTagSuffix,
   });
 
   @override
@@ -80,7 +82,10 @@ class _ArtistRowState extends State<ArtistRow> {
                   return Container(
                     width: 120,
                     margin: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: ArtistCard(artist: artist),
+                    child: ArtistCard(
+                      artist: artist,
+                      heroTagSuffix: widget.heroTagSuffix,
+                    ),
                   );
                 },
               );
