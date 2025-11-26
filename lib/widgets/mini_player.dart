@@ -147,8 +147,6 @@ class MiniPlayer extends StatelessWidget {
                                 );
                               },
                             ),
-                            // Volume control (compact mute button)
-                            const VolumeControl(compact: true),
                             // Playback controls for selected player
                             Hero(
                               tag: HeroTags.nowPlayingPreviousButton,
