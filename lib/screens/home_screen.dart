@@ -16,19 +16,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final GlobalKey<SearchScreenState> _searchScreenKey = GlobalKey<SearchScreenState>();
 
-  late final List<Widget> _screens;
-
-  @override
-  void initState() {
-    super.initState();
-    _screens = [
-      const NewHomeScreen(),
-      const NewLibraryScreen(),
-      SearchScreen(key: _searchScreenKey),
-      const SettingsScreen(),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -46,7 +33,16 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: colorScheme.background,
         body: IndexedStack(
           index: _selectedIndex,
-          children: _screens,
+          children: [
+            const NewHomeScreen(),
+            const NewLibraryScreen(),
+            // Wrap SearchScreen in Focus widget to prevent it from grabbing focus when hidden
+            Focus(
+              descendantsAreFocusable: _selectedIndex == 2,
+              child: SearchScreen(key: _searchScreenKey),
+            ),
+            const SettingsScreen(),
+          ],
         ),
         bottomNavigationBar: Column(
           mainAxisSize: MainAxisSize.min,
