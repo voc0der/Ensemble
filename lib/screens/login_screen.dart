@@ -153,6 +153,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (provider.isConnected) {
         // Navigate to home screen
         if (mounted) {
+          // Ensure keyboard is closed before navigating
+          FocusScope.of(context).unfocus();
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const HomeScreen()),
           );

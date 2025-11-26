@@ -139,6 +139,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             backgroundColor: Colors.green,
           ),
         );
+        // Ensure keyboard is closed before closing settings
+        FocusScope.of(context).unfocus();
         Navigator.pop(context);
       }
     } catch (e) {
@@ -167,17 +169,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      backgroundColor: colorScheme.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.pop(context),
-          color: colorScheme.onBackground,
-        ),
-        title: Text(
+    return PopScope(
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        // Ensure keyboard is closed when system back button is pressed
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        backgroundColor: colorScheme.background,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () {
+              // Ensure keyboard is closed when back button is pressed
+              FocusScope.of(context).unfocus();
+              Navigator.pop(context);
+            },
+            color: colorScheme.onBackground,
+          ),
+          title: Text(
           'Settings',
           style: textTheme.titleLarge?.copyWith(
             color: colorScheme.onBackground,
