@@ -411,6 +411,7 @@ class MusicAssistantAPI {
   Future<List<Album>> getRecentAlbums({int limit = 10}) async {
     try {
       _logger.log('Fetching recently played albums (limit=$limit)');
+      _logger.log('🔍 Step 1: About to call music/recently_played_items...');
 
       // Get recently played tracks - this API works and returns data
       final response = await _sendCommand(
@@ -419,11 +420,23 @@ class MusicAssistantAPI {
           'limit': limit * 5, // Get more tracks to ensure enough unique albums
           'media_types': ['track'],
         },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          _logger.log('❌ API call timed out after 10 seconds');
+          return <String, dynamic>{'result': null};
+        },
       );
 
+      _logger.log('🔍 Step 2: API returned, response type: ${response.runtimeType}');
+      _logger.log('🔍 Step 3: Response has ${response.length} keys: ${response.keys.toList()}');
+
       final items = response['result'] as List<dynamic>?;
+
+      _logger.log('🔍 Step 4: Result extracted - is null? ${items == null}, is empty? ${items?.isEmpty ?? true}');
+
       if (items == null || items.isEmpty) {
-        _logger.log('⚠️ No recently played tracks returned');
+        _logger.log('⚠️ No recently played tracks returned (items: ${items == null ? "null" : "empty list"})');
         return [];
       }
 
