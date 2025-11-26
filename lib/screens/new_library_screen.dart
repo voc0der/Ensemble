@@ -32,18 +32,6 @@ class NewLibraryScreen extends StatelessWidget {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SearchScreen(),
-                ),
-              );
-            },
-            color: colorScheme.onBackground,
-          ),
           const PlayerSelector(),
         ],
       ),

@@ -103,16 +103,13 @@ class LibraryArtistsScreen extends StatelessWidget {
 
     return Builder(
       builder: (context) => ListTile(
-        leading: Hero(
-          tag: HeroTags.artistImage + (artist.uri ?? artist.itemId),
-          child: CircleAvatar(
-            radius: 24,
-            backgroundColor: colorScheme.surfaceVariant,
-            backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-            child: imageUrl == null
-                ? Icon(Icons.person_rounded, color: colorScheme.onSurfaceVariant)
-                : null,
-          ),
+        leading: CircleAvatar(
+          radius: 24,
+          backgroundColor: colorScheme.surfaceVariant,
+          backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+          child: imageUrl == null
+              ? Icon(Icons.person_rounded, color: colorScheme.onSurfaceVariant)
+              : null,
         ),
         title: Hero(
           tag: HeroTags.artistName + (artist.uri ?? artist.itemId),

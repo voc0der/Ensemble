@@ -34,21 +34,14 @@ class ArtistCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Artist image - circular with Hero animation
-          Hero(
-            tag: HeroTags.artistImage + (artist.uri ?? artist.itemId),
-            child: CircleAvatar(
-              radius: 60, // Fixed size radius for row, or flexible? Row uses fixed width 120.
-              // In Grid we might want flexible.
-              // Let's make it responsive to container width if possible, or just use AspectRatio.
-              // But for CircleAvatar, radius is explicit.
-              // Better to use Container with BoxShape.circle
-              backgroundColor: colorScheme.surfaceVariant,
-              backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-              child: imageUrl == null
-                  ? Icon(Icons.person_rounded, size: 60, color: colorScheme.onSurfaceVariant)
-                  : null,
-            ),
+          // Artist image - circular
+          CircleAvatar(
+            radius: 55, 
+            backgroundColor: colorScheme.surfaceVariant,
+            backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+            child: imageUrl == null
+                ? Icon(Icons.person_rounded, size: 60, color: colorScheme.onSurfaceVariant)
+                : null,
           ),
           const SizedBox(height: 12),
           // Artist name with Hero animation
