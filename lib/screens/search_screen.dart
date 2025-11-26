@@ -106,6 +106,7 @@ class SearchScreenState extends State<SearchScreen> {
         title: TextField(
           controller: _searchController,
           focusNode: _focusNode,
+          enabled: widget.isSearchActive,
           style: TextStyle(color: colorScheme.onSurface),
           cursorColor: colorScheme.primary,
           decoration: InputDecoration(
