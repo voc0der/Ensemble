@@ -67,9 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // Auto-focus search field when switching to search tab
                   if (index == 2) {
-                    Future.delayed(const Duration(milliseconds: 100), () {
-                      _searchScreenKey.currentState?.requestFocus();
-                    });
+                    _searchScreenKey.currentState?.requestFocus();
                   }
                 },
                 backgroundColor: Colors.transparent,
