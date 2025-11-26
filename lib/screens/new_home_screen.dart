@@ -60,7 +60,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const SearchScreen(),
+                  builder: (context) => const SearchScreen(autofocus: true),
                 ),
               );
             },
