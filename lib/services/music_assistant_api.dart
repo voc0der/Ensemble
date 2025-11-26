@@ -407,100 +407,59 @@ class MusicAssistantAPI {
   }
 
   /// Get recently played albums
-  /// Gets recently played tracks, then extracts unique albums from them
+  /// Gets recently played tracks, then fetches full track details to extract album info
   Future<List<Album>> getRecentAlbums({int limit = 10}) async {
     try {
       _logger.log('Fetching recently played albums (limit=$limit)');
-      _logger.log('🔍 Step 1: About to call music/recently_played_items...');
 
-      // Get recently played tracks - this API works and returns data
+      // Get recently played tracks (simplified objects)
       final response = await _sendCommand(
         'music/recently_played_items',
         args: {
-          'limit': limit * 5, // Get more tracks to ensure enough unique albums
+          'limit': limit * 5,
           'media_types': ['track'],
-        },
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          _logger.log('❌ API call timed out after 10 seconds');
-          return <String, dynamic>{'result': null};
         },
       );
 
-      _logger.log('🔍 Step 2: API returned, response type: ${response.runtimeType}');
-      _logger.log('🔍 Step 3: Response has ${response.length} keys: ${response.keys.toList()}');
-
       final items = response['result'] as List<dynamic>?;
-
-      _logger.log('🔍 Step 4: Result extracted - is null? ${items == null}, is empty? ${items?.isEmpty ?? true}');
-
       if (items == null || items.isEmpty) {
-        _logger.log('⚠️ No recently played tracks returned (items: ${items == null ? "null" : "empty list"})');
+        _logger.log('⚠️ No recently played tracks found');
         return [];
       }
 
-      _logger.log('📀 Got ${items.length} recently played tracks');
-
-      // recently_played_items returns simplified track objects without album data
-      // We need to fetch full track details to get album info
-      _logger.log('🔍 Step 5: Fetching full track details to get album data...');
-
+      // Fetch full track details to get album data
       final seenAlbumIds = <String>{};
       final albums = <Album>[];
-      var tracksProcessed = 0;
 
       for (final item in items) {
         if (albums.length >= limit) break;
 
         try {
-          final trackMap = item as Map<String, dynamic>;
-          final trackUri = trackMap['uri'] as String?;
+          final trackUri = (item as Map<String, dynamic>)['uri'] as String?;
+          if (trackUri == null) continue;
 
-          if (trackUri == null) {
-            _logger.log('   ⚠️ Track missing URI, skipping');
-            continue;
-          }
-
-          tracksProcessed++;
-
-          // Fetch full track details which include album data
           final trackResponse = await _sendCommand(
             'music/item_by_uri',
             args: {'uri': trackUri},
-          ).timeout(
-            const Duration(seconds: 5),
-            onTimeout: () => <String, dynamic>{'result': null},
-          );
+          ).timeout(const Duration(seconds: 3), onTimeout: () => <String, dynamic>{'result': null});
 
           final fullTrack = trackResponse['result'] as Map<String, dynamic>?;
-          if (fullTrack == null) continue;
+          final albumData = fullTrack?['album'] as Map<String, dynamic>?;
 
-          // Extract album from full track data
-          final albumData = fullTrack['album'] as Map<String, dynamic>?;
           if (albumData != null) {
             final albumId = albumData['item_id']?.toString() ?? albumData['uri']?.toString();
             if (albumId != null && !seenAlbumIds.contains(albumId)) {
               seenAlbumIds.add(albumId);
               albums.add(Album.fromJson(albumData));
-              _logger.log('   ✓ Added album: ${albumData['name']}');
             }
           }
-        } catch (e) {
-          _logger.log('   ⚠️ Error fetching track details: $e');
+        } catch (_) {
+          // Skip tracks that fail to fetch
+          continue;
         }
       }
 
-      _logger.log('🔍 Step 6: Processed $tracksProcessed tracks');
-
-      _logger.log('✅ Extracted ${albums.length} unique albums from ${items.length} tracks');
-
-      if (albums.isNotEmpty) {
-        _logger.log('   First album: ${albums[0].name} by ${albums[0].artistsString}');
-      } else {
-        _logger.log('   ⚠️ No albums could be extracted - check debug logs above');
-      }
-
+      _logger.log('✅ Found ${albums.length} recently played albums');
       return albums;
     } catch (e) {
       _logger.log('❌ Error getting recent albums: $e');
