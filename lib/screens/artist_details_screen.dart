@@ -202,7 +202,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                           color: colorScheme.onBackground,
                           fontWeight: FontWeight.bold,
                         ),
-                      ),,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
