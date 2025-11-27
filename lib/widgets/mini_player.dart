@@ -30,8 +30,13 @@ class MiniPlayer extends StatelessWidget {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const NowPlayingScreen(),
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const NowPlayingScreen(),
+                transitionDuration: const Duration(milliseconds: 500),
+                reverseTransitionDuration: const Duration(milliseconds: 500),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return child;
+                },
               ),
             );
           },

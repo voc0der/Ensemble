@@ -178,6 +178,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
 
     return Hero(
       tag: HeroTags.nowPlayingBackground,
+      transitionOnUserGestures: true,
       child: Scaffold(
         backgroundColor: backgroundColor,
         appBar: AppBar(
@@ -219,6 +220,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   return Center(
                     child: Hero(
                       tag: HeroTags.nowPlayingArt,
+                      transitionOnUserGestures: true,
                       child: Container(
                         width: size,
                         height: size,
@@ -391,6 +393,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   // Previous
                   Hero(
                     tag: HeroTags.nowPlayingPreviousButton,
+                    transitionOnUserGestures: true,
                     child: Material(
                       color: Colors.transparent,
                       child: AnimatedIconButton(
@@ -416,6 +419,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   // Play/Pause
                   Hero(
                     tag: HeroTags.nowPlayingPlayButton,
+                    transitionOnUserGestures: true,
                     child: Material(
                       color: Colors.transparent,
                       child: _AnimatedPlayButton(
@@ -441,6 +445,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   // Next
                   Hero(
                     tag: HeroTags.nowPlayingNextButton,
+                    transitionOnUserGestures: true,
                     child: Material(
                       color: Colors.transparent,
                       child: AnimatedIconButton(
