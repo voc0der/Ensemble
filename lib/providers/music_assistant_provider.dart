@@ -101,16 +101,10 @@ class MusicAssistantProvider with ChangeNotifier {
       final password = await SettingsService.getPassword();
 
       if (username != null && password != null && username.isNotEmpty && password.isNotEmpty) {
-        _logger.log('🔐 Auto-login with saved credentials...');
         try {
-          final token = await _authService.login(_serverUrl!, username, password);
-          if (token != null) {
-            _logger.log('✓ Auto-login successful');
-          } else {
-            _logger.log('⚠️ Auto-login failed - session cookie may be expired');
-          }
+          await _authService.login(_serverUrl!, username, password);
         } catch (e) {
-          _logger.log('⚠️ Auto-login error: $e');
+          // Auto-login failed, continue anyway
         }
       }
 
@@ -225,7 +219,6 @@ class MusicAssistantProvider with ChangeNotifier {
   Future<void> _handleLocalPlayerEvent(Map<String, dynamic> event) async {
     if (!_isLocalPlaybackEnabled) return;
     
-    _logger.log('📥 Received local player event: ${event['command']}');
     
     try {
       final command = event['command'] as String?;
@@ -341,7 +334,6 @@ class MusicAssistantProvider with ChangeNotifier {
       final errorInfo = ErrorHandler.handleError(e, context: 'Load library');
       _error = errorInfo.userMessage;
       _isLoading = false;
-      _logger.log('Library load error: ${errorInfo.technicalMessage}');
       notifyListeners();
     }
   }
@@ -366,7 +358,6 @@ class MusicAssistantProvider with ChangeNotifier {
       final errorInfo = ErrorHandler.handleError(e, context: 'Load artists');
       _error = errorInfo.userMessage;
       _isLoading = false;
-      _logger.log('Artists load error: ${errorInfo.technicalMessage}');
       notifyListeners();
     }
   }
@@ -397,7 +388,6 @@ class MusicAssistantProvider with ChangeNotifier {
       final errorInfo = ErrorHandler.handleError(e, context: 'Load albums');
       _error = errorInfo.userMessage;
       _isLoading = false;
-      _logger.log('Albums load error: ${errorInfo.technicalMessage}');
       notifyListeners();
     }
   }
@@ -678,17 +668,6 @@ class MusicAssistantProvider with ChangeNotifier {
 
       _playersLastFetched = DateTime.now();
 
-      // Log details about ghost players
-      if (filteredCount > 0) {
-        _logger.log('🧹 Filtered out $filteredCount ghost players:');
-        for (int i = 0; i < ghostPlayerIds.length && i < 5; i++) {
-          _logger.log('   - ${ghostPlayerIds[i]}');
-        }
-        if (ghostPlayerIds.length > 5) {
-          _logger.log('   ... and ${ghostPlayerIds.length - 5} more');
-        }
-        _logger.log('📊 Result: ${_availablePlayers.length} valid players from ${allPlayers.length} total');
-      }
 
       if (_availablePlayers.isNotEmpty) {
         // Smart player selection logic:
@@ -707,7 +686,6 @@ class MusicAssistantProvider with ChangeNotifier {
             playerToSelect = _availablePlayers.firstWhere(
               (p) => p.playerId == _selectedPlayer!.playerId,
             );
-            _logger.log('Keeping current player: ${playerToSelect.name}');
           }
         }
 
@@ -718,20 +696,16 @@ class MusicAssistantProvider with ChangeNotifier {
             playerToSelect = _availablePlayers.firstWhere(
               (p) => p.state == 'playing' && p.available,
             );
-            _logger.log('Auto-selected playing player: ${playerToSelect.name}');
           } catch (e) {
             // No playing player found, pick first available
             playerToSelect = _availablePlayers.firstWhere(
               (p) => p.available,
               orElse: () => _availablePlayers.first,
             );
-            _logger.log('Selected first available player: ${playerToSelect.name}');
           }
         }
 
         selectPlayer(playerToSelect);
-      } else {
-        _logger.log('⚠️ No players available');
       }
 
       // Don't call notifyListeners here - selectPlayer already does it
@@ -743,7 +717,6 @@ class MusicAssistantProvider with ChangeNotifier {
   /// Select a player for playback
   void selectPlayer(Player player, {bool skipNotify = false}) {
     _selectedPlayer = player;
-    _logger.log('Selected player: ${player.name} (${player.playerId})');
 
     // Start polling for player state
     _startPlayerStatePolling();
@@ -839,17 +812,12 @@ class MusicAssistantProvider with ChangeNotifier {
   /// Control the selected player
   Future<void> playPauseSelectedPlayer() async {
     if (_selectedPlayer == null) {
-      _logger.log('⚠️ playPause: No player selected');
       return;
     }
 
-    _logger.log('🎮 playPause: ${_selectedPlayer!.name} - current state: ${_selectedPlayer!.state}');
-
     if (_selectedPlayer!.isPlaying) {
-      _logger.log('⏸️ Pausing player');
       await pausePlayer(_selectedPlayer!.playerId);
     } else {
-      _logger.log('▶️ Resuming player');
       await resumePlayer(_selectedPlayer!.playerId);
     }
 
@@ -912,21 +880,17 @@ class MusicAssistantProvider with ChangeNotifier {
   /// Check connection and reconnect if needed (called when app resumes)
   Future<void> checkAndReconnect() async {
     if (_api == null || _serverUrl == null) {
-      _logger.log('⚠️ No API or server URL configured');
       return;
     }
 
     // Check if we're disconnected
     if (_connectionState != MAConnectionState.connected) {
-      _logger.log('🔄 App resumed and disconnected - attempting reconnect...');
       try {
         await connectToServer(_serverUrl!);
-        _logger.log('✅ Reconnected successfully');
       } catch (e) {
-        _logger.log('❌ Reconnection failed: $e');
+        // Reconnection failed, will try again later
       }
     } else {
-      _logger.log('✓ Already connected, no reconnection needed');
       // Even if connected, refresh player state
       await refreshPlayers();
     }

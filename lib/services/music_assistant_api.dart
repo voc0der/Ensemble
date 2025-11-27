@@ -276,7 +276,6 @@ class MusicAssistantAPI {
     bool albumArtistsOnly = true,
   }) async {
     try {
-      _logger.log('Fetching artists with limit=$limit, offset=$offset, search=$search, albumArtistsOnly=$albumArtistsOnly');
       final response = await _sendCommand(
         'music/artists/library_items',
         args: {
@@ -288,14 +287,10 @@ class MusicAssistantAPI {
         },
       );
 
-      _logger.log('Artists response: ${response.keys}');
       final items = response['result'] as List<dynamic>?;
       if (items == null) {
-        _logger.log('No result field in response');
         return [];
       }
-
-      _logger.log('Got ${items.length} artists');
       return items
           .map((item) => Artist.fromJson(item as Map<String, dynamic>))
           .toList();
@@ -307,7 +302,6 @@ class MusicAssistantAPI {
 
   Future<List<Artist>> getRandomArtists({int limit = 10, bool albumArtistsOnly = true}) async {
     try {
-      _logger.log('Fetching random artists (limit=$limit, albumArtistsOnly=$albumArtistsOnly)');
       final response = await _sendCommand(
         'music/artists/library_items',
         args: {
@@ -320,7 +314,6 @@ class MusicAssistantAPI {
       final items = response['result'] as List<dynamic>?;
       if (items == null) return [];
 
-      _logger.log('Got ${items.length} random artists');
       return items
           .map((item) => Artist.fromJson(item as Map<String, dynamic>))
           .toList();
@@ -338,7 +331,6 @@ class MusicAssistantAPI {
     String? artistId,
   }) async {
     try {
-      _logger.log('Fetching albums with limit=$limit, offset=$offset, artistId=$artistId');
       final args = <String, dynamic>{
         if (limit != null) 'limit': limit,
         if (offset != null) 'offset': offset,
@@ -346,7 +338,6 @@ class MusicAssistantAPI {
         if (favoriteOnly != null) 'favorite': favoriteOnly,
         if (artistId != null) 'artist_id': artistId,
       };
-      _logger.log('Albums API args: $args');
 
       final response = await _sendCommand(
         'music/albums/library_items',
@@ -374,7 +365,6 @@ class MusicAssistantAPI {
     String? albumId,
   }) async {
     try {
-      _logger.log('Fetching tracks with limit=$limit, offset=$offset');
       final response = await _sendCommand(
         'music/tracks/library_items',
         args: {
@@ -390,12 +380,6 @@ class MusicAssistantAPI {
       final items = response['result'] as List<dynamic>?;
       if (items == null) return [];
 
-      _logger.log('Got ${items.length} tracks');
-
-      // Debug: Log the first track's raw data to see what fields are available
-      if (items.isNotEmpty) {
-        _logger.log('🔍 DEBUG: First track raw data: ${items[0]}');
-      }
 
       return items
           .map((item) => Track.fromJson(item as Map<String, dynamic>))
@@ -410,7 +394,6 @@ class MusicAssistantAPI {
   /// Gets recently played tracks, then fetches full track details to extract album info
   Future<List<Album>> getRecentAlbums({int limit = 10}) async {
     try {
-      _logger.log('Fetching recently played albums (limit=$limit)');
 
       // Get recently played tracks (simplified objects)
       final response = await _sendCommand(
@@ -459,7 +442,6 @@ class MusicAssistantAPI {
         }
       }
 
-      _logger.log('✅ Found ${albums.length} recently played albums');
       return albums;
     } catch (e) {
       _logger.log('❌ Error getting recent albums: $e');
@@ -470,7 +452,6 @@ class MusicAssistantAPI {
   /// Get random albums
   Future<List<Album>> getRandomAlbums({int limit = 10}) async {
     try {
-      _logger.log('Fetching random albums (limit=$limit)');
       final response = await _sendCommand(
         'music/albums/library_items',
         args: {
@@ -482,7 +463,6 @@ class MusicAssistantAPI {
       final items = response['result'] as List<dynamic>?;
       if (items == null) return [];
 
-      _logger.log('Got ${items.length} random albums');
       return items
           .map((item) => Album.fromJson(item as Map<String, dynamic>))
           .toList();
@@ -495,7 +475,6 @@ class MusicAssistantAPI {
   /// Get library statistics
   Future<Map<String, int>> getLibraryStats() async {
     try {
-      _logger.log('Fetching library statistics');
 
       // Get counts for each media type
       final artistsResp = await _sendCommand('music/artists/library_items', args: {'limit': 1});
@@ -537,7 +516,6 @@ class MusicAssistantAPI {
     return await RetryHelper.retryNetwork(
       operation: () async {
         try {
-          _logger.log('Fetching album tracks for provider=$provider, itemId=$itemId');
           final response = await _sendCommand(
             'music/albums/album_tracks',
             args: {
@@ -552,12 +530,6 @@ class MusicAssistantAPI {
             return <Track>[];
           }
 
-          _logger.log('Got ${items.length} album tracks');
-
-          // Debug: Log the first track's raw data to see what fields are available
-          if (items.isNotEmpty) {
-            _logger.log('🔍 DEBUG: First album track raw data: ${items[0]}');
-          }
 
           return items
               .map((item) => Track.fromJson(item as Map<String, dynamic>))
@@ -581,7 +553,6 @@ class MusicAssistantAPI {
     bool? favoriteOnly,
   }) async {
     try {
-      _logger.log('Fetching playlists with limit=$limit, offset=$offset');
       final response = await _sendCommand(
         'music/playlists/library_items',
         args: {
@@ -595,7 +566,6 @@ class MusicAssistantAPI {
       final items = response['result'] as List<dynamic>?;
       if (items == null) return [];
 
-      _logger.log('Got ${items.length} playlists');
       return items
           .map((item) => Playlist.fromJson(item as Map<String, dynamic>))
           .toList();
@@ -631,7 +601,6 @@ class MusicAssistantAPI {
     return await RetryHelper.retryNetwork(
       operation: () async {
         try {
-          _logger.log('Fetching playlist tracks for provider=$provider, itemId=$itemId');
           final response = await _sendCommand(
             'music/playlists/playlist_tracks',
             args: {
@@ -646,7 +615,6 @@ class MusicAssistantAPI {
             return <Track>[];
           }
 
-          _logger.log('Got ${items.length} playlist tracks');
           return items
               .map((item) => Track.fromJson(item as Map<String, dynamic>))
               .toList();
@@ -665,7 +633,6 @@ class MusicAssistantAPI {
   /// Toggle favorite status for any media item
   Future<bool> toggleFavorite(String mediaType, String itemId, String provider) async {
     try {
-      _logger.log('Toggling favorite for $mediaType: $itemId');
       final response = await _sendCommand(
         'music/favorites/toggle',
         args: {
@@ -676,7 +643,6 @@ class MusicAssistantAPI {
       );
 
       final isFavorite = response['result'] as bool? ?? false;
-      _logger.log('Favorite toggled: $isFavorite');
       return isFavorite;
     } catch (e) {
       _logger.log('Error toggling favorite: $e');
@@ -687,7 +653,6 @@ class MusicAssistantAPI {
   /// Mark item as favorite
   Future<void> addToFavorites(String mediaType, String itemId, String provider) async {
     try {
-      _logger.log('Adding to favorites: $mediaType/$itemId');
       await _sendCommand(
         'music/favorites/add',
         args: {
@@ -696,7 +661,6 @@ class MusicAssistantAPI {
           'provider': provider,
         },
       );
-      _logger.log('Added to favorites');
     } catch (e) {
       _logger.log('Error adding to favorites: $e');
       rethrow;
@@ -706,7 +670,6 @@ class MusicAssistantAPI {
   /// Remove item from favorites
   Future<void> removeFromFavorites(String mediaType, String itemId, String provider) async {
     try {
-      _logger.log('Removing from favorites: $mediaType/$itemId');
       await _sendCommand(
         'music/favorites/remove',
         args: {
@@ -715,7 +678,6 @@ class MusicAssistantAPI {
           'provider': provider,
         },
       );
-      _logger.log('Removed from favorites');
     } catch (e) {
       _logger.log('Error removing from favorites: $e');
       rethrow;
@@ -729,7 +691,6 @@ class MusicAssistantAPI {
     return await RetryHelper.retryNetwork(
       operation: () async {
         try {
-          _logger.log('Searching for: $query (libraryOnly: $libraryOnly)');
 
           // Use the global search command that searches across all providers
           final searchResponse = await _sendCommand(
@@ -743,7 +704,6 @@ class MusicAssistantAPI {
 
           final result = searchResponse['result'] as Map<String, dynamic>?;
           if (result == null) {
-            _logger.log('No search results returned');
             return <String, List<MediaItem>>{'artists': [], 'albums': [], 'tracks': []};
           }
 
@@ -763,7 +723,6 @@ class MusicAssistantAPI {
                   .toList() ??
               [];
 
-          _logger.log('Search results: ${artists.length} artists, ${albums.length} albums, ${tracks.length} tracks');
 
           return <String, List<MediaItem>>{
             'artists': artists,
@@ -789,7 +748,6 @@ class MusicAssistantAPI {
   Future<List<Player>> getPlayers() async {
     return await RetryHelper.retryNetwork(
       operation: () async {
-        _logger.log('Fetching available players...');
         final response = await _sendCommand('players/all');
 
         final items = response['result'] as List<dynamic>?;
@@ -798,7 +756,6 @@ class MusicAssistantAPI {
         // Debug: Log raw player data for the first playing player
         for (var item in items) {
           if (item['state'] == 'playing') {
-            _logger.log('🔍 RAW PLAYER DATA: ${item.toString()}');
             break;
           }
         }
@@ -807,7 +764,6 @@ class MusicAssistantAPI {
             .map((item) => Player.fromJson(item as Map<String, dynamic>))
             .toList();
 
-        _logger.log('Got ${players.length} players');
         return players;
       },
     ).catchError((e) {
@@ -821,7 +777,6 @@ class MusicAssistantAPI {
     return await RetryHelper.retryNetwork(
       operation: () async {
         try {
-          _logger.log('Fetching queue for player: $playerId');
 
           // Try to get full queue object first
           // First, get the queue metadata which includes current_index, shuffle, repeat, etc
@@ -830,7 +785,6 @@ class MusicAssistantAPI {
           String? repeatMode;
 
           try {
-            _logger.log('🎯 Calling player_queues/get with queue_id: $playerId');
             final queueResponse = await _sendCommand(
               'player_queues/get',
               args: {'queue_id': playerId},
@@ -847,19 +801,12 @@ class MusicAssistantAPI {
               final currentItemName = currentItemData?['name'] as String?;
               final totalItems = queueResult['items'] as int?;
 
-              _logger.log('✅ Queue metadata from player_queues/get:');
-              _logger.log('   - queue_id: ${queueResult['queue_id']}');
-              _logger.log('   - Total items in queue: $totalItems');
-              _logger.log('   - Current index: $currentIndex');
-              _logger.log('   - Current item: $currentItemName');
-              _logger.log('   - Shuffle: $shuffleEnabled, Repeat: $repeatMode');
             }
           } catch (e) {
             _logger.log('⚠️ player_queues/get not available: $e');
           }
 
           // Now get the queue items
-          _logger.log('🎯 Calling player_queues/items with queue_id: $playerId');
           final response = await _sendCommand(
             'player_queues/items',
             args: {'queue_id': playerId},
@@ -871,7 +818,6 @@ class MusicAssistantAPI {
             return null;
           }
 
-          _logger.log('📦 player_queues/items returned ${result is List ? result.length : '?'} items');
 
           // The API returns a List of items directly, not a PlayerQueue object
           final items = <QueueItem>[];
@@ -889,31 +835,10 @@ class MusicAssistantAPI {
             return null;
           }
 
-          _logger.log('🎵 Parsed queue: ${items.length} items, currentIndex: $currentIndex');
 
-          // Log items around the current index
-          if (currentIndex != null && currentIndex >= 0 && currentIndex < items.length) {
-            _logger.log('📋 Queue items around current index ($currentIndex):');
-            final start = (currentIndex - 2).clamp(0, items.length - 1);
-            final end = (currentIndex + 3).clamp(0, items.length);
-            for (var i = start; i < end; i++) {
-              final marker = i == currentIndex ? '>>> ' : '    ';
-              _logger.log('$marker[$i] ${items[i].track.name} - ${items[i].track.artistsString}');
-            }
-            _logger.log('✅ Current track at index $currentIndex: ${items[currentIndex].track.name}');
-          } else if (currentIndex != null) {
-            _logger.log('⚠️ Current index $currentIndex is out of range (0-${items.length - 1})');
-            _logger.log('📋 First 5 items in returned queue:');
-            for (var i = 0; i < items.length && i < 5; i++) {
-              _logger.log('  [$i] ${items[i].track.name} - ${items[i].track.artistsString}');
-            }
+          // Validate current index
+          if (currentIndex != null && (currentIndex < 0 || currentIndex >= items.length)) {
             currentIndex = null;
-          } else {
-            _logger.log('⚠️ No currentIndex provided');
-            _logger.log('📋 First 5 items in returned queue:');
-            for (var i = 0; i < items.length && i < 5; i++) {
-              _logger.log('  [$i] ${items[i].track.name} - ${items[i].track.artistsString}');
-            }
           }
 
           return PlayerQueue(
@@ -941,7 +866,6 @@ class MusicAssistantAPI {
       // Build URI from provider mappings
       final uri = _buildTrackUri(track);
       final option = clearQueue ? 'replace' : 'play';
-      _logger.log('Playing track via queue: $uri on player $playerId (option: $option)');
 
       await _sendCommand(
         'player_queues/play_media',
@@ -952,7 +876,6 @@ class MusicAssistantAPI {
         },
       );
 
-      _logger.log('✓ Track queued successfully');
     } catch (e) {
       _logger.log('Error playing track: $e');
       rethrow;
@@ -975,7 +898,6 @@ class MusicAssistantAPI {
         final mediaUris = tracksToPlay.map((track) => _buildTrackUri(track)).toList();
 
         final option = clearQueue ? 'replace' : 'play';
-        _logger.log('Playing ${tracksToPlay.length} tracks via queue on player $playerId (option: $option, startIndex: $startIndex, sliced: ${startIndex != null && startIndex > 0})');
 
         final args = {
           'queue_id': playerId,
@@ -983,14 +905,12 @@ class MusicAssistantAPI {
           'option': option, // 'replace' clears queue, 'play' adds to queue
         };
 
-        _logger.log('📤 Sending play_media command with args: $args');
 
         await _sendCommand(
           'player_queues/play_media',
           args: args,
         );
 
-        _logger.log('✓ ${tracksToPlay.length} tracks queued successfully');
       },
     );
   }
@@ -1002,7 +922,6 @@ class MusicAssistantAPI {
         // Try using library URI if available, otherwise use provider URI
         final libraryUri = track.uri;
         final trackUri = libraryUri ?? _buildTrackUri(track);
-        _logger.log('Playing radio based on track: $trackUri (library URI: $libraryUri) on player $playerId');
 
         final args = {
           'queue_id': playerId,
@@ -1011,16 +930,12 @@ class MusicAssistantAPI {
           'radio_mode': true, // Enable radio mode for similar tracks
         };
 
-        _logger.log('📤 Sending play_media command (RADIO MODE) with args: $args');
-        _logger.log('   Track details: provider=${track.provider}, itemId=${track.itemId}');
-        _logger.log('   Available providers: ${track.providerMappings?.map((m) => '${m.providerDomain}:${m.available}').join(', ')}');
 
         await _sendCommand(
           'player_queues/play_media',
           args: args,
         );
 
-        _logger.log('✓ Radio mode command sent successfully');
       },
     );
   }
@@ -1076,7 +991,6 @@ class MusicAssistantAPI {
       final uri = Uri.parse(baseUrl);
       final streamUrl = '${uri.scheme}://${uri.host}:8097/flow/$playerId/$streamId.$extension';
 
-      _logger.log('🎵 Stream URL from queue: $streamUrl');
       return streamUrl;
     } catch (e) {
       _logger.log('Error getting stream URL: $e');
@@ -1126,7 +1040,6 @@ class MusicAssistantAPI {
   /// Set player volume (0-100)
   Future<void> setVolume(String playerId, int volumeLevel) async {
     try {
-      _logger.log('Setting volume to $volumeLevel for player $playerId');
       await _sendCommand(
         'players/cmd/volume_set',
         args: {
@@ -1143,7 +1056,6 @@ class MusicAssistantAPI {
   /// Mute or unmute player
   Future<void> setMute(String playerId, bool muted) async {
     try {
-      _logger.log('${muted ? "Muting" : "Unmuting"} player $playerId');
       await _sendCommand(
         'players/cmd/volume_mute',
         args: {
@@ -1160,7 +1072,6 @@ class MusicAssistantAPI {
   /// Toggle shuffle mode for queue
   Future<void> toggleShuffle(String queueId) async {
     try {
-      _logger.log('Toggling shuffle for queue $queueId');
       await _sendCommand(
         'player_queues/shuffle',
         args: {'queue_id': queueId},
@@ -1174,7 +1085,6 @@ class MusicAssistantAPI {
   /// Set repeat mode for queue: 'off', 'one', 'all'
   Future<void> setRepeatMode(String queueId, String mode) async {
     try {
-      _logger.log('Setting repeat mode to $mode for queue $queueId');
       await _sendCommand(
         'player_queues/repeat',
         args: {
@@ -1191,7 +1101,6 @@ class MusicAssistantAPI {
   /// Seek to position in seconds
   Future<void> seek(String queueId, int position) async {
     try {
-      _logger.log('Seeking to $position seconds for queue $queueId');
       await _sendCommand(
         'player_queues/seek',
         args: {
@@ -1219,7 +1128,6 @@ class MusicAssistantAPI {
   /// Register this device as a player
   Future<void> registerBuiltinPlayer(String playerId, String name) async {
     try {
-      _logger.log('Registering built-in player: $playerId ($name)');
       await _sendCommand(
         'builtin_player/register', // Corrected command based on ARCHITECTURE.md
         args: {
@@ -1267,16 +1175,12 @@ class MusicAssistantAPI {
 
   Future<void> _sendQueueCommand(String queueId, String command) async {
     try {
-      _logger.log('🎮 Sending queue command: $command to queue $queueId');
       final response = await _sendCommand(
         'player_queues/$command',
         args: {'queue_id': queueId},
       );
-      _logger.log('✅ Queue command $command completed successfully');
-      _logger.log('   Response: ${response.toString()}');
     } catch (e) {
       _logger.log('❌ Error sending queue command $command: $e');
-      _logger.log('   Stack trace: ${StackTrace.current}');
       rethrow;
     }
   }
@@ -1288,7 +1192,6 @@ class MusicAssistantAPI {
   // Get stream URL for a track
   String getStreamUrl(String provider, String itemId, {String? uri, List<ProviderMapping>? providerMappings}) {
     // Debug logging
-    _logger.log('📍 getStreamUrl called: provider=$provider, itemId=$itemId, uri=$uri, mappings count=${providerMappings?.length ?? 0}');
 
     var baseUrl = serverUrl;
     var useSecure = true;
@@ -1325,7 +1228,6 @@ class MusicAssistantAPI {
     // PRIORITY 1: Use provider_mappings to get the ACTUAL provider instance
     // The top-level "provider: library" is just a virtual view, not a real provider
     if (providerMappings != null && providerMappings.isNotEmpty) {
-      _logger.log('🔍 Using provider_mappings to get real provider instance');
 
       // Try to find the first available mapping
       final mapping = providerMappings.firstWhere(
@@ -1336,11 +1238,9 @@ class MusicAssistantAPI {
       actualProvider = mapping.providerInstance; // e.g., "opensubsonic--ETwFWrKe"
       actualItemId = mapping.itemId; // e.g., "HNF3R3sfsGVgelPM5hiolL"
 
-      _logger.log('✓ Using provider mapping: provider=${mapping.providerInstance}, itemId=${mapping.itemId}, domain=${mapping.providerDomain}');
     }
     // PRIORITY 2: Try to parse the URI if no provider mappings
     else if (uri != null && uri.isNotEmpty && !uri.startsWith('library://')) {
-      _logger.log('🔍 Parsing URI: $uri');
       try {
         // Split by "://" to get provider and path
         final parts = uri.split('://');
@@ -1352,19 +1252,14 @@ class MusicAssistantAPI {
           if (pathParts.isNotEmpty) {
             actualItemId = pathParts.last;
           }
-          _logger.log('✓ Parsed URI: provider=$actualProvider, itemId=$actualItemId');
         }
       } catch (e) {
-        _logger.log('⚠️ Failed to parse track URI: $uri, using provider=$provider, itemId=$itemId');
       }
-    } else {
-      _logger.log('⚠️ No provider mappings or URI, using provider=$provider (may not be valid provider instance ID)');
     }
 
     // Music Assistant stream endpoint - use /preview endpoint
     // Format: /preview?item_id={itemId}&provider={provider}
     final streamUrl = '$baseUrl/preview?item_id=$actualItemId&provider=$actualProvider';
-    _logger.log('🎵 Final stream URL: $streamUrl');
     return streamUrl;
   }
 
@@ -1373,11 +1268,8 @@ class MusicAssistantAPI {
     // Images are in metadata.images as an array
     final images = item.metadata?['images'] as List<dynamic>?;
     if (images == null || images.isEmpty) {
-      _logger.log('⚠️ No images found for ${item.name}');
       return null;
     }
-
-    _logger.log('🖼️ Found ${images.length} images for ${item.name}');
 
     // Try to find a non-remotely accessible image first (prefer local/opensubsonic)
     Map<String, dynamic>? selectedImage;
@@ -1388,7 +1280,6 @@ class MusicAssistantAPI {
       // Prefer opensubsonic images over spotify/remote
       if (provider != null && provider.startsWith('opensubsonic')) {
         selectedImage = imgMap;
-        _logger.log('✅ Selected opensubsonic image: ${imgMap['path']}');
         break;
       }
     }
@@ -1396,7 +1287,6 @@ class MusicAssistantAPI {
     // If no opensubsonic image, use first image
     if (selectedImage == null) {
       selectedImage = images.first as Map<String, dynamic>;
-      _logger.log('ℹ️ Using first image: ${selectedImage['path']} (provider: ${selectedImage['provider']})');
     }
 
     final imagePath = selectedImage['path'] as String?;
@@ -1404,7 +1294,6 @@ class MusicAssistantAPI {
 
     // If path is already a full URL, use it directly
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      _logger.log('🔗 Using direct URL: $imagePath');
       return imagePath;
     }
 

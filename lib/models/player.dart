@@ -33,12 +33,10 @@ class Player {
   // Calculate current elapsed time (interpolated if playing)
   double get currentElapsedTime {
     if (elapsedTime == null) {
-      print('⚠️ elapsedTime is null, returning 0');
       return 0;
     }
 
     if (!isPlaying || elapsedTimeLastUpdated == null) {
-      print('🕐 Not playing or no last updated time, returning base: $elapsedTime');
       return elapsedTime!;
     }
 
@@ -46,26 +44,12 @@ class Player {
     final now = DateTime.now().millisecondsSinceEpoch / 1000.0;
     final timeSinceUpdate = now - elapsedTimeLastUpdated!;
 
-    print('🕐 Time calculation:');
-    print('   Base elapsed: $elapsedTime seconds');
-    print('   Last updated: $elapsedTimeLastUpdated (Unix timestamp)');
-    print('   Now:          $now (Unix timestamp)');
-    print('   Delta:        $timeSinceUpdate seconds');
-
     // Safety check: if time since update is negative or too large, just return elapsed time
-    if (timeSinceUpdate < 0) {
-      print('⚠️ Negative time delta! Clock skew detected.');
+    if (timeSinceUpdate < 0 || timeSinceUpdate > 30) {
       return elapsedTime!;
     }
 
-    if (timeSinceUpdate > 30) {
-      print('⚠️ Time delta too large (${timeSinceUpdate}s), using base elapsed time');
-      return elapsedTime!;
-    }
-
-    final calculatedTime = elapsedTime! + timeSinceUpdate;
-    print('   Result:       $calculatedTime seconds');
-    return calculatedTime;
+    return elapsedTime! + timeSinceUpdate;
   }
 
   factory Player.fromJson(Map<String, dynamic> json) {
@@ -91,11 +75,8 @@ class Player {
         // 1. We don't have top-level elapsed_time, OR
         // 2. Top-level is 0 but current_media has a real value
         if (elapsedTime == null || (elapsedTime == 0 && currentMediaElapsedTime != null && currentMediaElapsedTime > 0)) {
-          print('⚠️ Player ${json['name']}: Using current_media elapsed_time: $currentMediaElapsedTime (top-level was: $elapsedTime)');
           elapsedTime = currentMediaElapsedTime;
           elapsedTimeLastUpdated = currentMediaLastUpdated;
-        } else if (elapsedTime != null) {
-          print('✅ Player ${json['name']}: Using top-level elapsed_time: $elapsedTime seconds (updated: $elapsedTimeLastUpdated)');
         }
       }
     }
