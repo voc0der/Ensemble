@@ -1,0 +1,48 @@
+Categories:
+  - Multimedia
+License: MIT
+AuthorName: CollotsSpot
+SourceCode: https://github.com/CollotsSpot/Assistant-To-The-Music
+IssueTracker: https://github.com/CollotsSpot/Assistant-To-The-Music/issues
+
+AutoName: Assistant To The Music
+Summary: Mobile client for Music Assistant
+Description: |-
+  A minimalistic mobile client for Music Assistant that allows you to control your
+  Music Assistant server and manage your entire music library from your mobile device.
+
+  Features:
+  * Connect to Music Assistant server via WebSocket with auto-reconnect
+  * Browse artists, albums, and tracks from your server
+  * Full playback controls (play/pause/skip/seek) for server players
+  * Multi-player support with device selector
+  * Queue management and viewing
+  * Volume control for server players
+  * Now playing display with track information
+  * Material You dynamic theming based on device wallpaper
+  * Adaptive theming with album artwork-based color schemes
+  * Light/Dark mode support
+  * Play on... button for quick device selection
+  * Clean, minimalistic UI design
+
+  Requires a Music Assistant server (https://music-assistant.io/) to function.
+
+RepoType: git
+Repo: https://github.com/CollotsSpot/Assistant-To-The-Music.git
+
+Builds:
+  - versionName: '1.0.0'
+    versionCode: 1
+    commit: v1.0.0
+    output: build/app/outputs/flutter-apk/app-release.apk
+    srclibs:
+      - flutter@stable
+    build:
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+      - $$flutter$$/bin/flutter build apk --release
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: '1.0.0'
+CurrentVersionCode: 1
