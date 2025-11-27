@@ -155,8 +155,13 @@ class MusicAssistantProvider with ChangeNotifier {
     final position = _localPlayer.position.inSeconds.toDouble();
     final duration = _localPlayer.duration.inSeconds.toDouble();
 
+    // Try uppercase state values (common Python enum format)
+    final isPlaying = _localPlayer.isPlaying;
+    final state = isPlaying ? 'PLAYING' : 'IDLE';
+
     await _api!.updateBuiltinPlayerState(
       playerId,
+      state: state,
       elapsedTime: position,
       totalTime: duration > 0 ? duration : null,
       powered: _isLocalPlayerPowered,

@@ -1147,6 +1147,7 @@ class MusicAssistantAPI {
   
   /// Send player state update to server
   Future<void> updateBuiltinPlayerState(String playerId, {
+    String? state, // Player state enum value
     int? volumeLevel, // 0-100
     bool? volumeMuted,
     double? elapsedTime, // seconds
@@ -1157,12 +1158,12 @@ class MusicAssistantAPI {
     // This command allows the local player to report its status back to MA
     // so the server UI updates correctly
     try {
-      _logger.log('📊 Updating builtin player state: powered=$powered, available=$available, elapsed=$elapsedTime');
+      _logger.log('📊 Updating builtin player state: state=$state, powered=$powered, available=$available, elapsed=$elapsedTime');
       await _sendCommand(
         'builtin_player/update_state',
         args: {
           'player_id': playerId,
-          // Don't send 'state' - let server infer from other parameters
+          if (state != null) 'state': state,
           if (volumeLevel != null) 'volume_level': volumeLevel,
           if (volumeMuted != null) 'volume_muted': volumeMuted,
           if (elapsedTime != null) 'elapsed_time': elapsedTime,
@@ -1172,7 +1173,7 @@ class MusicAssistantAPI {
         },
       );
     } catch (e) {
-      _logger.log('Error updating built-in player state: $e');
+      _logger.log('❌ Error updating built-in player state: $e');
       // Do not rethrow, as state updates are frequent and should not block the app
     }
   }
