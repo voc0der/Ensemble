@@ -1,7 +1,7 @@
 name: music_assistant
-description: A minimalistic music assistant app built with Flutter
+description: A minimalistic music assistant app built with Flutter (BETA)
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.4.0+4
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
