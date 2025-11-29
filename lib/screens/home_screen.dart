@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../widgets/mini_player.dart';
+import '../widgets/expandable_player.dart';
 import 'new_home_screen.dart';
 import 'new_library_screen.dart';
 import 'search_screen.dart';
@@ -49,14 +49,9 @@ class _HomeScreenState extends State<HomeScreen> {
               SearchScreen(key: _searchScreenKey),
             if (_selectedIndex == 3)
               const SettingsScreen(),
-            // Floating mini player - positioned above bottom nav, hidden on settings
+            // Expandable player - positioned above bottom nav, hidden on settings
             if (_selectedIndex != 3)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: const MiniPlayer(),
-              ),
+              const ExpandablePlayer(),
           ],
         ),
         bottomNavigationBar: Container(
