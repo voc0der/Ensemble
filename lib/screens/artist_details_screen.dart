@@ -205,10 +205,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
           ],
         ),
       ),
-      body: Stack(
-        children: [
-          CustomScrollView(
-            slivers: [
+      body: CustomScrollView(
+        slivers: [
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,

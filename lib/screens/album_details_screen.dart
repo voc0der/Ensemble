@@ -377,10 +377,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
           ],
         ),
       ),
-      body: Stack(
-        children: [
-          CustomScrollView(
-            slivers: [
+      body: CustomScrollView(
+        slivers: [
           SliverAppBar(
             expandedHeight: 350, // Increased height for bigger art
             pinned: true,
