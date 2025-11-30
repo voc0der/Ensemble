@@ -36,7 +36,11 @@ class MusicAssistantProvider with ChangeNotifier {
   // Local Playback - always enabled
   bool _isLocalPlayerPowered = true; // Track local player power state
   StreamSubscription? _localPlayerEventSubscription;
+  StreamSubscription? _playerUpdatedEventSubscription;
   Timer? _localPlayerStateReportTimer;
+
+  // Pending metadata from player_updated events (for notification display)
+  TrackMetadata? _pendingTrackMetadata;
 
   // Player list caching
   DateTime? _playersLastFetched;
@@ -261,6 +265,10 @@ class MusicAssistantProvider with ChangeNotifier {
       _localPlayerEventSubscription?.cancel();
       _localPlayerEventSubscription = _api!.builtinPlayerEvents.listen(_handleLocalPlayerEvent);
 
+      // Listen to player_updated events to capture track metadata for notifications
+      _playerUpdatedEventSubscription?.cancel();
+      _playerUpdatedEventSubscription = _api!.playerUpdatedEvents.listen(_handlePlayerUpdatedEvent);
+
       await _api!.connect();
       notifyListeners();
     } catch (e) {
@@ -310,29 +318,43 @@ class MusicAssistantProvider with ChangeNotifier {
               _logger.log('🎵 Constructed URL: baseUrl=$baseUrl + path=$path = $fullUrl');
             }
 
-            // Extract track metadata from event for the notification
-            final trackName = event['track_name'] as String? ??
-                              event['name'] as String? ??
-                              'Unknown Track';
-            final artistName = event['artist_name'] as String? ??
-                               event['artist'] as String? ??
-                               'Unknown Artist';
-            final albumName = event['album_name'] as String? ??
-                              event['album'] as String?;
-            final artworkUrl = event['image_url'] as String? ??
-                               event['artwork_url'] as String?;
-            final durationSecs = event['duration'] as int?;
+            // Use pending metadata from player_updated event if available
+            // (player_updated events arrive before play_media and contain full track info)
+            TrackMetadata metadata;
+            if (_pendingTrackMetadata != null) {
+              metadata = _pendingTrackMetadata!;
+              _logger.log('🎵 Using metadata from player_updated: ${metadata.title} by ${metadata.artist}');
+            } else {
+              // Fallback: try to extract from play_media event (usually empty)
+              final trackName = event['track_name'] as String? ??
+                                event['name'] as String? ??
+                                'Unknown Track';
+              final artistName = event['artist_name'] as String? ??
+                                 event['artist'] as String? ??
+                                 'Unknown Artist';
+              final albumName = event['album_name'] as String? ??
+                                event['album'] as String?;
+              var artworkUrl = event['image_url'] as String? ??
+                                 event['artwork_url'] as String?;
+              final durationSecs = event['duration'] as int?;
 
-            _logger.log('🎵 Track metadata: $trackName by $artistName');
+              // Convert HTTP to HTTPS for artwork
+              if (artworkUrl != null && artworkUrl.startsWith('http://')) {
+                artworkUrl = artworkUrl.replaceFirst('http://', 'https://');
+              }
+
+              metadata = TrackMetadata(
+                title: trackName,
+                artist: artistName,
+                album: albumName,
+                artworkUrl: artworkUrl,
+                duration: durationSecs != null ? Duration(seconds: durationSecs) : null,
+              );
+              _logger.log('🎵 Using fallback metadata: ${metadata.title} by ${metadata.artist}');
+            }
 
             // Set metadata on the local player for notification
-            _localPlayer.setCurrentTrackMetadata(TrackMetadata(
-              title: trackName,
-              artist: artistName,
-              album: albumName,
-              artworkUrl: artworkUrl,
-              duration: durationSecs != null ? Duration(seconds: durationSecs) : null,
-            ));
+            _localPlayer.setCurrentTrackMetadata(metadata);
 
             await _localPlayer.playUrl(fullUrl);
           } else {
@@ -401,11 +423,56 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
+  /// Handle player_updated events to capture track metadata for notifications
+  Future<void> _handlePlayerUpdatedEvent(Map<String, dynamic> event) async {
+    try {
+      // Get our builtin player ID
+      final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
+      if (builtinPlayerId == null) return;
+
+      // Check if this update is for our player
+      final playerId = event['player_id'] as String?;
+      if (playerId != builtinPlayerId) return;
+
+      // Extract current_media metadata
+      final currentMedia = event['current_media'] as Map<String, dynamic>?;
+      if (currentMedia == null) {
+        _pendingTrackMetadata = null;
+        return;
+      }
+
+      final title = currentMedia['title'] as String? ?? 'Unknown Track';
+      final artist = currentMedia['artist'] as String? ?? 'Unknown Artist';
+      final album = currentMedia['album'] as String?;
+      var imageUrl = currentMedia['image_url'] as String?;
+      final durationSecs = currentMedia['duration'] as int?;
+
+      // Convert HTTP image URLs to HTTPS to avoid mixed content issues
+      if (imageUrl != null && imageUrl.startsWith('http://')) {
+        imageUrl = imageUrl.replaceFirst('http://', 'https://');
+        _logger.log('📋 Converted image URL to HTTPS: $imageUrl');
+      }
+
+      _pendingTrackMetadata = TrackMetadata(
+        title: title,
+        artist: artist,
+        album: album,
+        artworkUrl: imageUrl,
+        duration: durationSecs != null ? Duration(seconds: durationSecs) : null,
+      );
+
+      _logger.log('📋 Captured track metadata from player_updated: $title by $artist (image: ${imageUrl ?? "none"})');
+    } catch (e) {
+      _logger.log('Error handling player_updated event: $e');
+    }
+  }
+
   Future<void> disconnect() async {
     _playerStateTimer?.cancel();
     _playerStateTimer = null;
     _localPlayerStateReportTimer?.cancel();
     _localPlayerEventSubscription?.cancel();
+    _playerUpdatedEventSubscription?.cancel();
     await _api?.disconnect();
     _connectionState = MAConnectionState.disconnected;
     _artists = [];
