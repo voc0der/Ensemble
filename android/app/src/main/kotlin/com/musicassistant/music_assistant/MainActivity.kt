@@ -1,6 +1,6 @@
 package com.musicassistant.music_assistant
 
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 
-class MainActivity: FlutterActivity() {
+class MainActivity: AudioServiceActivity() {
 }
