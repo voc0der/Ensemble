@@ -41,6 +41,8 @@ class MusicAssistantProvider with ChangeNotifier {
 
   // Pending metadata from player_updated events (for notification display)
   TrackMetadata? _pendingTrackMetadata;
+  // Metadata that is currently shown in the notification (to detect when update needed)
+  TrackMetadata? _currentNotificationMetadata;
 
   // Player list caching
   DateTime? _playersLastFetched;
@@ -355,6 +357,8 @@ class MusicAssistantProvider with ChangeNotifier {
 
             // Set metadata on the local player for notification
             _localPlayer.setCurrentTrackMetadata(metadata);
+            // Track what metadata we're using for the notification
+            _currentNotificationMetadata = metadata;
 
             await _localPlayer.playUrl(fullUrl);
           } else {
@@ -494,19 +498,19 @@ class MusicAssistantProvider with ChangeNotifier {
         return;
       }
 
-      // Check if this is actually new metadata (different from what we already have)
-      final isNewMetadata = _pendingTrackMetadata == null ||
-          _pendingTrackMetadata!.title != title ||
-          _pendingTrackMetadata!.artist != artist;
-
       _pendingTrackMetadata = newMetadata;
       _logger.log('📋 Captured track metadata from player_updated: $title by $artist (image: ${imageUrl ?? "none"})');
 
-      // If player is already playing AND this is NEW metadata (not just a position update),
-      // update the notification with the correct metadata
-      if (_localPlayer.isPlaying && isNewMetadata) {
-        _logger.log('📋 Player already playing with different track - updating notification');
+      // Check if the notification has wrong/stale metadata that needs updating
+      // This handles the race condition where play_media uses old pending metadata
+      final notificationNeedsUpdate = _currentNotificationMetadata != null &&
+          (_currentNotificationMetadata!.title != title ||
+           _currentNotificationMetadata!.artist != artist);
+
+      if (_localPlayer.isPlaying && notificationNeedsUpdate) {
+        _logger.log('📋 Notification has stale metadata (${_currentNotificationMetadata!.title}) - updating to: $title by $artist');
         await _localPlayer.updateNotificationWhilePlaying(newMetadata);
+        _currentNotificationMetadata = newMetadata;
       }
     } catch (e) {
       _logger.log('Error handling player_updated event: $e');
