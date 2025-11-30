@@ -437,7 +437,9 @@ class MusicAssistantProvider with ChangeNotifier {
       // Extract current_media metadata
       final currentMedia = event['current_media'] as Map<String, dynamic>?;
       if (currentMedia == null) {
-        _pendingTrackMetadata = null;
+        // Don't clear pending metadata when current_media is null
+        // This happens during stop/transition and we want to keep the last known metadata
+        // until new metadata arrives
         return;
       }
 
