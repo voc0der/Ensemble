@@ -1,82 +1,69 @@
 import 'dart:async';
-import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
-import 'settings_service.dart';
 import 'debug_logger.dart';
 import 'auth/auth_manager.dart';
+import 'audio_handler.dart';
+import '../main.dart' show audioHandler;
+
+/// Metadata for the currently playing track
+class TrackMetadata {
+  final String title;
+  final String artist;
+  final String? album;
+  final String? artworkUrl;
+  final Duration? duration;
+
+  TrackMetadata({
+    required this.title,
+    required this.artist,
+    this.album,
+    this.artworkUrl,
+    this.duration,
+  });
+}
 
 class LocalPlayerService {
   final AuthManager authManager;
-  final _player = AudioPlayer();
   final _logger = DebugLogger();
   bool _isInitialized = false;
 
+  // Current track metadata for notifications
+  TrackMetadata? _currentMetadata;
+
   LocalPlayerService(this.authManager);
 
-  // Expose player state streams
-  Stream<PlayerState> get playerStateStream => _player.playerStateStream;
-  Stream<Duration> get positionStream => _player.positionStream;
-  Stream<Duration?> get durationStream => _player.durationStream;
-  
+  // Expose player state streams from the audio handler
+  Stream<PlayerState> get playerStateStream => audioHandler.playerStateStream;
+  Stream<Duration> get positionStream => audioHandler.positionStream;
+  Stream<Duration?> get durationStream => audioHandler.durationStream;
+
   // Current state getters
-  bool get isPlaying => _player.playing;
-  double get volume => _player.volume;
-  PlayerState get playerState => _player.playerState;
-  Duration get position => _player.position;
-  Duration get duration => _player.duration ?? Duration.zero;
+  bool get isPlaying => audioHandler.isPlaying;
+  double get volume => audioHandler.volume;
+  PlayerState get playerState => audioHandler.playerState;
+  Duration get position => audioHandler.position;
+  Duration get duration => audioHandler.duration;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
 
     try {
-      final session = await AudioSession.instance;
-      await session.configure(const AudioSessionConfiguration.music());
-      
-      // Default to 100% volume
-      await _player.setVolume(1.0);
-      
-      // Log playback errors
-      _player.playerStateStream.listen((state) {
-        if (state.processingState == ProcessingState.completed) {
-          _logger.log('LocalPlayerService: Playback completed');
-        }
-      });
-      
-      _player.playbackEventStream.listen((event) {}, onError: (Object e, StackTrace stackTrace) {
-        _logger.log('LocalPlayerService: Playback error: $e');
-      });
-      
-      // Handle audio interruptions (e.g. phone calls)
-      session.interruptionEventStream.listen((event) {
-        if (event.begin) {
-          switch (event.type) {
-            case AudioInterruptionType.duck:
-              _player.setVolume(0.5);
-              break;
-            case AudioInterruptionType.pause:
-            case AudioInterruptionType.unknown:
-              _player.pause();
-              break;
-          }
-        } else {
-          switch (event.type) {
-            case AudioInterruptionType.duck:
-              _player.setVolume(1.0);
-              break;
-            case AudioInterruptionType.pause:
-              _player.play();
-              break;
-            case AudioInterruptionType.unknown:
-              break;
-          }
-        }
-      });
+      // Set auth headers on the audio handler
+      final headers = authManager.getStreamingHeaders();
+      if (headers.isNotEmpty) {
+        audioHandler.setAuthHeaders(headers);
+      }
 
       _isInitialized = true;
-      _logger.log('LocalPlayerService initialized');
+      _logger.log('LocalPlayerService initialized with AudioHandler');
     } catch (e) {
       _logger.log('Error initializing LocalPlayerService: $e');
     }
+  }
+
+  /// Set metadata for the current track (for notification display)
+  void setCurrentTrackMetadata(TrackMetadata metadata) {
+    _currentMetadata = metadata;
   }
 
   /// Play a stream URL with authentication headers
@@ -93,43 +80,63 @@ class LocalPlayerService {
         _logger.log('LocalPlayerService: No authentication needed for streaming');
       }
 
-      // Create audio source with headers
-      final source = AudioSource.uri(
-        Uri.parse(url),
+      // Play via audio handler with metadata for notification
+      await audioHandler.playUrl(
+        url,
+        title: _currentMetadata?.title ?? 'Unknown Track',
+        artist: _currentMetadata?.artist ?? 'Unknown Artist',
+        album: _currentMetadata?.album,
+        artworkUrl: _currentMetadata?.artworkUrl,
+        duration: _currentMetadata?.duration,
         headers: headers.isNotEmpty ? headers : null,
-        tag: 'Music Assistant Stream',
       );
-
-      await _player.setAudioSource(source);
-      await _player.play();
     } catch (e) {
       _logger.log('LocalPlayerService: Error playing URL: $e');
       rethrow;
     }
   }
 
+  /// Update the notification with new track info (without reloading audio)
+  void updateNotification({
+    required String id,
+    required String title,
+    String? artist,
+    String? album,
+    String? artworkUrl,
+    Duration? duration,
+  }) {
+    audioHandler.updateMediaItem(
+      id: id,
+      title: title,
+      artist: artist,
+      album: album,
+      artworkUrl: artworkUrl,
+      duration: duration,
+    );
+  }
+
   Future<void> play() async {
-    await _player.play();
+    await audioHandler.play();
   }
 
   Future<void> pause() async {
-    await _player.pause();
+    await audioHandler.pause();
   }
 
   Future<void> stop() async {
-    await _player.stop();
+    await audioHandler.stop();
   }
 
   Future<void> seek(Duration position) async {
-    await _player.seek(position);
+    await audioHandler.seek(position);
   }
 
   /// Set volume (0.0 to 1.0)
   Future<void> setVolume(double volume) async {
-    await _player.setVolume(volume.clamp(0.0, 1.0));
+    await audioHandler.setVolume(volume);
   }
 
   void dispose() {
-    _player.dispose();
+    // Audio handler is managed globally, don't dispose here
   }
 }

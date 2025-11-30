@@ -5,13 +5,20 @@ import 'providers/music_assistant_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/settings_service.dart';
+import 'services/audio_handler.dart';
 import 'theme/theme_provider.dart';
 import 'theme/app_theme.dart';
 import 'theme/system_theme_helper.dart';
 import 'widgets/global_player_overlay.dart';
 
-void main() {
+/// Global audio handler instance for background playback
+late MassivAudioHandler audioHandler;
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize audio service for background playback and notifications
+  audioHandler = await initAudioHandler();
 
   // Set preferred orientations
   SystemChrome.setPreferredOrientations([

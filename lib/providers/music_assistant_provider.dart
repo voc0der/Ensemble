@@ -10,6 +10,7 @@ import '../services/debug_logger.dart';
 import '../services/error_handler.dart';
 import '../services/local_player_service.dart';
 import '../services/auth/auth_manager.dart';
+import '../main.dart' show audioHandler;
 
 class MusicAssistantProvider with ChangeNotifier {
   MusicAssistantAPI? _api;
@@ -124,6 +125,19 @@ class MusicAssistantProvider with ChangeNotifier {
   Future<void> _initializeLocalPlayback() async {
     await _localPlayer.initialize();
     _isLocalPlayerPowered = true; // Default to powered on when enabling local playback
+
+    // Wire up notification button callbacks to Music Assistant commands
+    audioHandler.onSkipToNext = () async {
+      if (_selectedPlayer != null) {
+        await nextTrack(_selectedPlayer!.playerId);
+      }
+    };
+    audioHandler.onSkipToPrevious = () async {
+      if (_selectedPlayer != null) {
+        await previousTrack(_selectedPlayer!.playerId);
+      }
+    };
+
     if (isConnected) {
       await _registerLocalPlayer();
     }
@@ -305,6 +319,30 @@ class MusicAssistantProvider with ChangeNotifier {
               fullUrl = '$baseUrl$path';
               _logger.log('🎵 Constructed URL: baseUrl=$baseUrl + path=$path = $fullUrl');
             }
+
+            // Extract track metadata from event for the notification
+            final trackName = event['track_name'] as String? ??
+                              event['name'] as String? ??
+                              'Unknown Track';
+            final artistName = event['artist_name'] as String? ??
+                               event['artist'] as String? ??
+                               'Unknown Artist';
+            final albumName = event['album_name'] as String? ??
+                              event['album'] as String?;
+            final artworkUrl = event['image_url'] as String? ??
+                               event['artwork_url'] as String?;
+            final durationSecs = event['duration'] as int?;
+
+            _logger.log('🎵 Track metadata: $trackName by $artistName');
+
+            // Set metadata on the local player for notification
+            _localPlayer.setCurrentTrackMetadata(TrackMetadata(
+              title: trackName,
+              artist: artistName,
+              album: albumName,
+              artworkUrl: artworkUrl,
+              duration: durationSecs != null ? Duration(seconds: durationSecs) : null,
+            ));
 
             await _localPlayer.playUrl(fullUrl);
           } else {
@@ -924,6 +962,21 @@ class MusicAssistantProvider with ChangeNotifier {
             _currentTrack!.name != queue.currentItem!.track.name) {
           _currentTrack = queue.currentItem!.track;
           stateChanged = true;
+
+          // Update notification with new track info (only for local player)
+          final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
+          if (builtinPlayerId != null && _selectedPlayer!.playerId == builtinPlayerId) {
+            final track = _currentTrack!;
+            final artworkUrl = _api?.getImageUrl(track, size: 512);
+            _localPlayer.updateNotification(
+              id: track.uri ?? track.itemId,
+              title: track.name,
+              artist: track.artistsString,
+              album: track.album?.name,
+              artworkUrl: artworkUrl,
+              duration: track.duration,
+            );
+          }
         }
       } else {
         if (_currentTrack != null) {
