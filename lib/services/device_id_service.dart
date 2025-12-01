@@ -19,30 +19,29 @@ class DeviceIdService {
   static Future<String> getOrCreateDevicePlayerId() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Check for new UUID-based ID
+    // Check for new UUID-based ID first
     final existingId = prefs.getString(_keyLocalPlayerId);
     if (existingId != null && existingId.startsWith('ensemble_')) {
       _logger.log('Using existing installation UUID: $existingId');
       return existingId;
     }
 
-    // Check for legacy IDs and migrate
-    final legacyDeviceId = prefs.getString(_legacyKeyDevicePlayerId);
+    // Check for existing builtin_player_id (may exist without local_player_id)
     final legacyBuiltinId = prefs.getString(_legacyKeyBuiltinPlayerId);
-
-    if (legacyDeviceId != null || legacyBuiltinId != null) {
-      _logger.log('Migrating from legacy ID (device: $legacyDeviceId, builtin: $legacyBuiltinId)');
-      // Don't try to clean up old player from server - just generate new ID
+    if (legacyBuiltinId != null && legacyBuiltinId.startsWith('ensemble_')) {
+      _logger.log('Found existing builtin_player_id, reusing: $legacyBuiltinId');
+      // Store to local_player_id for future lookups
+      await prefs.setString(_keyLocalPlayerId, legacyBuiltinId);
+      return legacyBuiltinId;
     }
 
-    // Generate new UUID-based ID
+    // Only generate new ID if we truly have nothing
+    _logger.log('No existing player ID found, generating new one');
     final uuid = _uuid.v4();
     final playerId = 'ensemble_$uuid';
 
-    // Store it permanently
+    // Store it permanently in both locations
     await prefs.setString(_keyLocalPlayerId, playerId);
-
-    // Update builtin_player_id for compatibility with existing code
     await prefs.setString(_legacyKeyBuiltinPlayerId, playerId);
 
     _logger.log('Generated new installation UUID: $playerId');

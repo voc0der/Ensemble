@@ -1436,52 +1436,44 @@ class MusicAssistantAPI {
     }
   }
 
-  /// Remove a player from Music Assistant (permanently deletes from storage)
-  /// Uses config/players/remove which actually removes the persistent config
+  /// Remove a player from Music Assistant
+  /// Note: builtin_player players don't have persistent configs - they only exist
+  /// in memory while connected. We can unregister them but they'll reappear if
+  /// a client reconnects with the same ID.
   Future<void> removePlayer(String playerId) async {
-    _logger.log('🗑️ Attempting to remove player: $playerId');
+    _logger.log('🗑️ Removing player: $playerId');
 
-    // Step 1: Unregister builtin player first (if applicable)
+    bool removed = false;
+
+    // For builtin players, unregister them
     if (playerId.startsWith('ensemble_') || playerId.startsWith('ma_')) {
       try {
-        _logger.log('   Step 1: builtin_player/unregister');
         await _sendCommand(
           'builtin_player/unregister',
           args: {'player_id': playerId},
         );
-        _logger.log('✅ Player unregistered');
+        _logger.log('✅ Builtin player unregistered');
+        removed = true;
       } catch (e) {
-        _logger.log('⚠️ builtin_player/unregister failed (may already be unregistered): $e');
+        _logger.log('⚠️ builtin_player/unregister failed: $e');
       }
     }
 
-    // Step 2: Remove from player manager
+    // Also try players/remove which works for all player types
     try {
-      _logger.log('   Step 2: players/remove');
       await _sendCommand(
         'players/remove',
         args: {'player_id': playerId},
       );
       _logger.log('✅ Player removed from manager');
+      removed = true;
     } catch (e) {
       _logger.log('⚠️ players/remove failed: $e');
     }
 
-    // Step 3: Remove the persistent config (this is the key step!)
-    try {
-      _logger.log('   Step 3: config/players/remove (permanent deletion)');
-      await _sendCommand(
-        'config/players/remove',
-        args: {'player_id': playerId},
-      );
-      _logger.log('✅ Player config permanently removed');
-      return;
-    } catch (e) {
-      _logger.log('⚠️ config/players/remove failed: $e');
+    if (!removed) {
+      throw Exception('Failed to remove player $playerId');
     }
-
-    _logger.log('❌ Could not permanently remove player: $playerId');
-    throw Exception('Failed to permanently remove player $playerId');
   }
 
   // ============================================================================
