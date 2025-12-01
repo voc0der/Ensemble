@@ -1492,53 +1492,40 @@ class MusicAssistantAPI {
       final currentPlayerId = await SettingsService.getBuiltinPlayerId();
       _logger.log('🧹 Current player ID: $currentPlayerId');
 
-      // Get all player configs (includes orphaned entries)
-      final configs = await getPlayerConfigs();
-      _logger.log('🧹 Found ${configs.length} total player configs');
+      // Get players from the player list (has runtime available state)
+      final allPlayers = await getPlayers();
+      _logger.log('🧹 Found ${allPlayers.length} total players');
 
-      // Find ghost candidates - builtin_player or ensemble_ players that aren't our current player
+      // Find ghost candidates - ensemble_ players that aren't our current player
       // and are unavailable
-      final ghostConfigs = configs.where((config) {
-        final playerId = config['player_id'] as String?;
-        final provider = config['provider'] as String?;
-        final available = config['available'] as bool? ?? false;
-
-        if (playerId == null) return false;
+      final ghostPlayers = allPlayers.where((player) {
+        final playerId = player.playerId;
 
         // Skip if this is our current player
         if (playerId == currentPlayerId) return false;
 
-        // Target ensemble_ prefixed players (our app's players) that are unavailable
-        final isEnsemblePlayer = playerId.startsWith('ensemble_');
-
-        // Also target builtin_player provider
-        final isBuiltinPlayer = provider == 'builtin_player';
-
-        // Must be one of our player types
-        if (!isEnsemblePlayer && !isBuiltinPlayer) return false;
+        // Target ensemble_ prefixed players (our app's players)
+        if (!playerId.startsWith('ensemble_')) return false;
 
         // Only remove if unavailable (ghost/orphaned)
-        return !available;
+        return !player.available;
       }).toList();
 
-      if (ghostConfigs.isEmpty) {
-        _logger.log('✅ No ghost player configs found');
+      if (ghostPlayers.isEmpty) {
+        _logger.log('✅ No ghost players found');
         return (0, 0);
       }
 
-      _logger.log('🗑️ Found ${ghostConfigs.length} ghost config(s) to remove:');
-      for (final config in ghostConfigs) {
-        _logger.log('   - ${config['default_name'] ?? config['name']} (${config['player_id']})');
+      _logger.log('🗑️ Found ${ghostPlayers.length} ghost player(s) to remove:');
+      for (final player in ghostPlayers) {
+        _logger.log('   - ${player.displayName} (${player.playerId})');
       }
 
       int removedCount = 0;
       int failedCount = 0;
 
-      for (final config in ghostConfigs) {
-        final playerId = config['player_id'] as String?;
-        if (playerId == null) continue;
-
-        if (await removePlayerConfig(playerId)) {
+      for (final player in ghostPlayers) {
+        if (await removePlayerConfig(player.playerId)) {
           removedCount++;
         } else {
           failedCount++;
