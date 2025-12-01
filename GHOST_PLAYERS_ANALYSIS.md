@@ -176,11 +176,66 @@ If multiple ghosts match, `ensemble_` prefixed IDs are preferred (most recent ap
 
 ---
 
-## Why Ghost Players Can't Be Deleted
+## How to Delete Ghost Players
 
-### Key Finding: Builtin Players Have No Persistent Config
+### Understanding MA's Storage
 
-Music Assistant's `builtin_player` provider is **session-based**. Players only exist in memory while connected - they have no persistent configuration file.
+Ghost players exist in **two places**:
+
+1. **In-memory** (runtime) - Players that have registered but aren't persisted
+2. **settings.json** - Players that have been saved to config
+
+The API methods (`players/remove`, `builtin_player/unregister`, `config/players/remove`) only affect the runtime state, not the persisted config. This is why ghosts kept reappearing.
+
+### The Permanent Solution: Direct File Editing + Restart
+
+To permanently delete ghost players:
+
+1. **Stop or access the MA container**:
+   ```bash
+   docker exec musicassistant cat /data/settings.json | jq '.players | keys[]'
+   ```
+
+2. **Identify ghost entries** (look for `ensemble_`, `massiv_`, `ma_` prefixes)
+
+3. **Edit settings.json to remove ghost entries**:
+   ```bash
+   # Backup first!
+   cp /path/to/data/settings.json /path/to/data/settings.json.backup
+
+   # Remove specific ghost players using jq
+   cat settings.json | jq 'del(.players["ensemble_xxx"])' > settings_cleaned.json
+   mv settings_cleaned.json settings.json
+   ```
+
+4. **Restart MA to clear in-memory ghosts**:
+   ```bash
+   docker restart musicassistant
+   ```
+
+### File Locations
+
+| Location | Path |
+|----------|------|
+| Container internal | `/data/settings.json` |
+| Host mount (typical) | `/home/home-server/docker/music-assistant/data/settings.json` |
+
+### What Gets Stored in settings.json
+
+Only players that MA has "seen" and saved config for. Example entry:
+```json
+"ensemble_4be5077a-2a21-42c3-9d06-2eaf48ae8ca7": {
+  "values": {},
+  "provider": "builtin_player",
+  "player_id": "ensemble_4be5077a-2a21-42c3-9d06-2eaf48ae8ca7",
+  "enabled": true,
+  "name": null,
+  "available": true,
+  "default_name": "Kat's Phone"
+}
+```
+
+### Why API Methods Don't Work
 
 **API Behavior**:
 - `players/remove` - Removes from runtime player manager, but player reappears if client reconnects
@@ -190,14 +245,14 @@ Music Assistant's `builtin_player` provider is **session-based**. Players only e
 **From MA Documentation**:
 > "Deleted players which become or are still available will get rediscovered and will return to the list on MA restart or player provider reload."
 
-### Cleanup Attempts That Don't Work Permanently
+### Previous Cleanup Attempts That Failed
 
-We tried multiple approaches:
+We tried multiple API approaches:
 1. `players/remove` - Server returns success but players persist
 2. `builtin_player/unregister` - Only disconnects, doesn't delete
 3. `config/players/remove` - Fails because no config exists for builtin players
 
-**Conclusion**: Ghost players from `builtin_player` provider can only be "unregistered" temporarily. The only permanent solution is **not creating new ghosts in the first place**.
+**Conclusion**: The only way to permanently delete ghosts is to edit `settings.json` directly and restart MA.
 
 ---
 
@@ -244,18 +299,18 @@ Both `local_player_id` and `builtin_player_id` should contain the same value aft
 - ✅ Connection guard prevents duplicate ID generation from concurrent connects
 - ✅ Unavailable ghost players are hidden from the player selector UI
 - ✅ Cross-device playback isolation (events filtered by player_id)
-- ✅ Ghost adoption on reinstall (adopts existing ghost instead of creating new)
+- ✅ Ghost adoption on reinstall (adopts existing ghost instead of creating new) - **VERIFIED 2025-12-01**
+- ✅ Permanent ghost deletion via settings.json editing + restart - **VERIFIED 2025-12-01**
 
-### What's Not Possible
-- ❌ Permanently deleting existing ghost players from MA server (by design)
-- ❌ Config-level removal (builtin players have no config)
+### What's Not Possible via API
+- ❌ Permanently deleting ghost players via MA API (by design)
+- ❌ Config-level removal via API (builtin players return "no config exists")
 
 ### Existing Ghosts
-Old ghost players will remain on the MA server but:
-- They're hidden from the app's player selector (filtered by `available` status)
-- They may disappear after MA server restart
-- They don't affect functionality
-- On reinstall, one ghost will be "adopted" and revived
+Old ghost players can be cleaned up by:
+1. Editing `/data/settings.json` to remove ghost entries
+2. Restarting the MA container to clear in-memory ghosts
+3. On reinstall, one ghost will be "adopted" and revived (preventing new ghost creation)
 
 ---
 
@@ -268,19 +323,25 @@ Old ghost players will remain on the MA server but:
 - [ ] Check logs for "Using existing" vs "Generated new" messages
 - [ ] Player list shows only available players (ghosts hidden)
 
-### Ghost Adoption (Reinstall Test)
-- [ ] Note current player count before reinstall
-- [ ] Uninstall app completely
-- [ ] Reinstall and connect with same owner name
-- [ ] Check logs for "Found matching ghost" and "Adopting ghost player ID"
-- [ ] Verify NO new ghost player was created (same player count)
-- [ ] Verify the adopted ghost is now available
+### Ghost Adoption (Reinstall Test) - **VERIFIED 2025-12-01**
+- [x] Note current player count before reinstall (was 12 "Chris' Phone" entries)
+- [x] Uninstall app completely
+- [x] Reinstall and connect with same owner name ("Chris")
+- [x] Check logs for "Found matching ghost" and "Adopting ghost player ID"
+- [x] Verify NO new ghost player was created (still 12 entries, one adopted/revived)
+- [x] Verify the adopted ghost is now available
 
-### Cross-Device Isolation
-- [ ] Install on two phones with different owner names
-- [ ] Play on Phone A
-- [ ] Verify Phone B does NOT start playing
-- [ ] Check Phone B logs for "🚫 Ignoring event for different player"
+### Cross-Device Isolation - **VERIFIED 2025-12-01**
+- [x] Install on two phones with different owner names (Chris, Kat)
+- [x] Play on Phone A
+- [x] Verify Phone B does NOT start playing
+- [x] Check Phone B logs for "🚫 Ignoring event for different player"
+
+### Ghost Deletion (Server-Side Cleanup) - **VERIFIED 2025-12-01**
+- [x] Backup settings.json before editing
+- [x] Use jq to remove ghost entries from settings.json
+- [x] Restart MA container
+- [x] Verify ghosts are gone from player list
 
 ---
 

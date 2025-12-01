@@ -1261,134 +1261,62 @@ class MusicAssistantAPI {
     }
   }
 
-  /// Clean up unavailable ghost players from old app installations
-  /// Tries players/remove first (permanent deletion), then builtin_player/unregister as fallback
-  Future<void> cleanupUnavailableBuiltinPlayers() async {
+  /// Clean up unavailable ghost players
+  /// Set `allUnavailable` to true to remove ALL unavailable players (user-triggered)
+  /// Set `allUnavailable` to false to only remove app-specific ghosts (auto-cleanup)
+  /// Returns (removedCount, failedCount)
+  Future<(int, int)> cleanupGhostPlayers({bool allUnavailable = false}) async {
     try {
-      _logger.log('🧹 Starting auto-cleanup of ghost players...');
+      final mode = allUnavailable ? 'ALL unavailable' : 'app ghost';
+      _logger.log('🧹 Starting cleanup of $mode players...');
 
-      // Get all players from the server
       final allPlayers = await getPlayers();
-
-      // Get current builtin player ID to avoid deleting ourselves
       final currentPlayerId = await SettingsService.getBuiltinPlayerId();
 
-      _logger.log('🧹 Current player ID: $currentPlayerId');
-      _logger.log('🧹 Total players from server: ${allPlayers.length}');
+      // Filter players based on mode
+      final playersToRemove = allPlayers.where((player) {
+        // Never remove our current player or available players
+        if (player.playerId == currentPlayerId || player.available) return false;
 
-      // Find ghost players - unavailable players that look like they came from our app
-      // Detection by ID pattern: ensemble_*, massiv_*, ma_* (MA's builtin), or UUID format
-      final ghostPlayers = allPlayers.where((player) {
-        final playerId = player.playerId.toLowerCase();
-
-        // Check if this looks like a builtin player from our app or MA's builtin provider
-        final isAppPlayer = playerId.startsWith('ensemble_') ||
-                           playerId.startsWith('massiv_') ||
-                           playerId.startsWith('ma_') ||
-                           player.provider == 'builtin_player';
-
-        // Also catch by name patterns
-        final nameLower = player.name.toLowerCase();
-        final isBuiltinByName = nameLower.contains('phone') ||
-                               nameLower.contains('this device') ||
-                               nameLower.contains('massiv') ||
-                               nameLower.contains('ensemble');
-
-        final isGhostCandidate = isAppPlayer || isBuiltinByName;
-        final isUnavailable = !player.available;
-        final isNotCurrentPlayer = player.playerId != currentPlayerId;
-
-        return isGhostCandidate && isUnavailable && isNotCurrentPlayer;
+        if (allUnavailable) {
+          // Remove all unavailable players
+          return true;
+        } else {
+          // Only remove app-specific ghosts (ensemble_*, massiv_*, ma_*)
+          final id = player.playerId.toLowerCase();
+          return id.startsWith('ensemble_') ||
+                 id.startsWith('massiv_') ||
+                 id.startsWith('ma_');
+        }
       }).toList();
 
-      if (ghostPlayers.isEmpty) {
-        _logger.log('✅ No ghost players found');
-        return;
+      if (playersToRemove.isEmpty) {
+        _logger.log('✅ No players to clean up');
+        return (0, 0);
       }
 
-      _logger.log('🗑️ Found ${ghostPlayers.length} ghost player(s) to clean up:');
-      for (final player in ghostPlayers) {
-        _logger.log('   - ${player.name} (${player.playerId}) provider=${player.provider}');
-      }
+      _logger.log('🗑️ Found ${playersToRemove.length} player(s) to remove');
 
-      // Try to remove each ghost player using multiple methods
-      int cleanedCount = 0;
-      for (final player in ghostPlayers) {
-        bool removed = false;
+      int removedCount = 0;
+      int failedCount = 0;
 
-        // Method 1: Try players/remove (supposedly permanent deletion)
+      for (final player in playersToRemove) {
         try {
-          _logger.log('🗑️ Trying players/remove for ${player.name}...');
-          await removePlayer(player.playerId);
-          removed = true;
-          _logger.log('✅ Removed via players/remove: ${player.name}');
+          await _sendCommand('players/remove', args: {'player_id': player.playerId});
+          _logger.log('✅ Removed: ${player.name}');
+          removedCount++;
         } catch (e) {
-          _logger.log('⚠️ players/remove failed for ${player.name}: $e');
+          _logger.log('⚠️ Failed to remove ${player.name}: $e');
+          failedCount++;
         }
-
-        // Method 2: If players/remove failed, try builtin_player/unregister
-        if (!removed) {
-          try {
-            _logger.log('🗑️ Trying builtin_player/unregister for ${player.name}...');
-            await unregisterBuiltinPlayer(player.playerId);
-            removed = true;
-            _logger.log('✅ Unregistered via builtin_player/unregister: ${player.name}');
-          } catch (e) {
-            _logger.log('⚠️ builtin_player/unregister also failed for ${player.name}: $e');
-          }
-        }
-
-        if (removed) cleanedCount++;
       }
 
-      _logger.log('✅ Auto-cleanup complete - cleaned $cleanedCount/${ghostPlayers.length} ghost player(s)');
+      _logger.log('✅ Cleanup complete - removed $removedCount, failed $failedCount');
+      return (removedCount, failedCount);
     } catch (e) {
-      _logger.log('❌ Error during ghost player cleanup: $e');
-      // Don't rethrow - cleanup should be non-fatal
-    }
-  }
-
-  /// Purge ALL unavailable players (user-triggered, more aggressive than auto-cleanup)
-  /// Returns (removedCount, failedCount)
-  Future<(int, int)> purgeAllUnavailablePlayers() async {
-    _logger.log('🧹 Starting purge of ALL unavailable players...');
-
-    final allPlayers = await getPlayers();
-    final currentPlayerId = await SettingsService.getBuiltinPlayerId();
-
-    // Find all unavailable players (not just builtin ones)
-    final unavailablePlayers = allPlayers.where((player) {
-      final isUnavailable = !player.available;
-      final isNotCurrentPlayer = player.playerId != currentPlayerId;
-      return isUnavailable && isNotCurrentPlayer;
-    }).toList();
-
-    if (unavailablePlayers.isEmpty) {
-      _logger.log('✅ No unavailable players found');
+      _logger.log('❌ Error during cleanup: $e');
       return (0, 0);
     }
-
-    _logger.log('🗑️ Found ${unavailablePlayers.length} unavailable player(s) to remove');
-
-    int removedCount = 0;
-    int failedCount = 0;
-
-    for (final player in unavailablePlayers) {
-      try {
-        _logger.log('   Removing: ${player.name} (${player.playerId}) via players/remove');
-        // Use players/remove for ALL player types - this actually deletes from storage
-        // Note: builtin_player/unregister only disconnects but doesn't delete
-        await removePlayer(player.playerId);
-        removedCount++;
-        _logger.log('✅ Removed: ${player.name}');
-      } catch (e) {
-        failedCount++;
-        _logger.log('⚠️ Failed to remove ${player.name}: $e');
-      }
-    }
-
-    _logger.log('✅ Purge complete - removed $removedCount, failed $failedCount');
-    return (removedCount, failedCount);
   }
 
   /// Find an unavailable ghost player that matches the owner name pattern
@@ -1443,154 +1371,6 @@ class MusicAssistantAPI {
     } catch (e) {
       _logger.log('❌ Error finding adoptable ghost player: $e');
       return null;
-    }
-  }
-
-  /// Remove a player from Music Assistant
-  /// Note: builtin_player players don't have persistent configs - they only exist
-  /// in memory while connected. We can unregister them but they'll reappear if
-  /// a client reconnects with the same ID.
-  Future<void> removePlayer(String playerId) async {
-    _logger.log('🗑️ Removing player: $playerId');
-
-    bool removed = false;
-
-    // For builtin players, unregister them
-    if (playerId.startsWith('ensemble_') || playerId.startsWith('ma_')) {
-      try {
-        await _sendCommand(
-          'builtin_player/unregister',
-          args: {'player_id': playerId},
-        );
-        _logger.log('✅ Builtin player unregistered');
-        removed = true;
-      } catch (e) {
-        _logger.log('⚠️ builtin_player/unregister failed: $e');
-      }
-    }
-
-    // Also try players/remove which works for all player types
-    try {
-      await _sendCommand(
-        'players/remove',
-        args: {'player_id': playerId},
-      );
-      _logger.log('✅ Player removed from manager');
-      removed = true;
-    } catch (e) {
-      _logger.log('⚠️ players/remove failed: $e');
-    }
-
-    if (!removed) {
-      throw Exception('Failed to remove player $playerId');
-    }
-  }
-
-  // ============================================================================
-  // PLAYER CONFIG API (for ghost cleanup)
-  // ============================================================================
-
-  /// Get all player configs directly from MA's config storage
-  /// This includes configs for players that may not be currently registered/available
-  /// Returns raw config data - useful for finding orphaned/corrupted entries
-  Future<List<Map<String, dynamic>>> getPlayerConfigs() async {
-    try {
-      _logger.log('📋 Getting all player configs from config API...');
-      final result = await _sendCommand('config/players');
-
-      if (result is List) {
-        final configs = (result as List<dynamic>)
-            .whereType<Map<String, dynamic>>()
-            .toList();
-        _logger.log('📋 Got ${configs.length} player configs');
-        return configs;
-      }
-
-      _logger.log('⚠️ Unexpected config/players response type: ${result.runtimeType}');
-      return [];
-    } catch (e) {
-      _logger.log('❌ Error getting player configs: $e');
-      return [];
-    }
-  }
-
-  /// Remove a player config directly from MA's config storage
-  /// This is more powerful than players/remove - it removes the config entry
-  /// even if the player is not currently registered
-  Future<bool> removePlayerConfig(String playerId) async {
-    try {
-      _logger.log('🗑️ Removing player config via config/players/remove: $playerId');
-      await _sendCommand(
-        'config/players/remove',
-        args: {'player_id': playerId},
-      );
-      _logger.log('✅ Player config removed successfully');
-      return true;
-    } catch (e) {
-      _logger.log('❌ Error removing player config: $e');
-      return false;
-    }
-  }
-
-  /// Deep cleanup of ghost players using the config API
-  /// This method removes player configs directly, which works even for
-  /// corrupted or orphaned entries that the regular players/remove can't handle
-  Future<(int, int)> deepCleanupGhostPlayers() async {
-    try {
-      _logger.log('🧹 Starting DEEP cleanup of ghost players via config API...');
-
-      // Get current player ID to avoid deleting ourselves
-      final currentPlayerId = await SettingsService.getBuiltinPlayerId();
-      _logger.log('🧹 Current player ID: $currentPlayerId');
-
-      // Get players from the player list (has runtime available state)
-      final allPlayers = await getPlayers();
-      _logger.log('🧹 Found ${allPlayers.length} total players');
-
-      // Find ghost candidates - ensemble_ players that aren't our current player
-      // and are unavailable
-      final ghostPlayers = allPlayers.where((player) {
-        final playerId = player.playerId;
-
-        // Skip if this is our current player
-        if (playerId == currentPlayerId) return false;
-
-        // Target ensemble_ prefixed players (our app's players)
-        if (!playerId.startsWith('ensemble_')) return false;
-
-        // Only remove if unavailable (ghost/orphaned)
-        return !player.available;
-      }).toList();
-
-      if (ghostPlayers.isEmpty) {
-        _logger.log('✅ No ghost players found');
-        return (0, 0);
-      }
-
-      _logger.log('🗑️ Found ${ghostPlayers.length} ghost player(s) to remove:');
-      for (final player in ghostPlayers) {
-        _logger.log('   - ${player.name} (${player.playerId})');
-      }
-
-      int removedCount = 0;
-      int failedCount = 0;
-
-      for (final player in ghostPlayers) {
-        try {
-          await removePlayer(player.playerId);
-          _logger.log('✅ Removed ghost: ${player.name}');
-          removedCount++;
-        } catch (e) {
-          _logger.log('❌ Failed to remove ${player.name}: $e');
-          failedCount++;
-        }
-      }
-
-      _logger.log('✅ Deep cleanup complete - removed $removedCount, failed $failedCount');
-      return (removedCount, failedCount);
-    } catch (e) {
-      _logger.log('❌ Error during deep ghost cleanup: $e');
-      return (0, 0);
     }
   }
 

@@ -5,7 +5,6 @@ import '../models/media_item.dart';
 import '../models/player.dart';
 import '../services/music_assistant_api.dart';
 import '../services/settings_service.dart';
-import '../services/auth_service.dart';
 import '../services/debug_logger.dart';
 import '../services/error_handler.dart';
 import '../services/local_player_service.dart';
@@ -15,8 +14,7 @@ import '../main.dart' show audioHandler;
 
 class MusicAssistantProvider with ChangeNotifier {
   MusicAssistantAPI? _api;
-  final AuthService _authService = AuthService(); // TODO: Remove after full migration
-  final AuthManager _authManager = AuthManager(); // NEW: Universal auth system
+  final AuthManager _authManager = AuthManager();
   final DebugLogger _logger = DebugLogger();
   late final LocalPlayerService _localPlayer;
   
@@ -110,21 +108,7 @@ class MusicAssistantProvider with ChangeNotifier {
   Future<void> _initialize() async {
     _serverUrl = await SettingsService.getServerUrl();
     if (_serverUrl != null && _serverUrl!.isNotEmpty) {
-      // Auto-login if credentials are saved
-      final username = await SettingsService.getUsername();
-      final password = await SettingsService.getPassword();
-
-      if (username != null && password != null && username.isNotEmpty && password.isNotEmpty) {
-        try {
-          await _authService.login(_serverUrl!, username, password);
-        } catch (e) {
-          // Auto-login failed, continue anyway
-        }
-      }
-
       await connectToServer(_serverUrl!);
-
-      // Always initialize local playback
       await _initializeLocalPlayback();
     }
   }
@@ -152,18 +136,12 @@ class MusicAssistantProvider with ChangeNotifier {
     if (_api == null) return;
 
     try {
-      // First try the standard cleanup (for normally registered players)
-      await _api!.cleanupUnavailableBuiltinPlayers();
-
-      // Then do deep cleanup via config API (for orphaned/corrupted configs)
-      // This catches entries that the standard cleanup can't remove
-      final (removed, failed) = await _api!.deepCleanupGhostPlayers();
+      final (removed, _) = await _api!.cleanupGhostPlayers();
       if (removed > 0) {
-        _logger.log('🧹 Deep cleanup removed $removed ghost config(s)');
+        _logger.log('🧹 Auto-cleanup removed $removed ghost player(s)');
       }
     } catch (e) {
       _logger.log('⚠️ Ghost player cleanup failed (non-fatal): $e');
-      // Continue - this is non-critical
     }
   }
 
@@ -211,18 +189,12 @@ class MusicAssistantProvider with ChangeNotifier {
     try {
       _logger.log('🧹 User-triggered purge of unavailable players...');
 
-      // First try standard purge
-      var (removed, failed) = await _api!.purgeAllUnavailablePlayers();
+      final result = await _api!.cleanupGhostPlayers(allUnavailable: true);
 
-      // Then do deep cleanup via config API for any orphaned entries
-      final (deepRemoved, deepFailed) = await _api!.deepCleanupGhostPlayers();
-      removed += deepRemoved;
-      failed += deepFailed;
-
-      // Force refresh players list after purge (bypass cache)
+      // Force refresh players list after purge
       await _loadAndSelectPlayers(forceRefresh: true);
 
-      return (removed, failed);
+      return result;
     } catch (e) {
       _logger.log('❌ Purge failed: $e');
       rethrow;
