@@ -292,16 +292,30 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final expandedTitleWidth = screenSize.width - (contentPadding * 2);
     final titleWidth = _lerpDouble(collapsedTitleWidth, expandedTitleWidth, t);
 
-    // Artist positioned with proper spacing from title
+    // Measure actual title height for dynamic layout
+    final titleStyle = TextStyle(
+      fontSize: 24.0,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.5,
+      height: 1.2,
+    );
+    final titlePainter = TextPainter(
+      text: TextSpan(text: currentTrack.name, style: titleStyle),
+      maxLines: 2,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: expandedTitleWidth);
+    final expandedTitleHeight = titlePainter.height;
+
+    // Artist positioned dynamically based on actual title height
     final collapsedArtistTop = collapsedTitleTop + 18;
-    final expandedArtistTop = expandedTitleTop + 36; // room for 1 line title
+    final expandedArtistTop = expandedTitleTop + expandedTitleHeight + 8;
     final artistTop = _lerpDouble(collapsedArtistTop, expandedArtistTop, t);
 
     // Album - subtle, below artist
-    final expandedAlbumTop = expandedArtistTop + 26;
+    final expandedAlbumTop = expandedArtistTop + 24;
 
     // Progress bar - with generous spacing
-    final expandedProgressTop = expandedAlbumTop + 40;
+    final expandedProgressTop = expandedAlbumTop + 36;
 
     // Controls - main row with comfortable touch targets
     final collapsedControlsRight = 8.0;
