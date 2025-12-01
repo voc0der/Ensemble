@@ -10,6 +10,7 @@ import '../services/debug_logger.dart';
 import '../services/error_handler.dart';
 import '../services/local_player_service.dart';
 import '../services/auth/auth_manager.dart';
+import '../main.dart' show audioHandler;
 
 class MusicAssistantProvider with ChangeNotifier {
   MusicAssistantAPI? _api;
@@ -131,8 +132,15 @@ class MusicAssistantProvider with ChangeNotifier {
     await _localPlayer.initialize();
     _isLocalPlayerPowered = true; // Default to powered on when enabling local playback
 
-    // Note: With just_audio_background, skip next/previous are handled via
-    // the notification controls automatically when we implement them
+    // Wire up skip button callbacks from notification to Music Assistant server
+    audioHandler.onSkipToNext = () {
+      _logger.log('🎵 Notification: Skip to next pressed');
+      nextTrackSelectedPlayer();
+    };
+    audioHandler.onSkipToPrevious = () {
+      _logger.log('🎵 Notification: Skip to previous pressed');
+      previousTrackSelectedPlayer();
+    };
 
     if (isConnected) {
       await _registerLocalPlayer();
@@ -897,10 +905,16 @@ class MusicAssistantProvider with ChangeNotifier {
       final allPlayers = await getPlayers();
       final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
 
+      // Debug: Log all players returned from API
+      _logger.log('🎛️ getPlayers returned ${allPlayers.length} players:');
+      for (var p in allPlayers) {
+        _logger.log('   - ${p.name} (${p.playerId}) available=${p.available} powered=${p.powered}');
+      }
+
       // Filter out ghost players and duplicates
       // 1. "Music Assistant Mobile" players are legacy/ghosts (created by old versions)
       // 2. Valid players are those matching our current builtinPlayerId (if any)
-      
+
       int filteredCount = 0;
       final List<String> ghostPlayerIds = [];
 
@@ -928,6 +942,7 @@ class MusicAssistantProvider with ChangeNotifier {
 
       _playersLastFetched = DateTime.now();
 
+      _logger.log('🎛️ After filtering: ${_availablePlayers.length} players available');
 
       if (_availablePlayers.isNotEmpty) {
         // Smart player selection logic:

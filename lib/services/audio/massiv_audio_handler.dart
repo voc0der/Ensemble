@@ -16,6 +16,10 @@ class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
   // This allows us to update the notification when metadata arrives late
   MediaItem? _currentMediaItem;
 
+  // Callbacks for skip actions (wired up by MusicAssistantProvider)
+  Function()? onSkipToNext;
+  Function()? onSkipToPrevious;
+
   MassivAudioHandler({required this.authManager}) {
     _init();
   }
@@ -130,14 +134,18 @@ class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> skipToNext() async {
-    // This will be handled by MusicAssistantProvider sending command to server
     _logger.log('MassivAudioHandler: skipToNext requested');
+    if (onSkipToNext != null) {
+      onSkipToNext!();
+    }
   }
 
   @override
   Future<void> skipToPrevious() async {
-    // This will be handled by MusicAssistantProvider sending command to server
     _logger.log('MassivAudioHandler: skipToPrevious requested');
+    if (onSkipToPrevious != null) {
+      onSkipToPrevious!();
+    }
   }
 
   // --- Custom methods for Massiv ---
