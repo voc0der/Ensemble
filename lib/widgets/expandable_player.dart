@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/music_assistant_provider.dart';
@@ -221,7 +222,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
     // Color transitions
     final collapsedBg = colorScheme.primaryContainer;
-    final expandedBg = adaptiveScheme?.surface ?? const Color(0xFF1a1a1a);
+    final expandedBg = adaptiveScheme?.surface ?? const Color(0xFF121212);
     final backgroundColor = Color.lerp(collapsedBg, expandedBg, t)!;
 
     final collapsedTextColor = colorScheme.onPrimaryContainer;
@@ -233,9 +234,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Always position above bottom nav bar
     final bottomNavSpace = _bottomNavHeight + bottomPadding;
     final collapsedBottomOffset = bottomNavSpace + _collapsedMargin;
-    // When expanded, stay just above the bottom nav
     final expandedBottomOffset = bottomNavSpace;
-    // Height fills from bottom nav to top of screen
     final expandedHeight = screenSize.height - bottomNavSpace;
 
     final collapsedWidth = screenSize.width - (_collapsedMargin * 2);
@@ -245,67 +244,80 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final bottomOffset = _lerpDouble(collapsedBottomOffset, expandedBottomOffset, t);
     final borderRadius = _lerpDouble(_collapsedBorderRadius, 0, t);
 
-    // Calculate available space for expanded layout
-    // Available height = expandedHeight - topPadding - header(60) - bottomPadding(20)
-    final availableHeight = expandedHeight - topPadding - 80;
+    // ===========================================
+    // EXPANDED LAYOUT - Vertical rhythm based design
+    // ===========================================
+    // Using 8px grid for consistent spacing
+    // Header: 48px (player name area)
+    // Art: proportional to screen, centered
+    // Track info: clear hierarchy with breathing room
+    // Progress: slim, elegant
+    // Controls: generously spaced
+    // Volume: bottom anchored
 
-    // Distribute space: art(40%) + info(25%) + controls(20%) + volume(15%)
-    final expandedArtSize = (screenSize.width * 0.70).clamp(200.0, 320.0);
+    final headerHeight = 48.0;
+    final contentPadding = 32.0; // horizontal padding for content
+
+    // Art sizing - larger on bigger screens, max 85% of width
+    final maxArtSize = screenSize.width - (contentPadding * 2);
+    final expandedArtSize = (maxArtSize * 0.92).clamp(280.0, 400.0);
     final artSize = _lerpDouble(_collapsedArtSize, expandedArtSize, t);
-    final artBorderRadius = _lerpDouble(_collapsedBorderRadius, 16, t);
+    final artBorderRadius = _lerpDouble(_collapsedBorderRadius, 12, t);
 
-    // Art position - centered horizontally, positioned with good top margin
+    // Art position
     final collapsedArtLeft = 0.0;
     final expandedArtLeft = (screenSize.width - expandedArtSize) / 2;
     final artLeft = _lerpDouble(collapsedArtLeft, expandedArtLeft, t);
 
     final collapsedArtTop = 0.0;
-    // Position art with comfortable top spacing
-    final expandedArtTop = topPadding + 56;
+    final expandedArtTop = topPadding + headerHeight + 16;
     final artTop = _lerpDouble(collapsedArtTop, expandedArtTop, t);
 
-    // Track title morphing - account for 2-line titles (max ~60px height)
-    final titleFontSize = _lerpDouble(14.0, 22.0, t);
+    // Typography - clear hierarchy
+    // Title: bold, prominent (24px)
+    // Artist: medium weight, secondary (16px)
+    // Album: light, tertiary (13px)
+    final titleFontSize = _lerpDouble(14.0, 24.0, t);
+    final artistFontSize = _lerpDouble(12.0, 16.0, t);
+
     final collapsedTitleLeft = _collapsedArtSize + 12;
-    final expandedTitleLeft = 24.0;
+    final expandedTitleLeft = contentPadding;
     final titleLeft = _lerpDouble(collapsedTitleLeft, expandedTitleLeft, t);
 
     final collapsedTitleTop = (_collapsedHeight - 32) / 2;
-    // Space after art for title
-    final expandedTitleTop = expandedArtTop + expandedArtSize + 24;
+    final expandedTitleTop = expandedArtTop + expandedArtSize + 28;
     final titleTop = _lerpDouble(collapsedTitleTop, expandedTitleTop, t);
 
     final collapsedTitleWidth = screenSize.width - _collapsedArtSize - 150;
-    final expandedTitleWidth = screenSize.width - 48;
+    final expandedTitleWidth = screenSize.width - (contentPadding * 2);
     final titleWidth = _lerpDouble(collapsedTitleWidth, expandedTitleWidth, t);
 
-    // Artist name morphing - positioned after title with enough gap for 2-line title
-    final artistFontSize = _lerpDouble(12.0, 15.0, t);
+    // Artist positioned with proper spacing from title
     final collapsedArtistTop = collapsedTitleTop + 18;
-    // Add 56px gap to account for potential 2-line title (22px * 2 + padding)
-    final expandedArtistTop = expandedTitleTop + 56;
+    final expandedArtistTop = expandedTitleTop + 36; // room for 1 line title
     final artistTop = _lerpDouble(collapsedArtistTop, expandedArtistTop, t);
 
-    // Album name position (only shown expanded)
-    final expandedAlbumTop = expandedArtistTop + 24;
+    // Album - subtle, below artist
+    final expandedAlbumTop = expandedArtistTop + 26;
 
-    // Progress bar position
-    final expandedProgressTop = expandedAlbumTop + 32;
+    // Progress bar - with generous spacing
+    final expandedProgressTop = expandedAlbumTop + 40;
 
-    // Controls - positioned after progress bar
+    // Controls - main row with comfortable touch targets
     final collapsedControlsRight = 8.0;
     final collapsedControlsTop = (_collapsedHeight - 34) / 2 - 6;
-    final expandedControlsTop = expandedProgressTop + 56;
+    final expandedControlsTop = expandedProgressTop + 64;
     final controlsTop = _lerpDouble(collapsedControlsTop, expandedControlsTop, t);
 
-    final skipButtonSize = _lerpDouble(28, 40, t);
-    final playButtonSize = _lerpDouble(34, 40, t);
-    final playButtonContainerSize = _lerpDouble(34, 68, t);
+    // Button sizes - larger in expanded for better touch targets
+    final skipButtonSize = _lerpDouble(28, 36, t);
+    final playButtonSize = _lerpDouble(34, 44, t);
+    final playButtonContainerSize = _lerpDouble(34, 72, t);
 
     final expandedElementsOpacity = Curves.easeIn.transform((t - 0.5).clamp(0, 0.5) * 2);
 
-    // Volume control - at the bottom with more spacing from controls
-    final volumeTop = expandedControlsTop + 100;
+    // Volume - anchored near bottom with breathing room
+    final volumeTop = expandedControlsTop + 88;
 
     return Positioned(
       left: horizontalMargin,
@@ -379,7 +391,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                       style: TextStyle(
                         color: textColor,
                         fontSize: titleFontSize,
-                        fontWeight: t > 0.5 ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: t > 0.5 ? FontWeight.w600 : FontWeight.w500,
+                        letterSpacing: t > 0.5 ? -0.5 : 0,
+                        height: 1.2,
                       ),
                       textAlign: t > 0.5 ? TextAlign.center : TextAlign.left,
                       maxLines: t > 0.5 ? 2 : 1,
@@ -397,8 +411,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     child: Text(
                       currentTrack.artistsString,
                       style: TextStyle(
-                        color: textColor.withOpacity(0.7),
+                        color: textColor.withOpacity(t > 0.5 ? 0.7 : 0.6),
                         fontSize: artistFontSize,
+                        fontWeight: t > 0.5 ? FontWeight.w400 : FontWeight.normal,
                       ),
                       textAlign: t > 0.5 ? TextAlign.center : TextAlign.left,
                       maxLines: 1,
@@ -410,16 +425,17 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                 // Album name (expanded only)
                 if (currentTrack.album != null && t > 0.3)
                   Positioned(
-                    left: 24,
-                    right: 24,
+                    left: contentPadding,
+                    right: contentPadding,
                     top: _lerpDouble(artistTop + 24, expandedAlbumTop, t),
                     child: Opacity(
                       opacity: ((t - 0.3) / 0.7).clamp(0.0, 1.0),
                       child: Text(
                         currentTrack.album!.name,
                         style: TextStyle(
-                          color: textColor.withOpacity(0.5),
-                          fontSize: 14,
+                          color: textColor.withOpacity(0.45),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w300,
                         ),
                         textAlign: TextAlign.center,
                         maxLines: 1,
@@ -431,8 +447,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                 // Progress bar (expanded only)
                 if (t > 0.5 && currentTrack.duration != null)
                   Positioned(
-                    left: 24,
-                    right: 24,
+                    left: contentPadding,
+                    right: contentPadding,
                     top: expandedProgressTop,
                     child: Opacity(
                       opacity: expandedElementsOpacity,
@@ -440,9 +456,10 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                         children: [
                           SliderTheme(
                             data: SliderThemeData(
-                              trackHeight: 3,
-                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                              trackHeight: 4,
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                              trackShape: const RoundedRectSliderTrackShape(),
                             ),
                             child: Slider(
                               value: (_seekPosition ?? selectedPlayer.currentElapsedTime)
@@ -465,21 +482,31 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                 }
                               },
                               activeColor: primaryColor,
-                              inactiveColor: primaryColor.withOpacity(0.24),
+                              inactiveColor: primaryColor.withOpacity(0.2),
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   _formatDuration((_seekPosition ?? selectedPlayer.currentElapsedTime).toInt()),
-                                  style: TextStyle(color: textColor.withOpacity(0.5), fontSize: 12),
+                                  style: TextStyle(
+                                    color: textColor.withOpacity(0.5),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
                                 ),
                                 Text(
                                   _formatDuration(currentTrack.duration!.inSeconds),
-                                  style: TextStyle(color: textColor.withOpacity(0.5), fontSize: 12),
+                                  style: TextStyle(
+                                    color: textColor.withOpacity(0.5),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
                                 ),
                               ],
                             ),
@@ -502,16 +529,13 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                       if (t > 0.5)
                         Opacity(
                           opacity: expandedElementsOpacity,
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.shuffle,
-                              color: _queue?.shuffle == true ? primaryColor : textColor.withOpacity(0.5),
-                            ),
-                            iconSize: 24,
+                          child: _buildSecondaryButton(
+                            icon: Icons.shuffle_rounded,
+                            color: _queue?.shuffle == true ? primaryColor : textColor.withOpacity(0.5),
                             onPressed: _isLoadingQueue ? null : _toggleShuffle,
                           ),
                         ),
-                      if (t > 0.5) const SizedBox(width: 12),
+                      if (t > 0.5) SizedBox(width: _lerpDouble(0, 20, t)),
 
                       // Previous
                       _buildControlButton(
@@ -521,7 +545,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                         onPressed: () => maProvider.previousTrackSelectedPlayer(),
                         useAnimation: t > 0.5,
                       ),
-                      SizedBox(width: _lerpDouble(0, 12, t)),
+                      SizedBox(width: _lerpDouble(0, 20, t)),
 
                       // Play/Pause
                       _buildPlayButton(
@@ -535,7 +559,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                         onPressed: () => maProvider.playPauseSelectedPlayer(),
                         onLongPress: () => maProvider.stopPlayer(selectedPlayer.playerId),
                       ),
-                      SizedBox(width: _lerpDouble(0, 12, t)),
+                      SizedBox(width: _lerpDouble(0, 20, t)),
 
                       // Next
                       _buildControlButton(
@@ -547,18 +571,15 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                       ),
 
                       // Repeat (expanded only)
-                      if (t > 0.5) const SizedBox(width: 12),
+                      if (t > 0.5) SizedBox(width: _lerpDouble(0, 20, t)),
                       if (t > 0.5)
                         Opacity(
                           opacity: expandedElementsOpacity,
-                          child: IconButton(
-                            icon: Icon(
-                              _queue?.repeatMode == 'one' ? Icons.repeat_one : Icons.repeat,
-                              color: _queue?.repeatMode != null && _queue!.repeatMode != 'off'
-                                  ? primaryColor
-                                  : textColor.withOpacity(0.5),
-                            ),
-                            iconSize: 24,
+                          child: _buildSecondaryButton(
+                            icon: _queue?.repeatMode == 'one' ? Icons.repeat_one_rounded : Icons.repeat_rounded,
+                            color: _queue?.repeatMode != null && _queue!.repeatMode != 'off'
+                                ? primaryColor
+                                : textColor.withOpacity(0.5),
                             onPressed: _isLoadingQueue ? null : _cycleRepeat,
                           ),
                         ),
@@ -569,8 +590,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                 // Volume control (expanded only)
                 if (t > 0.5)
                   Positioned(
-                    left: 40,
-                    right: 40,
+                    left: 48,
+                    right: 48,
                     top: volumeTop,
                     child: Opacity(
                       opacity: expandedElementsOpacity,
@@ -581,13 +602,14 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                 // Collapse button (expanded only)
                 if (t > 0.3)
                   Positioned(
-                    top: topPadding + 8,
-                    left: 8,
+                    top: topPadding + 4,
+                    left: 4,
                     child: Opacity(
                       opacity: ((t - 0.3) / 0.7).clamp(0.0, 1.0),
                       child: IconButton(
-                        icon: Icon(Icons.keyboard_arrow_down, color: textColor, size: 32),
+                        icon: Icon(Icons.keyboard_arrow_down_rounded, color: textColor, size: 28),
                         onPressed: collapse,
+                        padding: const EdgeInsets.all(12),
                       ),
                     ),
                   ),
@@ -595,18 +617,19 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                 // Queue button (expanded only)
                 if (t > 0.3)
                   Positioned(
-                    top: topPadding + 8,
-                    right: 8,
+                    top: topPadding + 4,
+                    right: 4,
                     child: Opacity(
                       opacity: ((t - 0.3) / 0.7).clamp(0.0, 1.0),
                       child: IconButton(
-                        icon: Icon(Icons.queue_music, color: textColor),
+                        icon: Icon(Icons.queue_music_rounded, color: textColor, size: 24),
                         onPressed: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => const QueueScreen()),
                           );
                         },
+                        padding: const EdgeInsets.all(12),
                       ),
                     ),
                   ),
@@ -614,19 +637,22 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                 // Player name (expanded only)
                 if (t > 0.5)
                   Positioned(
-                    top: topPadding + 16,
-                    left: 0,
-                    right: 0,
+                    top: topPadding + 12,
+                    left: 56,
+                    right: 56,
                     child: Opacity(
                       opacity: ((t - 0.5) / 0.5).clamp(0.0, 1.0),
                       child: Text(
                         selectedPlayer.name,
                         style: TextStyle(
-                          color: textColor.withOpacity(0.7),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w300,
+                          color: textColor.withOpacity(0.6),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.2,
                         ),
                         textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
@@ -671,6 +697,24 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       onPressed: onPressed,
       padding: const EdgeInsets.all(4),
       constraints: const BoxConstraints(),
+    );
+  }
+
+  Widget _buildSecondaryButton({
+    required IconData icon,
+    required Color color,
+    VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: IconButton(
+        icon: Icon(icon),
+        color: color,
+        iconSize: 22,
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+      ),
     );
   }
 
