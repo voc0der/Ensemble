@@ -228,7 +228,7 @@ class SettingsService {
 
   static Future<String> getLocalPlayerName() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyLocalPlayerName) ?? 'Massiv';
+    return prefs.getString(_keyLocalPlayerName) ?? 'Ensemble';
   }
 
   static Future<void> setLocalPlayerName(String name) async {

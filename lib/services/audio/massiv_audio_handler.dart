@@ -5,7 +5,7 @@ import 'package:rxdart/rxdart.dart';
 import '../debug_logger.dart';
 import '../auth/auth_manager.dart';
 
-/// Custom AudioHandler for Massiv that provides full control over
+/// Custom AudioHandler for Ensemble that provides full control over
 /// notification actions and metadata updates.
 class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
   final AudioPlayer _player = AudioPlayer();
@@ -148,7 +148,7 @@ class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
-  // --- Custom methods for Massiv ---
+  // --- Custom methods for Ensemble ---
 
   /// Play a URL with the given metadata
   Future<void> playUrl(String url, MediaItem item, {Map<String, String>? headers}) async {

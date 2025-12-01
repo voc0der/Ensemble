@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/images/massiv_logo.png" alt="Massiv Logo" height="200">
+  <img src="assets/images/ensemble_logo.png" alt="Ensemble Logo" height="200">
 
 ---
 
@@ -56,7 +56,7 @@ I am not a developer. This application was created using **Claude Code** and **G
 
 ## Download
 
-Download the latest release from the [Releases page](https://github.com/CollotsSpot/Massiv/releases).
+Download the latest release from the [Releases page](https://github.com/CollotsSpot/Ensemble/releases).
 
 ## Setup
 
@@ -75,7 +75,7 @@ Download the latest release from the [Releases page](https://github.com/CollotsS
 
 ## About Music Assistant
 
-Massiv is a remote control client for [Music Assistant](https://music-assistant.io/), an open-source music library manager and player that integrates with various music sources and streaming providers. You'll need a running Music Assistant server to use this app. Music playback happens on your Music Assistant server's configured players (speakers, smart devices, etc.), not on your mobile device.
+Ensemble is a remote control client for [Music Assistant](https://music-assistant.io/), an open-source music library manager and player that integrates with various music sources and streaming providers. You'll need a running Music Assistant server to use this app. Music playback happens on your Music Assistant server's configured players (speakers, smart devices, etc.), or directly on your mobile device.
 
 Learn more: [music-assistant.io](https://music-assistant.io/)
 
@@ -98,8 +98,8 @@ MIT License
 
 1. Clone the repository
 ```bash
-git clone https://github.com/CollotsSpot/Massiv.git
-cd Massiv
+git clone https://github.com/CollotsSpot/Ensemble.git
+cd Ensemble
 ```
 
 2. Install dependencies

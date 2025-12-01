@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-// Brand colors for Massiv
+// Brand colors for Ensemble
 const Color brandPrimaryColor = Color(0xFF1a1a1a);
 const Color brandAccentColor = Color(0xFF604CEC);
 

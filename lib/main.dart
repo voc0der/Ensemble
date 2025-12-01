@@ -27,7 +27,7 @@ Future<void> main() async {
     builder: () => MassivAudioHandler(authManager: authManager),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'io.github.collotsspot.massiv.audio',
-      androidNotificationChannelName: 'Massiv Audio',
+      androidNotificationChannelName: 'Ensemble Audio',
       androidNotificationOngoing: false,  // Must be false when androidStopForegroundOnPause is false
       androidNotificationIcon: 'drawable/ic_notification',
       androidShowNotificationBadge: false,
@@ -141,7 +141,7 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
               );
 
               return MaterialApp(
-                title: 'Massiv',
+                title: 'Ensemble',
                 debugShowCheckedModeBanner: false,
                 themeMode: themeProvider.themeMode,
                 theme: AppTheme.lightTheme(colorScheme: lightColorScheme),
