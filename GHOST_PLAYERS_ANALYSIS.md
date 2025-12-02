@@ -728,8 +728,157 @@ Registering player with MA: id=ensemble_xxx, name=Chris' Phone
 |------|---------|---------|
 | `lib/services/device_id_service.dart` | Simplified to single key, removed migration logic | `80f9777` (2025-12-02) |
 | `lib/services/settings_service.dart` | Unified builtin_player_id to point to local_player_id | `80f9777` (2025-12-02) |
-| `lib/services/music_assistant_api.dart` | Added registration verification, separated session/player IDs, connection guard | `80f9777` (2025-12-02), `6320bb6` (earlier) |
+| `lib/services/music_assistant_api.dart` | Added registration verification, separated session/player IDs, connection guard, config/players/save, 3-step deletion | `80f9777`, `6db0e56`, `c2522fb` (2025-12-02) |
 | `lib/providers/music_assistant_provider.dart` | Improved registration flow, better error handling, ghost adoption, cross-device filtering | `80f9777` (2025-12-02), `6e73011` (earlier) |
 | `lib/screens/login_screen.dart` | "Your Name" field (earlier commit) | Previous commits |
 | `lib/screens/settings_screen.dart` | Ghost cleanup UI (earlier commit, limited effectiveness) | Previous commits |
+
+---
+
+## Root Cause #8: Incomplete Player Config Persistence (2025-12-02) - THE FINAL FIX
+
+**Location**: `lib/services/music_assistant_api.dart`, `registerBuiltinPlayer()`
+
+**The Problem**:
+The `builtin_player/register` API creates a player in MA's runtime, but **does not always persist a complete config** to `settings.json`. This resulted in entries like:
+
+```json
+// CORRUPTED - Missing required fields
+"ensemble_6896c1f6-c735-4158-a0bb-74f12f81384e": {
+  "default_name": "Chris' Phone",
+  "provider": "builtin_player"
+}
+```
+
+When complete configs look like:
+```json
+// CORRECT - All required fields present
+"ensemble_4be5077a-2a21-42c3-9d06-2eaf48ae8ca7": {
+  "values": {},
+  "provider": "builtin_player",
+  "player_id": "ensemble_4be5077a-2a21-42c3-9d06-2eaf48ae8ca7",
+  "enabled": true,
+  "name": null,
+  "available": true,
+  "default_name": "Kat's Phone"
+}
+```
+
+**Symptoms**:
+- Error 999: `Field "player_id" of type str is missing in PlayerConfig instance`
+- Playback fails completely
+- MA server may enter restart loop if too many corrupted entries
+
+**The Fix** (Commit: `6db0e56`):
+After `builtin_player/register`, explicitly call `config/players/save` to ensure the config is properly persisted:
+
+```dart
+// Register the player
+await _sendCommand('builtin_player/register', args: {
+  'player_id': playerId,
+  'player_name': name,
+});
+
+// CRITICAL: Explicitly save the player config to ensure all fields are persisted
+try {
+  _logger.log('💾 Saving player config to ensure persistence...');
+  await _sendCommand('config/players/save', args: {
+    'player_id': playerId,
+    'values': <String, dynamic>{},
+  });
+  _logger.log('✅ Player config saved successfully');
+} catch (e) {
+  _logger.log('⚠️ Could not save player config: $e');
+}
+```
+
+**Why This Works**:
+- `config/players/save` triggers MA to fully persist the player config
+- All required fields (`player_id`, `enabled`, `available`, `values`) are written
+- Subsequent playback requests find a complete config
+
+**Verified**: 2025-12-02 - New player created with complete config, playback works!
+
+---
+
+## Root Cause #9: Ghost Deletion Using Wrong API (2025-12-02)
+
+**Location**: `lib/services/music_assistant_api.dart`, `cleanupGhostPlayers()`
+
+**The Problem**:
+The cleanup function only used `players/remove` which removes from runtime but not from `settings.json`. Ghosts kept reappearing.
+
+**The Fix** (Commit: `c2522fb`):
+Restored 3-step deletion process:
+
+```dart
+// Step 1: Unregister builtin player (disconnect it)
+await _sendCommand('builtin_player/unregister', args: {'player_id': playerId});
+
+// Step 2: Remove from player manager (runtime)
+await _sendCommand('players/remove', args: {'player_id': playerId});
+
+// Step 3: Remove persistent config (this is the key step!)
+await _sendCommand('config/players/remove', args: {'player_id': playerId});
+```
+
+**Note**: Step 3 may fail for some player types, but the attempt is made.
+
+---
+
+## Final State: GHOST PLAYERS FIXED! ✅ (2025-12-02)
+
+### What's Now Working
+
+| Feature | Status | Verified |
+|---------|--------|----------|
+| Single player ID per device | ✅ Fixed | 2025-12-02 |
+| ID persists across app restarts | ✅ Fixed | 2025-12-02 |
+| No ghost creation on reconnect | ✅ Fixed | 2025-12-02 |
+| Complete config persistence | ✅ Fixed | 2025-12-02 |
+| Playback works | ✅ Fixed | 2025-12-02 |
+| Ghost adoption on reinstall | ✅ Fixed | 2025-12-01 |
+| Cross-device isolation | ✅ Fixed | 2025-12-01 |
+| 3-step ghost deletion | ✅ Fixed | 2025-12-02 |
+
+### Key Commits (Final Fix)
+
+| Commit | Description |
+|--------|-------------|
+| `6db0e56` | Call `config/players/save` after registration to ensure complete config |
+| `c2522fb` | Restore 3-step ghost deletion with `config/players/remove` |
+| `80f9777` | Comprehensive fixes: simplified ID management, registration verification |
+
+### Verification
+
+New player created with complete config:
+```json
+{
+  "key": "ensemble_aaaddd1a-7f09-40e2-a309-122249cef767",
+  "player_id": "ensemble_aaaddd1a-7f09-40e2-a309-122249cef767",
+  "provider": "builtin_player",
+  "enabled": true,
+  "available": true,
+  "name": "Chris' Phone"
+}
+```
+
+✅ All required fields present
+✅ Playback works
+✅ No more error 999
+
+---
+
+## Summary: The Ghost Player Saga
+
+This issue took **15+ commits** and **deep investigation** to fully resolve. The root causes were:
+
+1. **ID Generation Issues** (Root Causes #1-4): Multiple paths could generate new IDs
+2. **Complex Code** (Root Causes #5-7): Overly complex ID/connection management
+3. **Incomplete Persistence** (Root Cause #8): MA server didn't always save complete configs
+4. **Wrong Deletion API** (Root Cause #9): Using runtime-only removal instead of config removal
+
+**The final fix** was discovering that `builtin_player/register` doesn't always persist a complete config, and explicitly calling `config/players/save` after registration ensures all fields are written.
+
+**Lesson Learned**: When in doubt, explicitly save the config. Don't assume registration implies persistence.
 
