@@ -367,7 +367,7 @@ class _LoginScreenState extends State<LoginScreen> {
               // Logo
               Builder(
                 builder: (context) {
-                  final width = MediaQuery.of(context).size.width * 0.3;
+                  final width = MediaQuery.of(context).size.width * 0.5;
                   return Center(
                     child: Image.asset(
                       'assets/images/ensemble_icon_transparent.png',
