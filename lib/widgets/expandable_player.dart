@@ -56,6 +56,10 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   static const double _collapsedBorderRadius = 16.0;
   static const double _collapsedArtSize = 64.0;
   static const double _bottomNavHeight = 56.0;
+  static const double _edgeDeadZone = 40.0; // Dead zone for Android back gesture
+
+  // Track horizontal drag start position
+  double? _horizontalDragStartX;
 
   @override
   void initState() {
@@ -435,7 +439,18 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
             collapse();
           }
         },
+        onHorizontalDragStart: isExpanded ? (details) {
+          _horizontalDragStartX = details.globalPosition.dx;
+        } : null,
         onHorizontalDragEnd: isExpanded ? (details) {
+          // Ignore swipes that started near the right edge (Android back gesture zone)
+          final screenWidth = MediaQuery.of(context).size.width;
+          final startedInDeadZone = _horizontalDragStartX != null &&
+              _horizontalDragStartX! > screenWidth - _edgeDeadZone;
+          _horizontalDragStartX = null;
+
+          if (startedInDeadZone) return;
+
           // Swipe left to open queue, swipe right to close
           if (details.primaryVelocity != null) {
             if (details.primaryVelocity! < -300 && !isQueuePanelOpen) {
