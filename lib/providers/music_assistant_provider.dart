@@ -55,7 +55,8 @@ class MusicAssistantProvider with ChangeNotifier {
   List<Track> get tracks => _tracks;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get isConnected => _connectionState == MAConnectionState.connected;
+  bool get isConnected => _connectionState == MAConnectionState.connected ||
+                          _connectionState == MAConnectionState.authenticated;
 
   // Search state persistence
   String _lastSearchQuery = '';

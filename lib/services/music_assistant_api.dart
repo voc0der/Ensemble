@@ -1858,8 +1858,13 @@ class MusicAssistantAPI {
   /// Authenticate the WebSocket session with a token
   /// Call this after connect() if authRequired is true
   Future<bool> authenticateWithToken(String token) async {
-    if (_currentState != MAConnectionState.connected) {
-      _logger.log('Cannot authenticate - not connected');
+    // Allow auth when connected or authenticating (in case of retry)
+    final allowedStates = [
+      MAConnectionState.connected,
+      MAConnectionState.authenticating,
+    ];
+    if (!allowedStates.contains(_currentState)) {
+      _logger.log('Cannot authenticate - state is $_currentState');
       return false;
     }
 

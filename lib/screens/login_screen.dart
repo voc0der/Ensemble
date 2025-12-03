@@ -384,8 +384,12 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
 
-      // Wait a moment for connection to establish
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Wait for connection and authentication to complete
+      // MA auth happens asynchronously after connect, so we need to wait longer
+      for (int i = 0; i < 10; i++) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (provider.isConnected) break;
+      }
 
       if (provider.isConnected) {
         // Navigate to home screen
