@@ -29,9 +29,13 @@ class ExpandablePlayer extends StatefulWidget {
 }
 
 class ExpandablePlayerState extends State<ExpandablePlayer>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
+
+  // Queue panel slide animation
+  late AnimationController _queuePanelController;
+  late Animation<double> _queuePanelAnimation;
 
   // Adaptive theme colors extracted from album art
   ColorScheme? _lightColorScheme;
@@ -66,12 +70,25 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       reverseCurve: Curves.easeInCubic,
     );
 
+    // Queue panel animation
+    _queuePanelController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _queuePanelAnimation = CurvedAnimation(
+      parent: _queuePanelController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.forward) {
         _loadQueue();
         _startProgressTimer();
       } else if (status == AnimationStatus.dismissed) {
         _progressTimer?.cancel();
+        // Close queue panel when player collapses
+        _queuePanelController.reverse();
       }
     });
   }
@@ -79,6 +96,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   @override
   void dispose() {
     _controller.dispose();
+    _queuePanelController.dispose();
     _progressTimer?.cancel();
     super.dispose();
   }
@@ -170,17 +188,16 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     return '${minutes.toString().padLeft(1, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
-  void _openQueue() {
-    print('🎵 _openQueue called!');
-    // Defer navigation to next frame to escape animation/build context
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      print('🎵 PostFrameCallback executing navigation');
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const QueueScreen()),
-      );
-    });
+  void _toggleQueuePanel() {
+    if (_queuePanelController.isAnimating) return;
+    if (_queuePanelController.value == 0) {
+      _queuePanelController.forward();
+    } else {
+      _queuePanelController.reverse();
+    }
   }
+
+  bool get isQueuePanelOpen => _queuePanelController.value > 0.5;
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +221,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         }
 
         return AnimatedBuilder(
-          animation: _expandAnimation,
+          animation: Listenable.merge([_expandAnimation, _queuePanelAnimation]),
           builder: (context, _) {
             return _buildMorphingPlayer(
               context,
@@ -367,6 +384,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Volume - anchored near bottom with breathing room
     final volumeTop = expandedControlsTop + 88;
 
+    // Queue panel slide amount (0 = hidden, 1 = fully visible)
+    final queueT = _queuePanelAnimation.value;
+
     return Positioned(
       left: horizontalMargin,
       right: horizontalMargin,
@@ -380,10 +400,20 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         onVerticalDragUpdate: (details) {
           if (details.primaryDelta! < -10 && !isExpanded) {
             expand();
-          } else if (details.primaryDelta! > 10 && isExpanded) {
+          } else if (details.primaryDelta! > 10 && isExpanded && !isQueuePanelOpen) {
             collapse();
           }
         },
+        onHorizontalDragEnd: isExpanded ? (details) {
+          // Swipe left to open queue, swipe right to close
+          if (details.primaryVelocity != null) {
+            if (details.primaryVelocity! < -300 && !isQueuePanelOpen) {
+              _toggleQueuePanel();
+            } else if (details.primaryVelocity! > 300 && isQueuePanelOpen) {
+              _toggleQueuePanel();
+            }
+          }
+        } : null,
         child: Material(
           color: backgroundColor,
           borderRadius: BorderRadius.circular(borderRadius),
@@ -664,16 +694,16 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     ),
                   ),
 
-                // Queue button (expanded only)
-                if (t > 0.3)
+                // Queue button (expanded only) - hide when queue panel is open
+                if (t > 0.3 && queueT < 0.5)
                   Positioned(
                     top: topPadding + 4,
                     right: 4,
                     child: Opacity(
-                      opacity: ((t - 0.3) / 0.7).clamp(0.0, 1.0),
+                      opacity: ((t - 0.3) / 0.7).clamp(0.0, 1.0) * (1 - queueT * 2).clamp(0.0, 1.0),
                       child: IconButton(
                         icon: Icon(Icons.queue_music_rounded, color: textColor, size: 24),
-                        onPressed: _openQueue,
+                        onPressed: _toggleQueuePanel,
                         padding: const EdgeInsets.all(12),
                       ),
                     ),
@@ -703,11 +733,174 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                       ),
                     ),
                   ),
+
+                // Queue panel (slides in from right)
+                if (t > 0.5 && queueT > 0)
+                  Positioned.fill(
+                    child: Transform.translate(
+                      offset: Offset(width * (1 - queueT), 0),
+                      child: _buildQueuePanel(
+                        maProvider,
+                        selectedPlayer,
+                        textColor,
+                        primaryColor,
+                        topPadding,
+                        expandedBg,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildQueuePanel(
+    MusicAssistantProvider maProvider,
+    dynamic selectedPlayer,
+    Color textColor,
+    Color primaryColor,
+    double topPadding,
+    Color backgroundColor,
+  ) {
+    return Container(
+      color: backgroundColor,
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.only(top: topPadding + 4, left: 4, right: 16),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back_rounded, color: textColor, size: 24),
+                  onPressed: _toggleQueuePanel,
+                  padding: const EdgeInsets.all(12),
+                ),
+                const Spacer(),
+                Text(
+                  'Queue',
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(Icons.refresh_rounded, color: textColor.withOpacity(0.7), size: 22),
+                  onPressed: _loadQueue,
+                  padding: const EdgeInsets.all(12),
+                ),
+              ],
+            ),
+          ),
+
+          // Queue content
+          Expanded(
+            child: _isLoadingQueue
+                ? Center(child: CircularProgressIndicator(color: primaryColor))
+                : _queue == null || _queue!.items.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.queue_music, size: 64, color: textColor.withOpacity(0.3)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Queue is empty',
+                              style: TextStyle(color: textColor.withOpacity(0.5), fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _buildQueueList(maProvider, textColor, primaryColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQueueList(
+    MusicAssistantProvider maProvider,
+    Color textColor,
+    Color primaryColor,
+  ) {
+    final currentIndex = _queue!.currentIndex ?? 0;
+    final items = _queue!.items;
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final isCurrentItem = index == currentIndex;
+        final isPastItem = index < currentIndex;
+        final imageUrl = maProvider.api?.getImageUrl(item.track, size: 80);
+
+        return Opacity(
+          opacity: isPastItem ? 0.5 : 1.0,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 2),
+            decoration: BoxDecoration(
+              color: isCurrentItem ? primaryColor.withOpacity(0.15) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ListTile(
+              dense: true,
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: imageUrl != null
+                      ? Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: textColor.withOpacity(0.1),
+                            child: Icon(Icons.music_note, color: textColor.withOpacity(0.3), size: 20),
+                          ),
+                        )
+                      : Container(
+                          color: textColor.withOpacity(0.1),
+                          child: Icon(Icons.music_note, color: textColor.withOpacity(0.3), size: 20),
+                        ),
+                ),
+              ),
+              title: Text(
+                item.track.name,
+                style: TextStyle(
+                  color: isCurrentItem ? primaryColor : textColor,
+                  fontSize: 14,
+                  fontWeight: isCurrentItem ? FontWeight.w600 : FontWeight.normal,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: item.track.artists != null && item.track.artists!.isNotEmpty
+                  ? Text(
+                      item.track.artists!.first.name,
+                      style: TextStyle(
+                        color: textColor.withOpacity(0.6),
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : null,
+              trailing: isCurrentItem
+                  ? Icon(Icons.play_arrow_rounded, color: primaryColor, size: 20)
+                  : null,
+              onTap: () {
+                // TODO: Jump to this track in queue
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
