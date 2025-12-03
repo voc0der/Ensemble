@@ -39,7 +39,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final themeProvider = context.watch<ThemeProvider>();
 
     // Use adaptive primary color for bottom nav when adaptive theme is enabled
-    final navSelectedColor = themeProvider.adaptiveTheme && themeProvider.adaptiveColors != null
+    // Note: adaptivePrimaryColor returns customColor as fallback, so no flash to defaults
+    final navSelectedColor = themeProvider.adaptiveTheme
         ? themeProvider.adaptivePrimaryColor
         : colorScheme.primary;
 

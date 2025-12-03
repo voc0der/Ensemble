@@ -315,7 +315,12 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         ? adaptiveScheme.primaryContainer
         : colorScheme.primaryContainer;
     final expandedBg = adaptiveScheme?.surface ?? const Color(0xFF121212);
-    _currentExpandedBgColor = expandedBg;
+    // Only update if we have adaptive colors, otherwise keep previous value
+    if (adaptiveScheme != null) {
+      _currentExpandedBgColor = expandedBg;
+    } else if (_currentExpandedBgColor == null) {
+      _currentExpandedBgColor = expandedBg; // First time fallback
+    }
     final backgroundColor = Color.lerp(collapsedBg, expandedBg, t)!;
 
     final collapsedTextColor = themeProvider.adaptiveTheme && adaptiveScheme != null
