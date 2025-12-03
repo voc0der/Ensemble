@@ -34,6 +34,10 @@ The Ensemble codebase is a functional Flutter application with a solid foundatio
 3. **Phase 3**: N+1 fix (batched requests), consolidated timers, pagination constants
 4. **Phase 4**: LibraryService, PlayerStateService foundation
 5. **C7**: Ghost player cleanup utility with new screen
+6. **Bug fixes**: Back button behavior (minimize instead of exit), auth credential restoration on cold start
+7. **Player UX**: Collapse animation speed (400ms), dead zone for Android back gesture
+8. **Performance**: Image caching (cacheWidth/cacheHeight), RepaintBoundary on cards, Selector optimization in home screen
+   - Note: RepaintBoundary on GlobalPlayerOverlay caused white overlay bug and was reverted
 
 ---
 
