@@ -946,7 +946,7 @@ for (final player in allPlayers) {
 
 ---
 
-## Updated Final State (2025-12-02)
+## Updated Final State (2025-12-03)
 
 | Feature | Status | Verified |
 |---------|--------|----------|
@@ -958,5 +958,105 @@ for (final player in allPlayers) {
 | Ghost adoption on reinstall | ✅ Fixed | 2025-12-02 (Root Cause #10) |
 | Ghost adoption of AVAILABLE players | ✅ Fixed | 2025-12-02 |
 | Cross-device isolation | ✅ Fixed | 2025-12-01 |
-| 3-step ghost deletion | ✅ Fixed | 2025-12-02 |
+| 3-step ghost deletion via API | ❌ Does NOT work | 2025-12-03 |
+| Manual settings.json cleanup | ✅ Only reliable method | 2025-12-03 |
+
+---
+
+## Critical Finding: API Deletion Does NOT Persist (2025-12-03)
+
+### The Problem
+
+Despite what the API responses suggest, **none of the deletion APIs actually remove players from `settings.json`**. They only affect runtime state.
+
+**Tested deletion methods:**
+```
+1. config/players/save (enabled: false)  → Response: success → Still in settings.json ❌
+2. builtin_player/unregister             → Response: success → Still in settings.json ❌
+3. players/remove                        → Response: success → Still in settings.json ❌
+4. config/players/remove                 → Response: success → Still in settings.json ❌
+```
+
+All four steps return successful responses, but the player entry remains in `settings.json`. On MA restart, ghosts reappear.
+
+### Why Previous Testing Appeared to Work
+
+Earlier testing showed two ghosts "deleted" - but they were actually:
+1. Removed from runtime (so they disappeared from player list temporarily)
+2. Still present in settings.json
+3. Reappeared after some time or MA activity
+
+### Confirmed: Only Manual Deletion Works
+
+The ghost MD was correct all along. The **only** way to permanently delete ghost players:
+
+```bash
+# 1. Backup
+cp /home/home-server/docker/music-assistant/data/settings.json settings.json.backup
+
+# 2. Remove specific ghost (replace GHOST_ID with actual ID)
+cat settings.json | jq 'del(.players["GHOST_ID"])' > settings_fixed.json
+mv settings_fixed.json settings.json
+
+# 3. Restart MA
+docker restart musicassistant
+```
+
+### Debug Screen Tools (2025-12-03)
+
+Added tools to help identify ghosts (even if deletion doesn't persist):
+
+**View All Players** - Color coded display:
+- 🟢 Green = Current device (your player)
+- 🔴 Red = Ghost player (duplicate app player)
+- 🟠 Orange = Unavailable/Corrupt player
+- Shows player ID, provider, and availability
+
+**Clean Up Ghosts** - Attempts API deletion:
+- Will remove from runtime (temporary)
+- Does NOT persist after MA restart
+- Useful for temporary relief
+
+**Repair Corrupt** - Attempts to fix corrupt configs:
+- Detects error 999 (missing player_id field)
+- Tries to re-save config
+- Falls back to deletion attempt
+
+### Multi-Device Corruption Issue
+
+**Scenario discovered 2025-12-02:**
+1. New device (Kat's Phone) installs app
+2. Registration interrupted (network, app backgrounded, etc.)
+3. MA saves incomplete config (missing `player_id` field)
+4. Error 999 affects ALL builtin players
+5. Other devices (Chris' Phone) can't play
+
+**Current protection:**
+- `config/players/save` called after registration (line 1270)
+- Verification check after registration (line 1284)
+- But if app closes before save completes, corruption still possible
+
+**Future consideration:**
+- Startup health check to auto-repair corrupt configs
+- Needs testing with second device
+
+---
+
+## Alternative Approach: Squeezelite
+
+One way to avoid ghost player issues entirely would be to use Squeezelite for audio playback instead of `builtin_player`:
+
+**Advantages:**
+- `slimproto` provider has mature player lifecycle handling
+- Players identified by MAC address - no ghost accumulation
+- Better audio quality, gapless playback
+- Sync with other Squeezebox players
+
+**Disadvantages:**
+- Requires bundling native Squeezelite binary for Android
+- More complex audio pipeline
+- Battery usage (Squeezelite runs continuously)
+- Significant architectural change
+
+**Status:** Under consideration, not implemented
 
