@@ -154,6 +154,8 @@ class MusicAssistantProvider with ChangeNotifier {
         final success = await _api!.authenticateWithToken(storedToken);
         if (success) {
           _logger.log('✅ MA authentication with stored token successful');
+          // Fetch user profile and set owner name from display_name
+          await _fetchAndSetUserProfileName();
           return true;
         }
         _logger.log('⚠️ Stored MA token invalid, clearing...');
@@ -181,6 +183,9 @@ class MusicAssistantProvider with ChangeNotifier {
             await SettingsService.setMaAuthToken(accessToken);
           }
 
+          // Fetch user profile and set owner name from display_name
+          await _fetchAndSetUserProfileName();
+
           return true;
         }
       }
@@ -190,6 +195,80 @@ class MusicAssistantProvider with ChangeNotifier {
     } catch (e) {
       _logger.log('❌ MA authentication error: $e');
       return false;
+    }
+  }
+
+  /// Fetch user profile from MA and set owner name from display_name
+  /// This allows using the MA profile name as the player name
+  Future<void> _fetchAndSetUserProfileName() async {
+    if (_api == null) return;
+
+    try {
+      final userInfo = await _api!.getCurrentUserInfo();
+      if (userInfo == null) {
+        _logger.log('⚠️ Could not fetch user profile');
+        return;
+      }
+
+      final displayName = userInfo['display_name'] as String?;
+      final username = userInfo['username'] as String?;
+
+      // Prefer display_name, fall back to username
+      final profileName = (displayName != null && displayName.isNotEmpty)
+          ? displayName
+          : username;
+
+      if (profileName != null && profileName.isNotEmpty) {
+        final existingOwnerName = await SettingsService.getOwnerName();
+        if (existingOwnerName == null || existingOwnerName.isEmpty) {
+          // No owner name set - use profile name
+          await SettingsService.setOwnerName(profileName);
+          _logger.log('✅ Set owner name from MA profile: $profileName');
+        } else {
+          _logger.log('ℹ️ Owner name already set: $existingOwnerName (profile: $profileName)');
+        }
+      }
+    } catch (e) {
+      _logger.log('⚠️ Could not fetch user profile (non-fatal): $e');
+    }
+  }
+
+  /// Initialize after connection/authentication is complete
+  /// This consolidates all post-auth initialization steps including the critical
+  /// fetchState() call that populates providers and players
+  Future<void> _initializeAfterConnection() async {
+    if (_api == null) return;
+
+    try {
+      _logger.log('🚀 Initializing after connection...');
+
+      // STEP 1: Fetch initial state (providers and players)
+      // This is CRITICAL for player discovery with auth enabled
+      // It matches the MA frontend's fetchState() behavior
+      await _api!.fetchState();
+
+      // STEP 2: Try to adopt an existing ghost player (fresh install only)
+      // This must happen BEFORE DeviceIdService generates a new ID
+      await _tryAdoptGhostPlayer();
+
+      // STEP 3: Register local player
+      // DeviceIdService will use adopted ID if available, or generate new
+      await _registerLocalPlayer();
+
+      // STEP 4: Clean up remaining ghost players (after registration)
+      await _cleanupGhostPlayers();
+
+      // STEP 5: Load available players and auto-select local player
+      await _loadAndSelectPlayers();
+
+      // STEP 6: Auto-load library when connected
+      loadLibrary();
+
+      _logger.log('✅ Post-connection initialization complete');
+    } catch (e) {
+      _logger.log('❌ Error during post-connection initialization: $e');
+      _error = 'Failed to initialize after connection';
+      notifyListeners();
     }
   }
 
@@ -397,27 +476,17 @@ class MusicAssistantProvider with ChangeNotifier {
                 notifyListeners();
                 return;
               }
+              // If auth was required and succeeded, the authenticated state handler
+              // will run the post-auth initialization
+              return;
             }
 
-            // STEP 1: Try to adopt an existing ghost player (fresh install only)
-            // This must happen BEFORE DeviceIdService generates a new ID
-            await _tryAdoptGhostPlayer();
-
-            // STEP 2: Register local player
-            // DeviceIdService will use adopted ID if available, or generate new
-            await _registerLocalPlayer();
-
-            // STEP 3: Clean up remaining ghost players (after registration)
-            await _cleanupGhostPlayers();
-
-            // STEP 4: Load available players and auto-select local player
-            await _loadAndSelectPlayers();
-
-            // STEP 5: Auto-load library when connected
-            loadLibrary();
+            // No auth required - proceed with initialization immediately
+            await _initializeAfterConnection();
           } else if (state == MAConnectionState.authenticated) {
             _logger.log('✅ MA authentication successful');
-            // Auth successful - the 'connected' handler will already run the rest
+            // Auth succeeded - now run post-auth initialization
+            await _initializeAfterConnection();
           } else if (state == MAConnectionState.disconnected) {
             _availablePlayers = [];
             _selectedPlayer = null;

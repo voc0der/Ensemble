@@ -223,8 +223,10 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Validate owner name
-    if (_ownerNameController.text.trim().isEmpty) {
+    // Validate owner name - only required if NOT using MA auth
+    // (MA auth will get display_name from user profile after login)
+    final isMaAuth = _detectedAuthStrategy?.name == 'music_assistant';
+    if (!isMaAuth && _ownerNameController.text.trim().isEmpty) {
       setState(() {
         _error = 'Please enter your name';
       });
@@ -258,14 +260,17 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // Save owner name and port to settings
-      await SettingsService.setOwnerName(_ownerNameController.text.trim());
+      // Save owner name (if provided) and port to settings
+      // For MA auth, the owner name will be set from user profile after login
+      if (!isMaAuth && _ownerNameController.text.trim().isNotEmpty) {
+        await SettingsService.setOwnerName(_ownerNameController.text.trim());
+      }
       await SettingsService.setWebSocketPort(portNum);
 
       final provider = context.read<MusicAssistantProvider>();
 
       // Handle authentication based on detected strategy
-      final isMaAuth = _detectedAuthStrategy?.name == 'music_assistant';
+      // Note: isMaAuth is already defined earlier in this method
 
       if (_detectedAuthStrategy != null && _detectedAuthStrategy!.name != 'none' && !isMaAuth) {
         // Pre-connect auth (Authelia, Basic Auth)
@@ -482,39 +487,42 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
 
-              // Your Name
-              Text(
-                'Your Name',
-                style: textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onBackground,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              TextField(
-                controller: _ownerNameController,
-                style: TextStyle(color: colorScheme.onSurface),
-                decoration: InputDecoration(
-                  hintText: 'Your first name',
-                  hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
-                  filled: true,
-                  fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.person_rounded,
-                    color: colorScheme.onSurface.withOpacity(0.54),
+              // Your Name - only show if NOT using MA native auth
+              // (MA auth uses display_name from user profile)
+              if (_detectedAuthStrategy?.name != 'music_assistant') ...[
+                Text(
+                  'Your Name',
+                  style: textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onBackground,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                enabled: !_isConnecting && !_isDetectingAuth,
-                keyboardType: TextInputType.name,
-                textInputAction: TextInputAction.next,
-              ),
+                const SizedBox(height: 12),
 
-              const SizedBox(height: 24),
+                TextField(
+                  controller: _ownerNameController,
+                  style: TextStyle(color: colorScheme.onSurface),
+                  decoration: InputDecoration(
+                    hintText: 'Your first name',
+                    hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
+                    filled: true,
+                    fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.person_rounded,
+                      color: colorScheme.onSurface.withOpacity(0.54),
+                    ),
+                  ),
+                  enabled: !_isConnecting && !_isDetectingAuth,
+                  keyboardType: TextInputType.name,
+                  textInputAction: TextInputAction.next,
+                ),
+
+                const SizedBox(height: 24),
+              ],
 
               // Port
               Text(

@@ -1950,6 +1950,65 @@ class MusicAssistantAPI {
     }
   }
 
+  /// Fetch initial state after authentication
+  /// This populates providers and players that are needed for operation
+  /// Must be called after authentication succeeds
+  /// This matches the MA frontend's fetchState() behavior
+  Future<void> fetchState() async {
+    if (_authRequired && !_isAuthenticated) {
+      _logger.log('Cannot fetch state - not authenticated');
+      return;
+    }
+
+    try {
+      _logger.log('📥 Fetching initial state...');
+
+      // Fetch provider manifests (available providers)
+      try {
+        await _sendCommand('providers/manifests');
+        _logger.log('✓ Provider manifests loaded');
+      } catch (e) {
+        _logger.log('⚠️ Could not load provider manifests: $e');
+      }
+
+      // Fetch provider instances (active providers)
+      try {
+        await _sendCommand('providers');
+        _logger.log('✓ Provider instances loaded');
+      } catch (e) {
+        _logger.log('⚠️ Could not load provider instances: $e');
+      }
+
+      _logger.log('✅ Initial state fetch complete');
+    } catch (e) {
+      _logger.log('❌ Error fetching state: $e');
+      // Don't throw - this should be non-fatal
+    }
+  }
+
+  /// Get current authenticated user's profile
+  /// Returns user info including display_name, username, groups, etc.
+  Future<Map<String, dynamic>?> getCurrentUserInfo() async {
+    if (_authRequired && !_isAuthenticated) {
+      _logger.log('Cannot get user info - not authenticated');
+      return null;
+    }
+
+    try {
+      final response = await _sendCommand('auth/me');
+      final userInfo = response['result'] as Map<String, dynamic>?;
+
+      if (userInfo != null) {
+        _logger.log('✓ Got user info: ${userInfo['username']} (display_name: ${userInfo['display_name']})');
+      }
+
+      return userInfo;
+    } catch (e) {
+      _logger.log('Error getting current user info: $e');
+      return null;
+    }
+  }
+
   /// Create a long-lived token for persistent authentication
   /// Must be authenticated first
   Future<String?> createLongLivedToken({String name = 'Ensemble Mobile App'}) async {
