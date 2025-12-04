@@ -200,6 +200,7 @@ class MusicAssistantProvider with ChangeNotifier {
 
   /// Fetch user profile from MA and set owner name from display_name
   /// This allows using the MA profile name as the player name
+  /// For MA auth, this ALWAYS sets the owner name from the profile
   Future<void> _fetchAndSetUserProfileName() async {
     if (_api == null) return;
 
@@ -213,20 +214,20 @@ class MusicAssistantProvider with ChangeNotifier {
       final displayName = userInfo['display_name'] as String?;
       final username = userInfo['username'] as String?;
 
+      _logger.log('🔍 Profile data: display_name="$displayName", username="$username"');
+
       // Prefer display_name, fall back to username
       final profileName = (displayName != null && displayName.isNotEmpty)
           ? displayName
           : username;
 
       if (profileName != null && profileName.isNotEmpty) {
-        final existingOwnerName = await SettingsService.getOwnerName();
-        if (existingOwnerName == null || existingOwnerName.isEmpty) {
-          // No owner name set - use profile name
-          await SettingsService.setOwnerName(profileName);
-          _logger.log('✅ Set owner name from MA profile: $profileName');
-        } else {
-          _logger.log('ℹ️ Owner name already set: $existingOwnerName (profile: $profileName)');
-        }
+        // For MA auth, always use the profile name (overwrite any existing)
+        // This ensures the player name stays in sync with MA profile
+        await SettingsService.setOwnerName(profileName);
+        _logger.log('✅ Set owner name from MA profile: $profileName');
+      } else {
+        _logger.log('⚠️ No valid name in profile (display_name and username both empty)');
       }
     } catch (e) {
       _logger.log('⚠️ Could not fetch user profile (non-fatal): $e');

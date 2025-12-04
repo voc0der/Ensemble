@@ -1996,10 +1996,21 @@ class MusicAssistantAPI {
 
     try {
       final response = await _sendCommand('auth/me');
-      final userInfo = response['result'] as Map<String, dynamic>?;
+      _logger.log('🔍 auth/me raw response keys: ${response.keys.toList()}');
+
+      // Handle both wrapped (result) and unwrapped responses
+      Map<String, dynamic>? userInfo;
+      if (response.containsKey('result')) {
+        userInfo = response['result'] as Map<String, dynamic>?;
+      } else if (response.containsKey('username') || response.containsKey('user_id')) {
+        // Response is the user object directly
+        userInfo = response;
+      }
 
       if (userInfo != null) {
-        _logger.log('✓ Got user info: ${userInfo['username']} (display_name: ${userInfo['display_name']})');
+        _logger.log('✓ Got user info: username=${userInfo['username']}, display_name=${userInfo['display_name']}');
+      } else {
+        _logger.log('⚠️ auth/me returned no user info. Response: $response');
       }
 
       return userInfo;
