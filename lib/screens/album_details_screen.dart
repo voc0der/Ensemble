@@ -129,10 +129,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
       // Queue all tracks via Music Assistant
       await maProvider.playTracks(player.playerId, _tracks, startIndex: 0);
       _logger.log('Album queued on ${player.name}');
-
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      // Stay on album page - mini player will appear
     } catch (e) {
       _logger.log('Error playing album: $e');
       _showError('Failed to play album: $e');
@@ -155,10 +152,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
       // Queue tracks starting at the selected index
       await maProvider.playTracks(player.playerId, _tracks, startIndex: index);
       _logger.log('Tracks queued on ${player.name}');
-
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      // Stay on album page - mini player will appear
     } catch (e) {
       _logger.log('Error playing track: $e');
       _showError('Failed to play track: $e');
