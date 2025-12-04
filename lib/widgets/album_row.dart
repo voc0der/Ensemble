@@ -60,7 +60,7 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
           ),
         ),
         SizedBox(
-          height: 210, // Slightly increased for text
+          height: 193,
           child: FutureBuilder<List<Album>>(
             future: _albumsFuture,
             builder: (context, snapshot) {

@@ -60,7 +60,7 @@ class _ArtistRowState extends State<ArtistRow> with AutomaticKeepAliveClientMixi
           ),
         ),
         SizedBox(
-          height: 180,
+          height: 163,
           child: FutureBuilder<List<Artist>>(
             future: _artistsFuture,
             builder: (context, snapshot) {
