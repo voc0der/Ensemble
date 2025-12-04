@@ -116,14 +116,23 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Stack(
-      children: [
-        // The main app content (Navigator, screens, etc.)
-        // Add bottom padding to account for bottom nav + mini player
-        Padding(
-          padding: const EdgeInsets.only(bottom: 0), // Content manages its own padding
-          child: widget.child,
-        ),
+    return BackButtonListener(
+      onBackButtonPressed: () {
+        // If player is expanded, collapse it and consume the back button
+        if (GlobalPlayerOverlay.isPlayerExpanded) {
+          GlobalPlayerOverlay.collapsePlayer();
+          return true; // Consume the back button
+        }
+        return false; // Let the system handle it
+      },
+      child: Stack(
+        children: [
+          // The main app content (Navigator, screens, etc.)
+          // Add bottom padding to account for bottom nav + mini player
+          Padding(
+            padding: const EdgeInsets.only(bottom: 0), // Content manages its own padding
+            child: widget.child,
+          ),
         // Global persistent bottom navigation bar - positioned at bottom
         Positioned(
           left: 0,
@@ -253,7 +262,8 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
             );
           },
         ),
-      ],
+        ],
+      ),
     );
   }
 }

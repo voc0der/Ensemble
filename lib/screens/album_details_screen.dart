@@ -331,15 +331,10 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
     final textTheme = Theme.of(context).textTheme;
 
     return PopScope(
-      canPop: !GlobalPlayerOverlay.isPlayerExpanded,
+      canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
           clearAdaptiveColorsOnBack(context);
-          return;
-        }
-        // If player is expanded, collapse it instead of popping
-        if (GlobalPlayerOverlay.isPlayerExpanded) {
-          GlobalPlayerOverlay.collapsePlayer();
         }
       },
       child: Scaffold(
