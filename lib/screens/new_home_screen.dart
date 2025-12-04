@@ -169,7 +169,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
               return await provider.api!.getRecentAlbums(limit: 10);
             },
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 22),
 
           // Discover Artists
           ArtistRow(

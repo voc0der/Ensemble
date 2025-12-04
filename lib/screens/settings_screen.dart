@@ -107,7 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             // Logo - same size as login screen (50% of screen width)
             Padding(
-              padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
+              padding: const EdgeInsets.only(top: 8.0, bottom: 32.0),
               child: Image.asset(
                 'assets/images/ensemble_icon_transparent.png',
                 width: MediaQuery.of(context).size.width * 0.5,
