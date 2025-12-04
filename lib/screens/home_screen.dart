@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../theme/theme_provider.dart';
-import '../theme/palette_helper.dart';
+import '../providers/navigation_provider.dart';
 import '../widgets/global_player_overlay.dart';
 import 'new_home_screen.dart';
 import 'new_library_screen.dart';
@@ -17,9 +16,24 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
   final GlobalKey<SearchScreenState> _searchScreenKey = GlobalKey<SearchScreenState>();
   DateTime? _lastBackPress;
+
+  @override
+  void initState() {
+    super.initState();
+    // Register search focus callback with navigation provider
+    navigationProvider.onSearchTabSelected = () {
+      _searchScreenKey.currentState?.requestFocus();
+    };
+  }
+
+  @override
+  void dispose() {
+    // Clean up callback
+    navigationProvider.onSearchTabSelected = null;
+    super.dispose();
+  }
 
   void _showExitSnackBar() {
     ScaffoldMessenger.of(context).clearSnackBars();
@@ -35,168 +49,73 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final themeProvider = context.watch<ThemeProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
 
-    // Use adaptive primary color for bottom nav when adaptive theme is enabled
-    // Note: adaptivePrimaryColor returns customColor as fallback, so no flash to defaults
-    var navSelectedColor = themeProvider.adaptiveTheme
-        ? themeProvider.adaptivePrimaryColor
-        : colorScheme.primary;
+    return ListenableBuilder(
+      listenable: navigationProvider,
+      builder: (context, _) {
+        final selectedIndex = navigationProvider.selectedIndex;
 
-    // Ensure nav color has sufficient contrast against the surface background
-    // If the primary color is too dark for a dark theme, lighten it
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (isDark && navSelectedColor.computeLuminance() < 0.2) {
-      // Lighten dark colors for better visibility on dark backgrounds
-      final hsl = HSLColor.fromColor(navSelectedColor);
-      navSelectedColor = hsl.withLightness((hsl.lightness + 0.3).clamp(0.0, 0.8)).toColor();
-    } else if (!isDark && navSelectedColor.computeLuminance() > 0.8) {
-      // Darken light colors for better visibility on light backgrounds
-      final hsl = HSLColor.fromColor(navSelectedColor);
-      navSelectedColor = hsl.withLightness((hsl.lightness - 0.3).clamp(0.2, 1.0)).toColor();
-    }
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
+            // If global player is expanded, collapse it first
+            if (GlobalPlayerOverlay.isPlayerExpanded) {
+              GlobalPlayerOverlay.collapsePlayer();
+              return;
+            }
 
-        // If global player is expanded, collapse it first
-        if (GlobalPlayerOverlay.isPlayerExpanded) {
-          GlobalPlayerOverlay.collapsePlayer();
-          return;
-        }
-
-        // If not on home tab, navigate to home
-        if (_selectedIndex != 0) {
-          // If leaving Settings, show player again
-          if (_selectedIndex == 3) {
-            GlobalPlayerOverlay.showPlayer();
-          }
-          setState(() {
-            _selectedIndex = 0;
-          });
-          return;
-        }
-
-        // On home tab - check for double press to minimize
-        final now = DateTime.now();
-        if (_lastBackPress != null &&
-            now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
-          // Double press detected - minimize app (move to background)
-          // This keeps the app running and connection alive
-          SystemNavigator.pop();
-        } else {
-          // First press, show message
-          _lastBackPress = now;
-          _showExitSnackBar();
-        }
-      },
-      child: Scaffold(
-        backgroundColor: colorScheme.background,
-        body: Stack(
-          children: [
-            // Home and Library use IndexedStack for state preservation
-            Offstage(
-              offstage: _selectedIndex > 1,
-              child: IndexedStack(
-                index: _selectedIndex.clamp(0, 1),
-                children: const [
-                  NewHomeScreen(),
-                  NewLibraryScreen(),
-                ],
-              ),
-            ),
-            // Search and Settings are conditionally rendered (removed from tree when not visible)
-            if (_selectedIndex == 2)
-              SearchScreen(key: _searchScreenKey),
-            if (_selectedIndex == 3)
-              const SettingsScreen(),
-          ],
-        ),
-        bottomNavigationBar: ValueListenableBuilder<PlayerExpansionState>(
-          valueListenable: playerExpansionNotifier,
-          builder: (context, expansionState, child) {
-            // Lerp between surface color and player background when expanded
-            final navBgColor = expansionState.progress > 0 && expansionState.backgroundColor != null
-                ? Color.lerp(colorScheme.surface, expansionState.backgroundColor, expansionState.progress)!
-                : colorScheme.surface;
-
-            return Container(
-              decoration: BoxDecoration(
-                color: navBgColor,
-                boxShadow: expansionState.progress < 0.5 ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ] : null,
-              ),
-              child: BottomNavigationBar(
-            currentIndex: _selectedIndex,
-            onTap: (index) {
-              // Collapse player if expanded
-              if (GlobalPlayerOverlay.isPlayerExpanded) {
-                GlobalPlayerOverlay.collapsePlayer();
-              }
-
-              // Hide mini player on Settings screen, show on other screens
-              if (index == 3) {
-                GlobalPlayerOverlay.hidePlayer();
-              } else if (_selectedIndex == 3) {
-                // Coming back from Settings, show player again
+            // If not on home tab, navigate to home
+            if (selectedIndex != 0) {
+              // If leaving Settings, show player again
+              if (selectedIndex == 3) {
                 GlobalPlayerOverlay.showPlayer();
               }
+              navigationProvider.setSelectedIndex(0);
+              return;
+            }
 
-              setState(() {
-                _selectedIndex = index;
-              });
-
-              // Auto-focus search field when switching to search tab
-              if (index == 2) {
-                // Use post-frame callback to ensure SearchScreen is built first
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _searchScreenKey.currentState?.requestFocus();
-                });
-              }
-            },
-            backgroundColor: Colors.transparent,
-            selectedItemColor: navSelectedColor,
-            unselectedItemColor: colorScheme.onSurface.withOpacity(0.54),
-            elevation: 0,
-            type: BottomNavigationBarType.fixed,
-            selectedFontSize: 12,
-            unselectedFontSize: 12,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                activeIcon: Icon(Icons.home_rounded),
-                label: 'Home',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.library_music_outlined),
-                activeIcon: Icon(Icons.library_music_rounded),
-                label: 'Library',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.search_rounded),
-                activeIcon: Icon(Icons.search_rounded),
-                label: 'Search',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.settings_outlined),
-                activeIcon: Icon(Icons.settings_rounded),
-                label: 'Settings',
-              ),
-            ],
-              ),
-            );
+            // On home tab - check for double press to minimize
+            final now = DateTime.now();
+            if (_lastBackPress != null &&
+                now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
+              // Double press detected - minimize app (move to background)
+              // This keeps the app running and connection alive
+              SystemNavigator.pop();
+            } else {
+              // First press, show message
+              _lastBackPress = now;
+              _showExitSnackBar();
+            }
           },
-        ),
-      ),
+          child: Scaffold(
+            backgroundColor: colorScheme.surface,
+            // No bottomNavigationBar here - it's now in GlobalPlayerOverlay
+            body: Stack(
+              children: [
+                // Home and Library use IndexedStack for state preservation
+                Offstage(
+                  offstage: selectedIndex > 1,
+                  child: IndexedStack(
+                    index: selectedIndex.clamp(0, 1),
+                    children: const [
+                      NewHomeScreen(),
+                      NewLibraryScreen(),
+                    ],
+                  ),
+                ),
+                // Search and Settings are conditionally rendered (removed from tree when not visible)
+                if (selectedIndex == 2)
+                  SearchScreen(key: _searchScreenKey),
+                if (selectedIndex == 3)
+                  const SettingsScreen(),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

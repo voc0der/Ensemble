@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/music_assistant_provider.dart';
+import '../providers/navigation_provider.dart';
+import '../theme/theme_provider.dart';
 import 'expandable_player.dart';
 
 /// A global key to access the player state from anywhere in the app
@@ -96,11 +98,122 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Stack(
       children: [
         // The main app content (Navigator, screens, etc.)
-        widget.child,
-        // Global player overlay - slides down when hidden
+        // Add bottom padding to account for bottom nav + mini player
+        Padding(
+          padding: const EdgeInsets.only(bottom: 0), // Content manages its own padding
+          child: widget.child,
+        ),
+        // Global persistent bottom navigation bar - positioned at bottom
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: ListenableBuilder(
+            listenable: navigationProvider,
+            builder: (context, _) {
+              return Consumer<ThemeProvider>(
+                builder: (context, themeProvider, _) {
+                  // Use adaptive primary color for bottom nav when adaptive theme is enabled
+                  var navSelectedColor = themeProvider.adaptiveTheme
+                      ? themeProvider.adaptivePrimaryColor
+                      : colorScheme.primary;
+
+                  // Ensure nav color has sufficient contrast against the surface background
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  if (isDark && navSelectedColor.computeLuminance() < 0.2) {
+                    final hsl = HSLColor.fromColor(navSelectedColor);
+                    navSelectedColor = hsl.withLightness((hsl.lightness + 0.3).clamp(0.0, 0.8)).toColor();
+                  } else if (!isDark && navSelectedColor.computeLuminance() > 0.8) {
+                    final hsl = HSLColor.fromColor(navSelectedColor);
+                    navSelectedColor = hsl.withLightness((hsl.lightness - 0.3).clamp(0.2, 1.0)).toColor();
+                  }
+
+                  return ValueListenableBuilder<PlayerExpansionState>(
+                    valueListenable: playerExpansionNotifier,
+                    builder: (context, expansionState, child) {
+                      // Lerp between surface color and player background when expanded
+                      final navBgColor = expansionState.progress > 0 && expansionState.backgroundColor != null
+                          ? Color.lerp(colorScheme.surface, expansionState.backgroundColor, expansionState.progress)!
+                          : colorScheme.surface;
+
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: navBgColor,
+                          boxShadow: expansionState.progress < 0.5
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, -2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: BottomNavigationBar(
+                          currentIndex: navigationProvider.selectedIndex,
+                          onTap: (index) {
+                            // Collapse player if expanded
+                            if (GlobalPlayerOverlay.isPlayerExpanded) {
+                              GlobalPlayerOverlay.collapsePlayer();
+                            }
+
+                            // Pop any pushed routes (album/artist details) first
+                            navigationProvider.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+
+                            // Hide mini player on Settings screen, show on other screens
+                            if (index == 3) {
+                              GlobalPlayerOverlay.hidePlayer();
+                            } else if (navigationProvider.selectedIndex == 3) {
+                              GlobalPlayerOverlay.showPlayer();
+                            }
+
+                            navigationProvider.setSelectedIndex(index);
+                          },
+                          backgroundColor: Colors.transparent,
+                          selectedItemColor: navSelectedColor,
+                          unselectedItemColor: colorScheme.onSurface.withOpacity(0.54),
+                          elevation: 0,
+                          type: BottomNavigationBarType.fixed,
+                          selectedFontSize: 12,
+                          unselectedFontSize: 12,
+                          items: const [
+                            BottomNavigationBarItem(
+                              icon: Icon(Icons.home_outlined),
+                              activeIcon: Icon(Icons.home_rounded),
+                              label: 'Home',
+                            ),
+                            BottomNavigationBarItem(
+                              icon: Icon(Icons.library_music_outlined),
+                              activeIcon: Icon(Icons.library_music_rounded),
+                              label: 'Library',
+                            ),
+                            BottomNavigationBarItem(
+                              icon: Icon(Icons.search_rounded),
+                              activeIcon: Icon(Icons.search_rounded),
+                              label: 'Search',
+                            ),
+                            BottomNavigationBarItem(
+                              icon: Icon(Icons.settings_outlined),
+                              activeIcon: Icon(Icons.settings_rounded),
+                              label: 'Settings',
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        // Global player overlay - slides down when hidden, renders ON TOP of bottom nav
         AnimatedBuilder(
           animation: _slideAnimation,
           builder: (context, child) {
