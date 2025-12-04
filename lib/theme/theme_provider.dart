@@ -45,8 +45,17 @@ class ThemeProvider extends ChangeNotifier {
   ColorScheme? get adaptiveLightScheme => _adaptiveLightScheme;
   ColorScheme? get adaptiveDarkScheme => _adaptiveDarkScheme;
 
-  /// Get the current adaptive primary color (for bottom nav, etc.)
+  /// Get the current adaptive primary color (for bottom nav highlight, etc.)
   Color get adaptivePrimaryColor => _adaptiveColors?.primary ?? _customColor;
+
+  /// Get the current adaptive surface color (for bottom nav background, etc.)
+  /// Returns a subtle tinted surface based on the adaptive colors
+  Color? get adaptiveSurfaceColor {
+    if (_adaptiveColors == null) return null;
+    // Use the miniPlayer color but darkened for a subtle tinted background
+    final hsl = HSLColor.fromColor(_adaptiveColors!.miniPlayer);
+    return hsl.withLightness((hsl.lightness * 0.4).clamp(0.08, 0.15)).toColor();
+  }
 
   Future<void> _loadSettings() async {
     final themeModeString = await SettingsService.getThemeMode();

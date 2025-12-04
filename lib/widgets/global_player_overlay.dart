@@ -137,10 +137,15 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
                   return ValueListenableBuilder<PlayerExpansionState>(
                     valueListenable: playerExpansionNotifier,
                     builder: (context, expansionState, child) {
-                      // Lerp between surface color and player background when expanded
-                      final navBgColor = expansionState.progress > 0 && expansionState.backgroundColor != null
-                          ? Color.lerp(colorScheme.surface, expansionState.backgroundColor, expansionState.progress)!
+                      // Base background: use adaptive surface color if available, otherwise default surface
+                      final baseBgColor = (themeProvider.adaptiveTheme && themeProvider.adaptiveSurfaceColor != null)
+                          ? themeProvider.adaptiveSurfaceColor!
                           : colorScheme.surface;
+
+                      // Lerp between base color and player background when expanded
+                      final navBgColor = expansionState.progress > 0 && expansionState.backgroundColor != null
+                          ? Color.lerp(baseBgColor, expansionState.backgroundColor, expansionState.progress)!
+                          : baseBgColor;
 
                       return Container(
                         decoration: BoxDecoration(
