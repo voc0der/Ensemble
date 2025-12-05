@@ -11,6 +11,9 @@ class Timings {
   /// Player list cache duration before refresh
   static const Duration playersCacheDuration = Duration(minutes: 5);
 
+  /// Home screen row cache duration (recently played, discover sections)
+  static const Duration homeRowCacheDuration = Duration(minutes: 10);
+
   /// WebSocket reconnection delay
   static const Duration reconnectDelay = Duration(seconds: 3);
 

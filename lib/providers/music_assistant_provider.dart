@@ -48,6 +48,14 @@ class MusicAssistantProvider with ChangeNotifier {
   // Player list caching
   DateTime? _playersLastFetched;
 
+  // Home screen row caching
+  List<Album>? _cachedRecentAlbums;
+  List<Artist>? _cachedDiscoverArtists;
+  List<Album>? _cachedDiscoverAlbums;
+  DateTime? _recentAlbumsLastFetched;
+  DateTime? _discoverArtistsLastFetched;
+  DateTime? _discoverAlbumsLastFetched;
+
   MAConnectionState get connectionState => _connectionState;
   String? get serverUrl => _serverUrl;
   List<Artist> get artists => _artists;
@@ -84,6 +92,107 @@ class MusicAssistantProvider with ChangeNotifier {
       'tracks': [],
     };
   }
+
+  // ============================================================================
+  // HOME SCREEN ROW CACHING
+  // ============================================================================
+
+  /// Get recently played albums with caching
+  /// Returns cached data if still valid, otherwise fetches fresh
+  Future<List<Album>> getRecentAlbumsWithCache({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    final cacheValid = !forceRefresh &&
+        _cachedRecentAlbums != null &&
+        _recentAlbumsLastFetched != null &&
+        now.difference(_recentAlbumsLastFetched!) < Timings.homeRowCacheDuration;
+
+    if (cacheValid) {
+      _logger.log('📦 Using cached recent albums (${_cachedRecentAlbums!.length} items)');
+      return _cachedRecentAlbums!;
+    }
+
+    if (_api == null) return _cachedRecentAlbums ?? [];
+
+    try {
+      _logger.log('🔄 Fetching fresh recent albums...');
+      final albums = await _api!.getRecentAlbums(limit: LibraryConstants.defaultRecentLimit);
+      _cachedRecentAlbums = albums;
+      _recentAlbumsLastFetched = DateTime.now();
+      _logger.log('✅ Cached ${albums.length} recent albums');
+      return albums;
+    } catch (e) {
+      _logger.log('❌ Failed to fetch recent albums: $e');
+      return _cachedRecentAlbums ?? [];
+    }
+  }
+
+  /// Get discover artists (random) with caching
+  Future<List<Artist>> getDiscoverArtistsWithCache({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    final cacheValid = !forceRefresh &&
+        _cachedDiscoverArtists != null &&
+        _discoverArtistsLastFetched != null &&
+        now.difference(_discoverArtistsLastFetched!) < Timings.homeRowCacheDuration;
+
+    if (cacheValid) {
+      _logger.log('📦 Using cached discover artists (${_cachedDiscoverArtists!.length} items)');
+      return _cachedDiscoverArtists!;
+    }
+
+    if (_api == null) return _cachedDiscoverArtists ?? [];
+
+    try {
+      _logger.log('🔄 Fetching fresh discover artists...');
+      final artists = await _api!.getRandomArtists(limit: LibraryConstants.defaultRecentLimit);
+      _cachedDiscoverArtists = artists;
+      _discoverArtistsLastFetched = DateTime.now();
+      _logger.log('✅ Cached ${artists.length} discover artists');
+      return artists;
+    } catch (e) {
+      _logger.log('❌ Failed to fetch discover artists: $e');
+      return _cachedDiscoverArtists ?? [];
+    }
+  }
+
+  /// Get discover albums (random) with caching
+  Future<List<Album>> getDiscoverAlbumsWithCache({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    final cacheValid = !forceRefresh &&
+        _cachedDiscoverAlbums != null &&
+        _discoverAlbumsLastFetched != null &&
+        now.difference(_discoverAlbumsLastFetched!) < Timings.homeRowCacheDuration;
+
+    if (cacheValid) {
+      _logger.log('📦 Using cached discover albums (${_cachedDiscoverAlbums!.length} items)');
+      return _cachedDiscoverAlbums!;
+    }
+
+    if (_api == null) return _cachedDiscoverAlbums ?? [];
+
+    try {
+      _logger.log('🔄 Fetching fresh discover albums...');
+      final albums = await _api!.getRandomAlbums(limit: LibraryConstants.defaultRecentLimit);
+      _cachedDiscoverAlbums = albums;
+      _discoverAlbumsLastFetched = DateTime.now();
+      _logger.log('✅ Cached ${albums.length} discover albums');
+      return albums;
+    } catch (e) {
+      _logger.log('❌ Failed to fetch discover albums: $e');
+      return _cachedDiscoverAlbums ?? [];
+    }
+  }
+
+  /// Invalidate home screen cache (call on pull-to-refresh)
+  void invalidateHomeCache() {
+    _recentAlbumsLastFetched = null;
+    _discoverArtistsLastFetched = null;
+    _discoverAlbumsLastFetched = null;
+    _logger.log('🗑️ Home screen cache invalidated');
+  }
+
+  // ============================================================================
+  // END HOME SCREEN ROW CACHING
+  // ============================================================================
 
   // Player selection getters
   Player? get selectedPlayer => _selectedPlayer;

@@ -22,8 +22,10 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
   bool get wantKeepAlive => true;
 
   Future<void> _onRefresh() async {
-    // Simulate a short delay or verify connection
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Invalidate cache to force fresh data on pull-to-refresh
+    final provider = context.read<MusicAssistantProvider>();
+    provider.invalidateHomeCache();
+
     if (mounted) {
       setState(() {
         _refreshKey = UniqueKey();
@@ -159,33 +161,24 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         key: _refreshKey,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Recently played albums (extracted from recently played tracks)
+          // Recently played albums (with caching)
           AlbumRow(
             title: 'Recently Played',
-            loadAlbums: () async {
-              if (provider.api == null) return [];
-              return await provider.api!.getRecentAlbums(limit: 10);
-            },
+            loadAlbums: () => provider.getRecentAlbumsWithCache(),
           ),
           const SizedBox(height: 22),
 
-          // Discover Artists
+          // Discover Artists (with caching)
           ArtistRow(
             title: 'Discover Artists',
-            loadArtists: () async {
-              if (provider.api == null) return [];
-              return await provider.api!.getRandomArtists(limit: 10);
-            },
+            loadArtists: () => provider.getDiscoverArtistsWithCache(),
           ),
           const SizedBox(height: 4),
 
-          // Discover Albums
+          // Discover Albums (with caching)
           AlbumRow(
             title: 'Discover Albums',
-            loadAlbums: () async {
-              if (provider.api == null) return [];
-              return await provider.api!.getRandomAlbums(limit: 10);
-            },
+            loadAlbums: () => provider.getDiscoverAlbumsWithCache(),
           ),
           SizedBox(height: BottomSpacing.withMiniPlayer), // Space for bottom nav + mini player
         ],
