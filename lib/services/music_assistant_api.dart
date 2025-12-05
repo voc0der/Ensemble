@@ -1659,6 +1659,15 @@ class MusicAssistantAPI {
 
       if (matchedPlayer != null) {
         _logger.log('✅ Found adoptable player: ${matchedPlayer.name} (${matchedPlayer.playerId})');
+
+        // CRITICAL: Verify the player's config is not corrupted before adopting
+        // Corrupted configs (missing player_id field) cause error 999 on playback
+        final configValid = await _verifyPlayerConfig(matchedPlayer.playerId);
+        if (!configValid) {
+          _logger.log('⚠️ Player config is corrupted, skipping adoption to avoid error 999');
+          return null;
+        }
+
         return matchedPlayer.playerId;
       }
 
@@ -1667,6 +1676,49 @@ class MusicAssistantAPI {
     } catch (e) {
       _logger.log('❌ Error finding adoptable ghost player: $e');
       return null;
+    }
+  }
+
+  /// Verify a player's config is complete and not corrupted
+  /// Returns true if config is valid, false if corrupted or missing required fields
+  Future<bool> _verifyPlayerConfig(String playerId) async {
+    try {
+      _logger.log('🔍 Verifying player config for: $playerId');
+
+      // Try to get player config - this will fail with error 999 if corrupted
+      final response = await _sendCommand(
+        'config/players/get',
+        args: {'player_id': playerId},
+      );
+
+      final result = response['result'];
+      if (result == null) {
+        _logger.log('⚠️ Player config returned null');
+        return false;
+      }
+
+      // Check for required fields that indicate a complete config
+      final hasPlayerId = result['player_id'] != null;
+      final hasProvider = result['provider'] != null;
+
+      if (!hasPlayerId || !hasProvider) {
+        _logger.log('⚠️ Player config missing required fields: player_id=$hasPlayerId, provider=$hasProvider');
+        return false;
+      }
+
+      _logger.log('✅ Player config is valid');
+      return true;
+    } catch (e) {
+      // Error 999 with "player_id missing" means corrupted config
+      final errorStr = e.toString();
+      if (errorStr.contains('999') || errorStr.contains('player_id') || errorStr.contains('missing')) {
+        _logger.log('⚠️ Player config is corrupted: $e');
+        return false;
+      }
+      // Other errors might just mean config doesn't exist yet (which is fine for new players)
+      _logger.log('⚠️ Could not verify player config: $e');
+      // For ghost adoption, if we can't verify, safer to skip
+      return false;
     }
   }
 
