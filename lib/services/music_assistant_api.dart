@@ -1338,27 +1338,8 @@ class MusicAssistantAPI {
         _logger.log('✅ Builtin player registered successfully');
         _logger.log('📊 Registration response: ${response['result']}');
 
-        // CRITICAL: Explicitly save the player config to ensure all fields are persisted
-        // This prevents the 999 error: "Field player_id of type str is missing in PlayerConfig"
-        // The builtin_player/register creates the player but may not fully persist the config
-        // Wait a bit for registration to complete before saving
-        await Future.delayed(const Duration(milliseconds: 300));
-
-        try {
-          _logger.log('💾 Saving player config to ensure persistence...');
-          await _sendCommand(
-            'config/players/save',
-            args: {
-              'player_id': playerId,
-              'values': <String, dynamic>{}, // Empty values dict - just ensure config is saved
-            },
-          );
-          _logger.log('✅ Player config saved successfully');
-        } catch (e) {
-          // config/players/save may fail if player doesn't have a config yet
-          // This is non-fatal, the registration may still work
-          _logger.log('⚠️ Could not save player config (may already be saved): $e');
-        }
+        // NOTE: config/players/save removed - official MA clients don't use it
+        // and it causes error 999. Registration alone is sufficient.
 
         // VERIFICATION: Check that the player was actually created properly
         // Wait a moment for server to process, then verify
