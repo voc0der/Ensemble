@@ -74,7 +74,10 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
     if (maProvider.api == null) return;
 
     try {
-      final newState = await maProvider.api!.toggleFavorite(
+      // Toggle the state locally first
+      final newState = !_isFavorite;
+
+      await maProvider.api!.toggleFavorite(
         'album',
         widget.album.itemId,
         widget.album.provider,
