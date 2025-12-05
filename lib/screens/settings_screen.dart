@@ -123,37 +123,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: colorScheme.surfaceVariant.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _getStatusIcon(provider.connectionState),
-                        color: _getStatusColor(provider.connectionState, colorScheme),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _getStatusText(provider.connectionState),
-                        style: textTheme.titleMedium?.copyWith(
-                          color: _getStatusColor(provider.connectionState, colorScheme),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                  Icon(
+                    _getStatusIcon(provider.connectionState),
+                    color: _getStatusColor(provider.connectionState, colorScheme),
+                    size: 20,
                   ),
-                  if (provider.serverUrl != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      provider.serverUrl!,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
+                  const SizedBox(width: 8),
+                  Text(
+                    _getStatusText(provider.connectionState),
+                    style: textTheme.titleMedium?.copyWith(
+                      color: _getStatusColor(provider.connectionState, colorScheme),
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -477,13 +462,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _getStatusText(MAConnectionState state) {
     switch (state) {
       case MAConnectionState.connected:
-        return 'Connected';
       case MAConnectionState.authenticated:
-        return 'Authenticated';
+        return 'Connected';
       case MAConnectionState.connecting:
-        return 'Connecting...';
       case MAConnectionState.authenticating:
-        return 'Authenticating...';
+        return 'Connecting...';
       case MAConnectionState.error:
         return 'Connection Error';
       case MAConnectionState.disconnected:
