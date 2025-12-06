@@ -4,7 +4,7 @@
 ---
 
   <p>A minimalistic mobile client for <a href="https://music-assistant.io/">Music Assistant</a></p>
-  <p>Control your Music Assistant server and manage your entire music library from your mobile device.</p>
+  <p>Stream your music library directly to your phone, or control playback on any connected speaker.</p>
 </div>
 
 ---
@@ -17,28 +17,31 @@ I am not a developer. This application was created using **Claude Code** and **G
 
 ## Features
 
-### Music Assistant Integration
-- **Server Connection** - Connect to your Music Assistant server via WebSocket
-- **Library Browsing** - Browse artists, albums, and tracks from your server
-- **Album Details** - View album information and track listings
-- **Playback Control** - Control playback on your Music Assistant server players
-- **Auto-Reconnect** - Automatic reconnection with connection status monitoring
-- **Settings Management** - Configure server URL with persistent storage
+### Local Playback
+- **Stream to Your Phone** - Play music from your Music Assistant library directly on your mobile device
+- **Background Playback** - Music continues playing when the app is minimized
+- **Media Notifications** - Control playback from your notification shade with album art display
 
-### Control Features
-- Full playback controls (play/pause/skip/seek) for server players
-- Progress bar with time display
-- Volume control for server players
-- Now playing display with track information
-- Queue management and viewing
-- Multi-player support with device selector
-- Play on... button for quick device selection
+### Remote Control
+- **Multi-Player Support** - Control any speaker or device connected to Music Assistant
+- **Device Selector** - Quickly switch between your phone and other players
+- **Full Playback Controls** - Play, pause, skip, seek, and adjust volume
+- **Queue Management** - View and manage the playback queue
 
-### Theming Options
+### Library Browsing
+- **Browse Your Collection** - Artists, albums, and tracks from all your music sources
+- **Album Details** - View track listings with artwork
+- **Search** - Find music across your entire library
+
+### Smart Features
+- **Auto-Reconnect** - Automatically reconnects when connection is lost
+- **Caching** - Fast navigation with cached content
+- **Hero Animations** - Smooth transitions between screens
+
+### Theming
 - **Material You** - Dynamic theming based on your device's wallpaper
-- **Adaptive Theming** - Album artwork-based color schemes
+- **Adaptive Colors** - Album artwork-based color schemes
 - **Light/Dark Mode** - System-aware or manual theme selection
-- Clean, minimalistic UI design
 
 ## Screenshots
 
@@ -61,11 +64,22 @@ Download the latest release from the [Releases page](https://github.com/CollotsS
 ## Setup
 
 1. Launch the app
-2. Navigate to the **Library** tab
-3. Tap **Configure Server** or go to **Settings**
-4. Enter your Music Assistant server URL (e.g., `music.example.com` or `192.168.1.100`)
-5. Tap **Connect**
-6. Browse your library and control playback on your Music Assistant players!
+2. Enter your Music Assistant server URL (e.g., `music.example.com` or `192.168.1.100`)
+3. Connect to your server
+4. Start playing! Music plays on your phone by default, or tap the device icon to choose a different player.
+
+## Authentication
+
+Ensemble supports multiple authentication methods:
+
+| Method | Status |
+|--------|--------|
+| Music Assistant native auth | Tested |
+| No authentication | Tested |
+| Authelia | Implemented, not recently tested |
+| HTTP Basic Auth | Implemented, not recently tested |
+
+**Note:** Development and testing is done against Music Assistant beta with native authentication enabled.
 
 ## Requirements
 
@@ -75,7 +89,11 @@ Download the latest release from the [Releases page](https://github.com/CollotsS
 
 ## About Music Assistant
 
-Ensemble is a remote control client for [Music Assistant](https://music-assistant.io/), an open-source music library manager and player that integrates with various music sources and streaming providers. You'll need a running Music Assistant server to use this app. Music playback happens on your Music Assistant server's configured players (speakers, smart devices, etc.), or directly on your mobile device.
+Ensemble is a mobile client for [Music Assistant](https://music-assistant.io/), an open-source music library manager that integrates with various music sources and streaming providers.
+
+With Ensemble, you can:
+- **Stream locally** - Use your phone as a Music Assistant player
+- **Control remotely** - Manage playback on smart speakers, Chromecast, Sonos, and more
 
 Learn more: [music-assistant.io](https://music-assistant.io/)
 
@@ -125,9 +143,10 @@ The APK will be available at `build/app/outputs/flutter-apk/app-release.apk`
 <summary>Technologies Used</summary>
 
 - **Flutter** - Cross-platform mobile framework
-- **web_socket_channel** - WebSocket communication with Music Assistant server
+- **audio_service** - Background playback and media notifications
+- **web_socket_channel** - WebSocket communication with Music Assistant
 - **provider** - State management
+- **cached_network_image** - Image caching
 - **shared_preferences** - Local settings storage
-- **http** - HTTP requests for API communication
 
 </details>
