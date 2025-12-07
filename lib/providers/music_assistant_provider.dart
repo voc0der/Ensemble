@@ -1091,8 +1091,15 @@ class MusicAssistantProvider with ChangeNotifier {
           _logger.log('📋 Cached track for $playerName from player_updated: ${trackFromEvent.name} (image: ${imageUrl != null})');
 
           // Precache the album art image so it loads instantly
-          if (finalImageUrl != null) {
-            _precacheImage(finalImageUrl); // Fire and forget - don't await
+          if (imageUrl != null) {
+            // Get the rewritten URL from metadata
+            final images = metadata?['images'] as List?;
+            if (images != null && images.isNotEmpty) {
+              final imagePath = images[0]['path'] as String?;
+              if (imagePath != null) {
+                _precacheImage(imagePath);
+              }
+            }
           }
 
           notifyListeners(); // Update UI with new track info
