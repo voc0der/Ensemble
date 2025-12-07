@@ -1035,15 +1035,17 @@ class MusicAssistantProvider with ChangeNotifier {
         final mediaType = currentMedia['media_type'] as String?;
         if (mediaType != 'flow_stream') {
           // Create a Track object from current_media for the cache
+          final durationSecs = currentMedia['duration'] as int?;
+          final albumName = currentMedia['album'] as String?;
           final trackFromEvent = Track(
             itemId: currentMedia['queue_item_id'] as String? ?? '',
             provider: 'library',
             name: currentMedia['title'] as String? ?? 'Unknown Track',
             uri: currentMedia['uri'] as String?,
-            duration: currentMedia['duration'] as int?,
+            duration: durationSecs != null ? Duration(seconds: durationSecs) : null,
             artists: [Artist(itemId: '', provider: 'library', name: currentMedia['artist'] as String? ?? 'Unknown Artist')],
-            album: currentMedia['album'] != null
-                ? Album(itemId: '', provider: 'library', name: currentMedia['album'] as String?)
+            album: albumName != null
+                ? Album(itemId: '', provider: 'library', name: albumName)
                 : null,
           );
           _playerTrackCache[playerId] = trackFromEvent;
