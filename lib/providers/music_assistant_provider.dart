@@ -1037,12 +1037,13 @@ class MusicAssistantProvider with ChangeNotifier {
           // Create a Track object from current_media for the cache
           final trackFromEvent = Track(
             itemId: currentMedia['queue_item_id'] as String? ?? '',
+            provider: 'library',
             name: currentMedia['title'] as String? ?? 'Unknown Track',
             uri: currentMedia['uri'] as String?,
             duration: currentMedia['duration'] as int?,
-            artists: [Artist(itemId: '', name: currentMedia['artist'] as String? ?? 'Unknown Artist')],
+            artists: [Artist(itemId: '', provider: 'library', name: currentMedia['artist'] as String? ?? 'Unknown Artist')],
             album: currentMedia['album'] != null
-                ? Album(itemId: '', name: currentMedia['album'] as String?)
+                ? Album(itemId: '', provider: 'library', name: currentMedia['album'] as String?)
                 : null,
           );
           _playerTrackCache[playerId] = trackFromEvent;
