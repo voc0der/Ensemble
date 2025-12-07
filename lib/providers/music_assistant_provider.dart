@@ -1038,6 +1038,36 @@ class MusicAssistantProvider with ChangeNotifier {
           // Duration can be int or double depending on provider (Spotify sends double)
           final durationSecs = (currentMedia['duration'] as num?)?.toInt();
           final albumName = currentMedia['album'] as String?;
+          final imageUrl = currentMedia['image_url'] as String?;
+
+          // Build metadata with image info so getImageUrl() works
+          Map<String, dynamic>? metadata;
+          if (imageUrl != null) {
+            // Rewrite image URL to use main server
+            var finalImageUrl = imageUrl;
+            if (_serverUrl != null) {
+              try {
+                final imgUri = Uri.parse(imageUrl);
+                final queryString = imgUri.query;
+                var baseUrl = _serverUrl!;
+                if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+                  baseUrl = 'https://$baseUrl';
+                }
+                if (baseUrl.endsWith('/')) {
+                  baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+                }
+                finalImageUrl = '$baseUrl/imageproxy?$queryString';
+              } catch (e) {
+                // Use original URL if rewrite fails
+              }
+            }
+            metadata = {
+              'images': [
+                {'path': finalImageUrl, 'provider': 'direct'}
+              ]
+            };
+          }
+
           final trackFromEvent = Track(
             itemId: currentMedia['queue_item_id'] as String? ?? '',
             provider: 'library',
@@ -1048,9 +1078,10 @@ class MusicAssistantProvider with ChangeNotifier {
             album: albumName != null
                 ? Album(itemId: '', provider: 'library', name: albumName)
                 : null,
+            metadata: metadata,
           );
           _playerTrackCache[playerId] = trackFromEvent;
-          _logger.log('📋 Cached track for $playerName from player_updated: ${trackFromEvent.name}');
+          _logger.log('📋 Cached track for $playerName from player_updated: ${trackFromEvent.name} (image: ${imageUrl != null})');
           notifyListeners(); // Update UI with new track info
         }
       }

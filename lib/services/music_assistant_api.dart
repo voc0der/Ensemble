@@ -1667,6 +1667,11 @@ class MusicAssistantAPI {
     final imagePath = selectedImage['path'] as String?;
     if (imagePath == null) return null;
 
+    // If path is already a full URL (from player_updated event), return it directly
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+
     // Always use imageproxy endpoint to ensure images route through our server
     // This fixes images not loading when connecting via external domain
     // (direct URLs may contain internal IPs not reachable from outside the network)
