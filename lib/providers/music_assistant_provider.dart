@@ -1035,7 +1035,8 @@ class MusicAssistantProvider with ChangeNotifier {
         final mediaType = currentMedia['media_type'] as String?;
         if (mediaType != 'flow_stream') {
           // Create a Track object from current_media for the cache
-          final durationSecs = currentMedia['duration'] as int?;
+          // Duration can be int or double depending on provider (Spotify sends double)
+          final durationSecs = (currentMedia['duration'] as num?)?.toInt();
           final albumName = currentMedia['album'] as String?;
           final trackFromEvent = Track(
             itemId: currentMedia['queue_item_id'] as String? ?? '',
@@ -1073,7 +1074,8 @@ class MusicAssistantProvider with ChangeNotifier {
       final artist = currentMedia['artist'] as String? ?? 'Unknown Artist';
       final album = currentMedia['album'] as String?;
       var imageUrl = currentMedia['image_url'] as String?;
-      final durationSecs = currentMedia['duration'] as int?;
+      // Duration can be int or double depending on provider (Spotify sends double)
+      final durationSecs = (currentMedia['duration'] as num?)?.toInt();
 
       // Rewrite image URL to use main server URL
       // The server returns URLs like http://ma.serverscloud.org:8097/imageproxy?...
