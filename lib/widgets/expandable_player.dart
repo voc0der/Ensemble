@@ -67,8 +67,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   // Slide animation for device switching
   late AnimationController _slideController;
-  late Animation<Offset> _slideAnimation;
-  int _slideDirection = 0; // -1 = left, 0 = none, 1 = right
+  double _slideOffset = 0.0; // -1 to 1, negative = sliding left, positive = sliding right
+  bool _isSliding = false;
 
   @override
   void initState() {
@@ -99,16 +99,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
     // Slide animation for device switching
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 150),
       vsync: this,
     );
-    _slideAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutCubic,
-    ));
 
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.forward) {
@@ -310,33 +303,55 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   }
 
   /// Animate the slide transition when switching devices
+  /// direction: -1 = swipe left (content exits left, new enters from right)
+  ///             1 = swipe right (content exits right, new enters from left)
   void _animateSlide(int direction, VoidCallback onComplete) {
-    _slideDirection = direction;
+    if (_isSliding) return;
+    _isSliding = true;
 
-    // Set up the animation: slide out in the swipe direction
-    _slideAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: Offset(direction.toDouble(), 0),
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeInCubic,
-    ));
+    final slideOutTarget = direction.toDouble(); // Where current content goes
+    final slideInStart = -direction.toDouble(); // Where new content comes from
+
+    // Phase 1: Slide out current content
+    _slideOffset = 0.0;
+    _slideController.reset();
+
+    void animateOut() {
+      if (!mounted) return;
+      setState(() {
+        _slideOffset = slideOutTarget * _slideController.value;
+      });
+    }
+
+    void animateIn() {
+      if (!mounted) return;
+      setState(() {
+        _slideOffset = slideInStart * (1.0 - _slideController.value);
+      });
+    }
+
+    _slideController.addListener(animateOut);
 
     _slideController.forward().then((_) {
-      // Switch player at the midpoint
+      if (!mounted) return;
+
+      _slideController.removeListener(animateOut);
+
+      // Switch the data
       onComplete();
 
-      // Reverse: slide in from opposite side
-      _slideAnimation = Tween<Offset>(
-        begin: Offset(-direction.toDouble(), 0),
-        end: Offset.zero,
-      ).animate(CurvedAnimation(
-        parent: _slideController,
-        curve: Curves.easeOutCubic,
-      ));
+      // Phase 2: Slide in new content
+      _slideOffset = slideInStart;
+      _slideController.reset();
+      _slideController.addListener(animateIn);
 
-      _slideController.reverse().then((_) {
-        _slideDirection = 0;
+      _slideController.forward().then((_) {
+        if (!mounted) return;
+        _slideController.removeListener(animateIn);
+        setState(() {
+          _slideOffset = 0.0;
+          _isSliding = false;
+        });
       });
     });
   }
@@ -444,52 +459,47 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
             width: width,
             height: _collapsedHeight,
             child: ClipRect(
-              child: AnimatedBuilder(
-                animation: _slideController,
-                builder: (context, child) {
-                  return SlideTransition(
-                    position: _slideAnimation,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _getPlayerIcon(selectedPlayer.name),
-                            color: textColor,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  selectedPlayer.name,
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (hasMultiplePlayers)
-                                  Text(
-                                    'Swipe to switch device',
-                                    style: TextStyle(
-                                      color: textColor.withOpacity(0.6),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
+              child: Transform.translate(
+                offset: Offset(_slideOffset * width, 0),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _getPlayerIcon(selectedPlayer.name),
+                        color: textColor,
+                        size: 24,
                       ),
-                    ),
-                  );
-                },
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              selectedPlayer.name,
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (hasMultiplePlayers)
+                              Text(
+                                'Swipe to switch device',
+                                style: TextStyle(
+                                  color: textColor.withOpacity(0.6),
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
