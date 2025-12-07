@@ -1026,6 +1026,31 @@ class MusicAssistantProvider with ChangeNotifier {
         _updatePlayerState();
       }
 
+      // Cache track info from current_media for ALL players
+      // MA sends current_media even for idle players that have paused content
+      final currentMedia = event['current_media'] as Map<String, dynamic>?;
+      final playerName = event['name'] as String? ?? playerId;
+
+      if (currentMedia != null) {
+        final mediaType = currentMedia['media_type'] as String?;
+        if (mediaType != 'flow_stream') {
+          // Create a Track object from current_media for the cache
+          final trackFromEvent = Track(
+            itemId: currentMedia['queue_item_id'] as String? ?? '',
+            name: currentMedia['title'] as String? ?? 'Unknown Track',
+            uri: currentMedia['uri'] as String?,
+            duration: currentMedia['duration'] as int?,
+            artists: [Artist(itemId: '', name: currentMedia['artist'] as String? ?? 'Unknown Artist')],
+            album: currentMedia['album'] != null
+                ? Album(itemId: '', name: currentMedia['album'] as String?)
+                : null,
+          );
+          _playerTrackCache[playerId] = trackFromEvent;
+          _logger.log('📋 Cached track for $playerName from player_updated: ${trackFromEvent.name}');
+          notifyListeners(); // Update UI with new track info
+        }
+      }
+
       // Get our builtin player ID for notification handling
       final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
       if (builtinPlayerId == null) return;
@@ -1033,8 +1058,7 @@ class MusicAssistantProvider with ChangeNotifier {
       // Check if this update is for our local player (for notification metadata)
       if (playerId != builtinPlayerId) return;
 
-      // Extract current_media metadata
-      final currentMedia = event['current_media'] as Map<String, dynamic>?;
+      // Process notification metadata (currentMedia already extracted above)
       if (currentMedia == null) {
         // Don't clear pending metadata when current_media is null
         // This happens during stop/transition and we want to keep the last known metadata
