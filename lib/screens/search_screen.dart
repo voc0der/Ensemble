@@ -17,6 +17,41 @@ class SearchScreen extends StatefulWidget {
   State<SearchScreen> createState() => SearchScreenState();
 }
 
+// Helper enum and class for ListView.builder item types
+enum _ListItemType { header, artist, album, track, spacer }
+
+class _ListItem {
+  final _ListItemType type;
+  final MediaItem? mediaItem;
+  final String? headerTitle;
+  final int? headerCount;
+
+  _ListItem.header(this.headerTitle, this.headerCount)
+      : type = _ListItemType.header,
+        mediaItem = null;
+
+  _ListItem.artist(this.mediaItem)
+      : type = _ListItemType.artist,
+        headerTitle = null,
+        headerCount = null;
+
+  _ListItem.album(this.mediaItem)
+      : type = _ListItemType.album,
+        headerTitle = null,
+        headerCount = null;
+
+  _ListItem.track(this.mediaItem)
+      : type = _ListItemType.track,
+        headerTitle = null,
+        headerCount = null;
+
+  _ListItem.spacer()
+      : type = _ListItemType.spacer,
+        mediaItem = null,
+        headerTitle = null,
+        headerCount = null;
+}
+
 class SearchScreenState extends State<SearchScreen> {
   final _logger = DebugLogger();
   final TextEditingController _searchController = TextEditingController();
@@ -102,41 +137,6 @@ class SearchScreenState extends State<SearchScreen> {
         });
       }
     }
-  }
-
-  // Helper class to represent items in the flattened list
-  enum _ListItemType { header, artist, album, track, spacer }
-
-  class _ListItem {
-    final _ListItemType type;
-    final MediaItem? mediaItem;
-    final String? headerTitle;
-    final int? headerCount;
-
-    _ListItem.header(this.headerTitle, this.headerCount)
-        : type = _ListItemType.header,
-          mediaItem = null;
-
-    _ListItem.artist(this.mediaItem)
-        : type = _ListItemType.artist,
-          headerTitle = null,
-          headerCount = null;
-
-    _ListItem.album(this.mediaItem)
-        : type = _ListItemType.album,
-          headerTitle = null,
-          headerCount = null;
-
-    _ListItem.track(this.mediaItem)
-        : type = _ListItemType.track,
-          headerTitle = null,
-          headerCount = null;
-
-    _ListItem.spacer()
-        : type = _ListItemType.spacer,
-          mediaItem = null,
-          headerTitle = null,
-          headerCount = null;
   }
 
   @override

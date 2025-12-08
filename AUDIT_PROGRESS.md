@@ -23,12 +23,12 @@
 ## Phase 2: Performance Fixes (2-3 days)
 *Medium effort, significant performance gains*
 
-- [ ] Fix slider setState spam - debounce/throttle (`expandable_player.dart:879-880`)
-- [ ] Replace volume polling with events (`volume_control.dart:154-163`)
-- [ ] Cache `Theme.of(context)` lookups (99 occurrences across files)
-- [ ] Move `SystemChrome` out of build() (`main.dart:132`)
-- [ ] Replace `Image.network` with `CachedNetworkImage` (`expandable_player.dart:1195-1207`)
-- [ ] Use `ListView.builder` instead of spread operators (`search_screen.dart:301-311`)
+- [x] Fix slider setState spam - use ValueNotifier pattern (`expandable_player.dart`)
+- [x] Replace volume polling with events (`volume_control.dart`) - removed polling loop
+- [x] Cache `Theme.of(context)` lookups - removed unused lookup in `search_screen.dart`
+- [x] Move `SystemChrome` out of build() (`main.dart`) - created SystemUIWrapper widget
+- [x] Replace `Image.network` with `CachedNetworkImage` (`expandable_player.dart`)
+- [x] Use `ListView.builder` instead of spread operators (`search_screen.dart`)
 
 ---
 
@@ -115,7 +115,7 @@
 | Phase | Status | Completed Date |
 |-------|--------|----------------|
 | Phase 1 | **COMPLETED** | 2025-12-08 |
-| Phase 2 | Not Started | - |
+| Phase 2 | **COMPLETED** | 2025-12-08 |
 | Phase 3 | Not Started | - |
 | Phase 4 | Not Started | - |
 | Phase 5 | Not Started | - |
