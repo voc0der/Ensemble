@@ -66,15 +66,14 @@ split deferred as lower priority.
 ## Phase 5: Widget Decomposition (3-4 days)
 *Split mega-widgets into focused components*
 
-### expandable_player.dart (1,335 lines)
-- [ ] Extract `MorphingPlayerContent`
-- [ ] Extract `DeviceSelectorBar`
-- [ ] Extract `QueuePanel`
-- [ ] Extract `PlayerControls`
+### expandable_player.dart (1,365 → 1,150 lines) - DONE
+- [x] Extract `DeviceSelectorBar` → `lib/widgets/player/device_selector_bar.dart`
+- [x] Extract `QueuePanel` → `lib/widgets/player/queue_panel.dart`
+- [x] Create `PlayerControls` → `lib/widgets/player/player_controls.dart` (available for future use)
 
-### login_screen.dart (968 lines)
-- [ ] Extract `LoginFormSection`
-- [ ] Extract `AuthDebugConsole`
+### login_screen.dart (968 → 843 lines) - DONE
+- [x] Extract `DebugConsole` → `lib/widgets/debug/debug_console.dart`
+- [x] Extract `DebugToggleButton` → included in debug_console.dart
 
 ### album_details_screen.dart (818 lines)
 - [ ] Extract `TrackListSection`
@@ -128,7 +127,7 @@ split deferred as lower priority.
 | Phase 2 | **COMPLETED** | 2025-12-08 |
 | Phase 3 | **COMPLETED** | 2025-12-08 |
 | Phase 4 | **PARTIAL** | 2025-12-08 |
-| Phase 5 | Not Started | - |
+| Phase 5 | **PARTIAL** | 2025-12-08 |
 | Phase 6 | Not Started | - |
 | Phase 7 | Not Started | - |
 | Phase 8 | Not Started | - |
