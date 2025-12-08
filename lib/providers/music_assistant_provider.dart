@@ -9,7 +9,9 @@ import '../services/error_handler.dart';
 import '../services/auth/auth_manager.dart';
 import '../services/device_id_service.dart';
 import '../services/cache_service.dart';
+import '../services/local_player_service.dart';
 import '../constants/timings.dart';
+import '../main.dart' show audioHandler;
 
 /// Main provider that coordinates connection, player, and library state.
 ///
@@ -52,9 +54,8 @@ class MusicAssistantProvider with ChangeNotifier {
   TrackMetadata? _currentNotificationMetadata;
   Completer<void>? _registrationInProgress;
 
-  // Late-initialized local player service
-  late final dynamic _localPlayer;
-  bool _localPlayerInitialized = false;
+  // Local player service
+  late final LocalPlayerService _localPlayer;
 
   // Search state persistence
   String _lastSearchQuery = '';
@@ -104,15 +105,8 @@ class MusicAssistantProvider with ChangeNotifier {
   // ============================================================================
 
   MusicAssistantProvider() {
-    _initializeLocalPlayer();
+    _localPlayer = LocalPlayerService(_authManager);
     _initialize();
-  }
-
-  Future<void> _initializeLocalPlayer() async {
-    // Dynamically import to avoid circular dependency issues
-    final localPlayerModule = await import('../services/local_player_service.dart');
-    _localPlayer = localPlayerModule.LocalPlayerService(_authManager);
-    _localPlayerInitialized = true;
   }
 
   Future<void> _initialize() async {
@@ -357,18 +351,10 @@ class MusicAssistantProvider with ChangeNotifier {
   // ============================================================================
 
   Future<void> _initializeLocalPlayback() async {
-    if (!_localPlayerInitialized) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (!_localPlayerInitialized) return;
-    }
-
     await _localPlayer.initialize();
     _isLocalPlayerPowered = true;
 
-    // Import audioHandler dynamically
-    final mainModule = await import('../main.dart');
-    final audioHandler = mainModule.audioHandler;
-
+    // Wire up skip button callbacks
     audioHandler.onSkipToNext = () {
       _logger.log('🎵 Notification: Skip to next pressed');
       nextTrackSelectedPlayer();
@@ -468,7 +454,7 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   Future<void> _reportLocalPlayerState() async {
-    if (_api == null || !_localPlayerInitialized) return;
+    if (_api == null) return;
 
     final playerId = await SettingsService.getBuiltinPlayerId();
     if (playerId == null) return;
@@ -490,8 +476,6 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   Future<void> _handleLocalPlayerEvent(Map<String, dynamic> event) async {
-    if (!_localPlayerInitialized) return;
-
     _logger.log('📥 Local player event received: ${event['type'] ?? event['command']}');
 
     try {
@@ -727,16 +711,14 @@ class MusicAssistantProvider with ChangeNotifier {
       _pendingTrackMetadata = newMetadata;
       _logger.log('📋 Captured track metadata from player_updated: $title by $artist');
 
-      if (_localPlayerInitialized) {
-        final notificationNeedsUpdate = _currentNotificationMetadata != null &&
-            (_currentNotificationMetadata!.title != title ||
-             _currentNotificationMetadata!.artist != artist);
+      final notificationNeedsUpdate = _currentNotificationMetadata != null &&
+          (_currentNotificationMetadata!.title != title ||
+           _currentNotificationMetadata!.artist != artist);
 
-        if (_localPlayer.isPlaying && notificationNeedsUpdate) {
-          _logger.log('📋 Notification has stale metadata - updating to: $title by $artist');
-          await _localPlayer.updateNotificationWhilePlaying(newMetadata);
-          _currentNotificationMetadata = newMetadata;
-        }
+      if (_localPlayer.isPlaying && notificationNeedsUpdate) {
+        _logger.log('📋 Notification has stale metadata - updating to: $title by $artist');
+        await _localPlayer.updateNotificationWhilePlaying(newMetadata);
+        _currentNotificationMetadata = newMetadata;
       }
     } catch (e) {
       _logger.log('Error handling player_updated event: $e');
@@ -1243,20 +1225,18 @@ class MusicAssistantProvider with ChangeNotifier {
           _currentTrack = queue.currentItem!.track;
           stateChanged = true;
 
-          if (_localPlayerInitialized) {
-            final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
-            if (builtinPlayerId != null && _selectedPlayer!.playerId == builtinPlayerId) {
-              final track = _currentTrack!;
-              final artworkUrl = _api?.getImageUrl(track, size: 512);
-              _localPlayer.updateNotification(
-                id: track.uri ?? track.itemId,
-                title: track.name,
-                artist: track.artistsString,
-                album: track.album?.name,
-                artworkUrl: artworkUrl,
-                duration: track.duration,
-              );
-            }
+          final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
+          if (builtinPlayerId != null && _selectedPlayer!.playerId == builtinPlayerId) {
+            final track = _currentTrack!;
+            final artworkUrl = _api?.getImageUrl(track, size: 512);
+            _localPlayer.updateNotification(
+              id: track.uri ?? track.itemId,
+              title: track.name,
+              artist: track.artistsString,
+              album: track.album?.name,
+              artworkUrl: artworkUrl,
+              duration: track.duration,
+            );
           }
         }
       } else {
@@ -1559,7 +1539,7 @@ class MusicAssistantProvider with ChangeNotifier {
 
       _logger.log('🔋 Is local builtin player: $isLocalPlayer');
 
-      if (isLocalPlayer && _localPlayerInitialized) {
+      if (isLocalPlayer) {
         _logger.log('🔋 Handling power toggle LOCALLY for builtin player');
 
         _isLocalPlayerPowered = !_isLocalPlayerPowered;
