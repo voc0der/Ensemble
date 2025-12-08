@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/design_tokens.dart';
 
 /// A compact device selector bar shown when no track is playing
 class DeviceSelectorBar extends StatelessWidget {
@@ -42,15 +43,15 @@ class DeviceSelectorBar extends StatelessWidget {
             child: Transform.translate(
               offset: Offset(slideOffset * width, 0),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: Spacing.paddingH16,
                 child: Row(
                   children: [
                     Icon(
                       _getPlayerIcon(selectedPlayer.name),
                       color: textColor,
-                      size: 24,
+                      size: IconSizes.md,
                     ),
-                    const SizedBox(width: 12),
+                    Spacing.hGap12,
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,

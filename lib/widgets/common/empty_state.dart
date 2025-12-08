@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/design_tokens.dart';
 
 /// A reusable empty state widget for displaying when no data is available.
 ///
@@ -69,7 +70,7 @@ class EmptyState extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: Spacing.paddingAll24,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -78,7 +79,7 @@ class EmptyState extends StatelessWidget {
               size: iconSize,
               color: colorScheme.onSurface.withOpacity(0.38),
             ),
-            const SizedBox(height: 16),
+            Spacing.vGap16,
             Text(
               message,
               style: TextStyle(
@@ -88,7 +89,7 @@ class EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 24),
+              Spacing.vGap24,
               ElevatedButton.icon(
                 onPressed: onAction,
                 icon: const Icon(Icons.refresh_rounded),

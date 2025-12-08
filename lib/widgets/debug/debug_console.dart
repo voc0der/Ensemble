@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/debug_logger.dart';
+import '../../theme/design_tokens.dart';
 
 /// A collapsible debug console for viewing application logs
 class DebugConsole extends StatelessWidget {
@@ -16,10 +17,10 @@ class DebugConsole extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: Spacing.paddingAll12,
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.8),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(Radii.md),
         border: Border.all(color: Colors.green.withOpacity(0.3)),
       ),
       constraints: const BoxConstraints(maxHeight: 200),
@@ -39,8 +40,8 @@ class DebugConsole extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     return Row(
       children: [
-        const Icon(Icons.terminal, color: Colors.green, size: 16),
-        const SizedBox(width: 8),
+        const Icon(Icons.terminal, color: Colors.green, size: IconSizes.xs),
+        Spacing.hGap8,
         const Text(
           'Debug Console',
           style: TextStyle(
@@ -126,7 +127,7 @@ class DebugConsole extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: recentLogs
                 .map((log) => Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
+                      padding: EdgeInsets.only(bottom: Spacing.xxs),
                       child: Text(
                         log,
                         style: const TextStyle(

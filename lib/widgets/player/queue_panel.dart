@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/music_assistant_provider.dart';
 import '../../models/player.dart';
+import '../../theme/design_tokens.dart';
 import '../common/empty_state.dart';
 
 /// Panel that displays the current playback queue
@@ -41,9 +42,9 @@ class QueuePanel extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  icon: Icon(Icons.arrow_back_rounded, color: textColor, size: 24),
+                  icon: Icon(Icons.arrow_back_rounded, color: textColor, size: IconSizes.md),
                   onPressed: onClose,
-                  padding: const EdgeInsets.all(12),
+                  padding: Spacing.paddingAll12,
                 ),
                 const Spacer(),
                 Text(
@@ -56,9 +57,9 @@ class QueuePanel extends StatelessWidget {
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: Icon(Icons.refresh_rounded, color: textColor.withOpacity(0.7), size: 22),
+                  icon: Icon(Icons.refresh_rounded, color: textColor.withOpacity(0.7), size: IconSizes.sm),
                   onPressed: onRefresh,
-                  padding: const EdgeInsets.all(12),
+                  padding: Spacing.paddingAll12,
                 ),
               ],
             ),
@@ -86,7 +87,7 @@ class QueuePanel extends StatelessWidget {
     final items = queue!.items;
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: Spacing.paddingH8,
       cacheExtent: 500,
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -98,15 +99,15 @@ class QueuePanel extends StatelessWidget {
         return Opacity(
           opacity: isPastItem ? 0.5 : 1.0,
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 2),
+            margin: EdgeInsets.symmetric(vertical: Spacing.xxs),
             decoration: BoxDecoration(
               color: isCurrentItem ? primaryColor.withOpacity(0.15) : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(Radii.md),
             ),
             child: ListTile(
               dense: true,
               leading: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(Radii.sm),
                 child: SizedBox(
                   width: 44,
                   height: 44,

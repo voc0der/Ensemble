@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/design_tokens.dart';
 
 /// A reusable widget for displaying disconnected/offline state.
 class DisconnectedState extends StatelessWidget {
@@ -54,7 +55,7 @@ class DisconnectedState extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32.0),
+        padding: Spacing.paddingAll32,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -63,7 +64,7 @@ class DisconnectedState extends StatelessWidget {
               size: iconSize,
               color: colorScheme.onSurface.withOpacity(0.54),
             ),
-            SizedBox(height: iconSize > 64 ? 24 : 16),
+            SizedBox(height: iconSize > IconSizes.xxl ? Spacing.xl : Spacing.lg),
             Text(
               title,
               style: TextStyle(
@@ -74,7 +75,7 @@ class DisconnectedState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: 12),
+              Spacing.vGap12,
               Text(
                 subtitle!,
                 style: TextStyle(
@@ -85,7 +86,7 @@ class DisconnectedState extends StatelessWidget {
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
-              SizedBox(height: subtitle != null ? 32 : 24),
+              SizedBox(height: subtitle != null ? Spacing.xxl : Spacing.xl),
               ElevatedButton.icon(
                 onPressed: onAction,
                 icon: actionIcon != null ? Icon(actionIcon) : const SizedBox.shrink(),
@@ -94,11 +95,11 @@ class DisconnectedState extends StatelessWidget {
                   backgroundColor: colorScheme.primary,
                   foregroundColor: colorScheme.onPrimary,
                   padding: EdgeInsets.symmetric(
-                    horizontal: subtitle != null ? 32 : 24,
-                    vertical: subtitle != null ? 16 : 12,
+                    horizontal: subtitle != null ? Spacing.xxl : Spacing.xl,
+                    vertical: subtitle != null ? Spacing.lg : Spacing.md,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(Radii.xxl),
                   ),
                 ),
               ),

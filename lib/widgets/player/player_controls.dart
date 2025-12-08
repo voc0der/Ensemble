@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../animated_icon_button.dart';
+import '../../theme/design_tokens.dart';
 
 /// Playback control buttons (shuffle, previous, play/pause, next, repeat)
 class PlayerControls extends StatelessWidget {
@@ -125,7 +126,7 @@ class PlayerControls extends StatelessWidget {
       color: color,
       iconSize: size,
       onPressed: onPressed,
-      padding: const EdgeInsets.all(4),
+      padding: Spacing.paddingAll4,
       constraints: const BoxConstraints(),
     );
   }
