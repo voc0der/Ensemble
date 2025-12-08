@@ -48,12 +48,18 @@ versions during a refactor.
 ## Phase 4: State Management Refactor (3-4 days)
 *Split monolithic provider (2,106 lines)*
 
-- [ ] Extract connection logic → `ConnectionProvider`
-- [ ] Extract library data → `LibraryProvider`
-- [ ] Extract player state → `PlayerProvider`
-- [ ] Extract cache logic → `CacheProvider`
+- [x] Extract cache logic → `CacheService` (lib/services/cache_service.dart)
+- [x] Update `MusicAssistantProvider` to delegate caching to `CacheService`
+- [x] Delete unused `library_service.dart`
+- [ ] Extract connection logic → `ConnectionProvider` (skeleton created)
+- [ ] Extract library data → `LibraryProvider` (skeleton created)
+- [ ] Extract player state → `PlayerProvider` (skeleton created)
 - [ ] Remove global singleton (`navigation_provider.dart:40`)
 - [ ] Add stream filtering (`.distinct()`, `.where()`)
+
+**Note:** Phase 4 partial completion - extracted CacheService and reduced
+`music_assistant_provider.dart` from 2,106 to ~1,650 lines. Full provider
+split deferred as lower priority.
 
 ---
 
@@ -121,7 +127,7 @@ versions during a refactor.
 | Phase 1 | **COMPLETED** | 2025-12-08 |
 | Phase 2 | **COMPLETED** | 2025-12-08 |
 | Phase 3 | **COMPLETED** | 2025-12-08 |
-| Phase 4 | Not Started | - |
+| Phase 4 | **PARTIAL** | 2025-12-08 |
 | Phase 5 | Not Started | - |
 | Phase 6 | Not Started | - |
 | Phase 7 | Not Started | - |
