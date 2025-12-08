@@ -54,6 +54,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   Timer? _progressTimer;
   double? _seekPosition;
   final ValueNotifier<int> _progressNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<double?> _seekPositionNotifier = ValueNotifier<double?>(null);
 
   // Dimensions
   static const double _collapsedHeight = 64.0;
@@ -150,6 +151,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     _progressTimer?.cancel();
     _queueRefreshTimer?.cancel();
     _progressNotifier.dispose();
+    _seekPositionNotifier.dispose();
     super.dispose();
   }
 
@@ -873,66 +875,74 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                       child: ValueListenableBuilder<int>(
                         valueListenable: _progressNotifier,
                         builder: (context, elapsedTime, child) {
-                          final currentProgress = _seekPosition ?? elapsedTime.toDouble();
-                          return Column(
-                            children: [
-                              SliderTheme(
-                                data: SliderThemeData(
-                                  trackHeight: 4,
-                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-                                  trackShape: const RoundedRectSliderTrackShape(),
-                                ),
-                                child: Slider(
-                                  value: currentProgress.clamp(0.0, currentTrack.duration!.inSeconds.toDouble()).toDouble(),
-                                  max: currentTrack.duration!.inSeconds.toDouble(),
-                                  onChanged: (value) => setState(() => _seekPosition = value),
-                                  onChangeStart: (value) => setState(() => _seekPosition = value),
-                                  onChangeEnd: (value) async {
-                                    try {
-                                      await maProvider.seek(selectedPlayer.playerId, value.round());
-                                      await Future.delayed(const Duration(milliseconds: 200));
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Error seeking: $e')),
-                                        );
-                                      }
-                                    } finally {
-                                      if (mounted) setState(() => _seekPosition = null);
-                                    }
-                                  },
-                                  activeColor: primaryColor,
-                                  inactiveColor: primaryColor.withOpacity(0.2),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      _formatDuration(currentProgress.toInt()),
-                                      style: TextStyle(
-                                        color: textColor.withOpacity(0.5),
-                                        fontSize: 13, // Increased from 11 to 13
-                                        fontWeight: FontWeight.w500,
-                                        fontFeatures: const [FontFeature.tabularFigures()],
-                                      ),
+                          return ValueListenableBuilder<double?>(
+                            valueListenable: _seekPositionNotifier,
+                            builder: (context, seekPosition, child) {
+                              final currentProgress = seekPosition ?? elapsedTime.toDouble();
+                              return Column(
+                                children: [
+                                  SliderTheme(
+                                    data: SliderThemeData(
+                                      trackHeight: 4,
+                                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                                      trackShape: const RoundedRectSliderTrackShape(),
                                     ),
-                                    Text(
-                                      _formatDuration(currentTrack.duration!.inSeconds),
-                                      style: TextStyle(
-                                        color: textColor.withOpacity(0.5),
-                                        fontSize: 13, // Increased from 11 to 13
-                                        fontWeight: FontWeight.w500,
-                                        fontFeatures: const [FontFeature.tabularFigures()],
-                                      ),
+                                    child: Slider(
+                                      value: currentProgress.clamp(0.0, currentTrack.duration!.inSeconds.toDouble()).toDouble(),
+                                      max: currentTrack.duration!.inSeconds.toDouble(),
+                                      onChanged: (value) => _seekPositionNotifier.value = value,
+                                      onChangeStart: (value) => _seekPositionNotifier.value = value,
+                                      onChangeEnd: (value) async {
+                                        try {
+                                          await maProvider.seek(selectedPlayer.playerId, value.round());
+                                          await Future.delayed(const Duration(milliseconds: 200));
+                                        } catch (e) {
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Error seeking: $e')),
+                                            );
+                                          }
+                                        } finally {
+                                          if (mounted) {
+                                            _seekPositionNotifier.value = null;
+                                            _seekPosition = null;
+                                          }
+                                        }
+                                      },
+                                      activeColor: primaryColor,
+                                      inactiveColor: primaryColor.withOpacity(0.2),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          _formatDuration(currentProgress.toInt()),
+                                          style: TextStyle(
+                                            color: textColor.withOpacity(0.5),
+                                            fontSize: 13, // Increased from 11 to 13
+                                            fontWeight: FontWeight.w500,
+                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatDuration(currentTrack.duration!.inSeconds),
+                                          style: TextStyle(
+                                            color: textColor.withOpacity(0.5),
+                                            fontSize: 13, // Increased from 11 to 13
+                                            fontWeight: FontWeight.w500,
+                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           );
                         },
                       ),
@@ -1205,10 +1215,14 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                   width: 44,
                   height: 44,
                   child: imageUrl != null
-                      ? Image.network(
-                          imageUrl,
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          placeholder: (context, url) => Container(
+                            color: textColor.withOpacity(0.1),
+                            child: Icon(Icons.music_note, color: textColor.withOpacity(0.3), size: 20),
+                          ),
+                          errorWidget: (context, url, error) => Container(
                             color: textColor.withOpacity(0.1),
                             child: Icon(Icons.music_note, color: textColor.withOpacity(0.3), size: 20),
                           ),

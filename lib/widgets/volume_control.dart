@@ -150,17 +150,7 @@ class _VolumeControlState extends State<VolumeControl> {
                       await maProvider.setMute(player.playerId, false);
                     }
                     await maProvider.setVolume(player.playerId, volumeLevel);
-
-                    for (int i = 0; i < 10; i++) {
-                      await Future.delayed(const Duration(milliseconds: 100));
-                      if (mounted) {
-                        final updatedPlayer = maProvider.selectedPlayer;
-                        if (updatedPlayer != null && (updatedPlayer.volume - volumeLevel).abs() <= 2) {
-                          _logger.log('Volume: Updated to $volumeLevel%');
-                          break;
-                        }
-                      }
-                    }
+                    _logger.log('Volume: Set to $volumeLevel%');
                   } catch (e) {
                     _logger.log('Volume: Error - $e');
                   } finally {

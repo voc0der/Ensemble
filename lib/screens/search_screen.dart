@@ -104,11 +104,45 @@ class SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  // Helper class to represent items in the flattened list
+  enum _ListItemType { header, artist, album, track, spacer }
+
+  class _ListItem {
+    final _ListItemType type;
+    final MediaItem? mediaItem;
+    final String? headerTitle;
+    final int? headerCount;
+
+    _ListItem.header(this.headerTitle, this.headerCount)
+        : type = _ListItemType.header,
+          mediaItem = null;
+
+    _ListItem.artist(this.mediaItem)
+        : type = _ListItemType.artist,
+          headerTitle = null,
+          headerCount = null;
+
+    _ListItem.album(this.mediaItem)
+        : type = _ListItemType.album,
+          headerTitle = null,
+          headerCount = null;
+
+    _ListItem.track(this.mediaItem)
+        : type = _ListItemType.track,
+          headerTitle = null,
+          headerCount = null;
+
+    _ListItem.spacer()
+        : type = _ListItemType.spacer,
+          mediaItem = null,
+          headerTitle = null,
+          headerCount = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final maProvider = context.watch<MusicAssistantProvider>();
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -292,28 +326,75 @@ class SearchScreenState extends State<SearchScreen> {
         
         // Results
         Expanded(
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, BottomSpacing.navBarOnly),
-            children: [
-              if ((_activeFilter == 'all' || _activeFilter == 'artists') && artists.isNotEmpty) ...[
-                if (_activeFilter == 'all') _buildSectionHeader('Artists', artists.length),
-                ...artists.map((item) => _buildArtistTile(item as Artist)),
-                const SizedBox(height: 24),
-              ],
-              if ((_activeFilter == 'all' || _activeFilter == 'albums') && albums.isNotEmpty) ...[
-                if (_activeFilter == 'all') _buildSectionHeader('Albums', albums.length),
-                ...albums.map((item) => _buildAlbumTile(item as Album)),
-                const SizedBox(height: 24),
-              ],
-              if ((_activeFilter == 'all' || _activeFilter == 'tracks') && tracks.isNotEmpty) ...[
-                if (_activeFilter == 'all') _buildSectionHeader('Tracks', tracks.length),
-                ...tracks.map((item) => _buildTrackTile(item as Track)),
-              ],
-            ],
+          child: Builder(
+            builder: (context) {
+              final listItems = _buildListItems(artists, albums, tracks);
+              return ListView.builder(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, BottomSpacing.navBarOnly),
+                itemCount: listItems.length,
+                itemBuilder: (context, index) {
+                  final item = listItems[index];
+                  switch (item.type) {
+                    case _ListItemType.header:
+                      return _buildSectionHeader(item.headerTitle!, item.headerCount!);
+                    case _ListItemType.artist:
+                      return _buildArtistTile(item.mediaItem! as Artist);
+                    case _ListItemType.album:
+                      return _buildAlbumTile(item.mediaItem! as Album);
+                    case _ListItemType.track:
+                      return _buildTrackTile(item.mediaItem! as Track);
+                    case _ListItemType.spacer:
+                      return const SizedBox(height: 24);
+                  }
+                },
+              );
+            },
           ),
         ),
       ],
     );
+  }
+
+  List<_ListItem> _buildListItems(
+    List<MediaItem> artists,
+    List<MediaItem> albums,
+    List<MediaItem> tracks,
+  ) {
+    final items = <_ListItem>[];
+
+    // Add artists section
+    if ((_activeFilter == 'all' || _activeFilter == 'artists') && artists.isNotEmpty) {
+      if (_activeFilter == 'all') {
+        items.add(_ListItem.header('Artists', artists.length));
+      }
+      for (final artist in artists) {
+        items.add(_ListItem.artist(artist));
+      }
+      items.add(_ListItem.spacer());
+    }
+
+    // Add albums section
+    if ((_activeFilter == 'all' || _activeFilter == 'albums') && albums.isNotEmpty) {
+      if (_activeFilter == 'all') {
+        items.add(_ListItem.header('Albums', albums.length));
+      }
+      for (final album in albums) {
+        items.add(_ListItem.album(album));
+      }
+      items.add(_ListItem.spacer());
+    }
+
+    // Add tracks section
+    if ((_activeFilter == 'all' || _activeFilter == 'tracks') && tracks.isNotEmpty) {
+      if (_activeFilter == 'all') {
+        items.add(_ListItem.header('Tracks', tracks.length));
+      }
+      for (final track in tracks) {
+        items.add(_ListItem.track(track));
+      }
+    }
+
+    return items;
   }
 
   Widget _buildFilterChip(String label, String value) {

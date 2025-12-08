@@ -128,39 +128,106 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
                 darkColorScheme = brandDarkColorScheme;
               }
 
-              // Update system UI overlay style based on theme mode
-              final isDark = themeProvider.themeMode == ThemeMode.dark ||
-                  (themeProvider.themeMode == ThemeMode.system &&
-                      MediaQuery.platformBrightnessOf(context) == Brightness.dark);
-
-              SystemChrome.setSystemUIOverlayStyle(
-                SystemUiOverlayStyle(
-                  statusBarColor: Colors.transparent,
-                  statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-                  systemNavigationBarColor: isDark
-                      ? darkColorScheme.background
-                      : lightColorScheme.background,
-                  systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-                ),
-              );
-
-              return MaterialApp(
-                title: 'Ensemble',
-                debugShowCheckedModeBanner: false,
+              return SystemUIWrapper(
                 themeMode: themeProvider.themeMode,
-                theme: AppTheme.lightTheme(colorScheme: lightColorScheme),
-                darkTheme: AppTheme.darkTheme(colorScheme: darkColorScheme),
-                builder: (context, child) {
-                  // Wrap entire app with global player overlay
-                  return GlobalPlayerOverlay(child: child ?? const SizedBox.shrink());
-                },
-                home: const AppStartup(),
+                lightColorScheme: lightColorScheme,
+                darkColorScheme: darkColorScheme,
+                child: MaterialApp(
+                  title: 'Ensemble',
+                  debugShowCheckedModeBanner: false,
+                  themeMode: themeProvider.themeMode,
+                  theme: AppTheme.lightTheme(colorScheme: lightColorScheme),
+                  darkTheme: AppTheme.darkTheme(colorScheme: darkColorScheme),
+                  builder: (context, child) {
+                    // Wrap entire app with global player overlay
+                    return GlobalPlayerOverlay(child: child ?? const SizedBox.shrink());
+                  },
+                  home: const AppStartup(),
+                ),
               );
             },
           );
         },
       ),
     );
+  }
+}
+
+/// Widget that manages system UI overlay style updates efficiently
+/// Only updates when theme properties actually change
+class SystemUIWrapper extends StatefulWidget {
+  final Widget child;
+  final ThemeMode themeMode;
+  final ColorScheme lightColorScheme;
+  final ColorScheme darkColorScheme;
+
+  const SystemUIWrapper({
+    super.key,
+    required this.child,
+    required this.themeMode,
+    required this.lightColorScheme,
+    required this.darkColorScheme,
+  });
+
+  @override
+  State<SystemUIWrapper> createState() => _SystemUIWrapperState();
+}
+
+class _SystemUIWrapperState extends State<SystemUIWrapper> {
+  ThemeMode? _previousThemeMode;
+  Brightness? _previousPlatformBrightness;
+  ColorScheme? _previousLightColorScheme;
+  ColorScheme? _previousDarkColorScheme;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateSystemUIIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(SystemUIWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _updateSystemUIIfNeeded();
+  }
+
+  void _updateSystemUIIfNeeded() {
+    final platformBrightness = MediaQuery.platformBrightnessOf(context);
+
+    // Check if any relevant properties have changed
+    final themeChanged = _previousThemeMode != widget.themeMode;
+    final platformBrightnessChanged = _previousPlatformBrightness != platformBrightness;
+    final lightColorSchemeChanged = _previousLightColorScheme != widget.lightColorScheme;
+    final darkColorSchemeChanged = _previousDarkColorScheme != widget.darkColorScheme;
+
+    if (themeChanged || platformBrightnessChanged || lightColorSchemeChanged || darkColorSchemeChanged) {
+      // Determine if we should use dark theme
+      final isDark = widget.themeMode == ThemeMode.dark ||
+          (widget.themeMode == ThemeMode.system && platformBrightness == Brightness.dark);
+
+      // Update system UI overlay style
+      SystemChrome.setSystemUIOverlayStyle(
+        SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarColor: isDark
+              ? widget.darkColorScheme.background
+              : widget.lightColorScheme.background,
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        ),
+      );
+
+      // Update cached values
+      _previousThemeMode = widget.themeMode;
+      _previousPlatformBrightness = platformBrightness;
+      _previousLightColorScheme = widget.lightColorScheme;
+      _previousDarkColorScheme = widget.darkColorScheme;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }
 
