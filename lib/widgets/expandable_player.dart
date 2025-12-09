@@ -247,7 +247,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         themeProvider.updateAdaptiveColors(colorSchemes.$1, colorSchemes.$2);
       }
     } catch (e) {
-      DebugLogger().log('Player: Failed to extract album colors');
+      // Silently ignore color extraction errors
     }
   }
 
