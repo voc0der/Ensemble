@@ -412,11 +412,11 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
     if (shouldCommit && _peekPlayer != null && direction != 0) {
       // Commit: animate to full slide, switch player, then reset
+      // Note: Don't clear _peekPlayer here - let _animateCommit handle cleanup
+      // so the peek content can remain visible during the transition
       _animateCommit(direction.toInt(), () {
         HapticFeedback.mediumImpact();
         maProvider.selectPlayer(_peekPlayer);
-        _peekPlayer = null;
-        _peekImageUrl = null;
       });
     } else {
       // Cancel: spring back to center
