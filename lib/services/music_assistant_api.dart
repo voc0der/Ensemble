@@ -312,14 +312,33 @@ class MusicAssistantAPI {
     String command, {
     Map<String, dynamic>? args,
   }) async {
-    // Allow commands when connected, authenticating, or authenticated
-    final allowedStates = [
-      MAConnectionState.connected,
-      MAConnectionState.authenticating,
-      MAConnectionState.authenticated,
-    ];
-    if (!allowedStates.contains(_currentState)) {
-      throw Exception('Not connected to Music Assistant server');
+    // Allow auth commands when connected or authenticating
+    // For all other commands, require authenticated state if auth is required
+    final isAuthCommand = command == 'auth' || command == 'auth/login';
+
+    if (isAuthCommand) {
+      // Auth commands can be sent when connected or authenticating
+      final allowedStates = [
+        MAConnectionState.connected,
+        MAConnectionState.authenticating,
+      ];
+      if (!allowedStates.contains(_currentState)) {
+        throw Exception('Not connected to Music Assistant server');
+      }
+    } else {
+      // Non-auth commands require proper authentication state
+      if (_authRequired && !_isAuthenticated) {
+        throw Exception('Not authenticated to Music Assistant server');
+      }
+
+      final allowedStates = [
+        MAConnectionState.connected,
+        MAConnectionState.authenticating,
+        MAConnectionState.authenticated,
+      ];
+      if (!allowedStates.contains(_currentState)) {
+        throw Exception('Not connected to Music Assistant server');
+      }
     }
 
     final messageId = _uuid.v4();

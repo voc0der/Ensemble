@@ -157,12 +157,16 @@ class MusicAssistantProvider with ChangeNotifier {
                 notifyListeners();
                 return;
               }
+              // After authentication succeeds, authenticated state will trigger initialization
+              // Don't call _initializeAfterConnection() here - wait for authenticated state
               return;
             }
 
+            // No auth required, initialize immediately
             await _initializeAfterConnection();
           } else if (state == MAConnectionState.authenticated) {
             _logger.log('✅ MA authentication successful');
+            // Now safe to initialize since we're authenticated
             await _initializeAfterConnection();
           } else if (state == MAConnectionState.disconnected) {
             _availablePlayers = [];
