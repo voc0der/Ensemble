@@ -35,6 +35,8 @@ class ExpandablePlayer extends StatefulWidget {
 
 class ExpandablePlayerState extends State<ExpandablePlayer>
     with TickerProviderStateMixin {
+  final DebugLogger _logger = DebugLogger();
+
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
 
@@ -448,6 +450,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
       _slideController.removeListener(animateToTarget);
 
+      _logger.log('🎬 COMMIT: Animation complete, slideOffset=$_slideOffset, calling onSwitch');
+
       // Switch the player FIRST - this now immediately sets currentTrack from cache
       // in the provider, so the data is ready before we rebuild
       onSwitch();
@@ -456,8 +460,11 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       final maProvider = context.read<MusicAssistantProvider>();
       final newTrack = maProvider.currentTrack;
 
+      _logger.log('🎬 COMMIT: After onSwitch, newTrack=${newTrack?.name ?? "NULL"}');
+
       if (newTrack != null) {
         // Switching to a playing player - clear immediately since we have track data
+        _logger.log('🎬 COMMIT: Has track, clearing state immediately');
         setState(() {
           _slideOffset = 0.0;
           _isSliding = false;
@@ -470,8 +477,10 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         // Switching to non-playing player - use a short delay to ensure
         // the DeviceSelectorBar renders before we clear peek state.
         // This prevents a flash of grey placeholder during the transition.
+        _logger.log('🎬 COMMIT: No track, delaying state cleanup by 50ms');
         Future.delayed(const Duration(milliseconds: 50), () {
           if (!mounted) return;
+          _logger.log('🎬 COMMIT: Delayed cleanup executing now');
           setState(() {
             _slideOffset = 0.0;
             _isSliding = false;
@@ -533,6 +542,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         final selectedPlayer = maProvider.selectedPlayer;
         final currentTrack = maProvider.currentTrack;
 
+        // Debug logging for transition issues
+        _logger.log('🎨 BUILD: player=${selectedPlayer?.name}, track=${currentTrack?.name ?? "NULL"}, slideOffset=$_slideOffset, peekPlayer=${_peekPlayer?.name}');
+
         // Don't show if no player selected
         if (selectedPlayer == null) {
           return const SizedBox.shrink();
@@ -553,8 +565,10 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           builder: (context, _) {
             // If no track is playing, show device selector bar
             if (currentTrack == null) {
+              _logger.log('🎨 RENDER: DeviceSelectorBar (no track)');
               return _buildDeviceSelectorBar(context, maProvider, selectedPlayer, themeProvider);
             }
+            _logger.log('🎨 RENDER: MorphingPlayer (has track)');
             return _buildMorphingPlayer(
               context,
               maProvider,
