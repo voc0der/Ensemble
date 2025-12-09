@@ -1105,11 +1105,10 @@ class MusicAssistantProvider with ChangeNotifier {
 
     // Immediately set currentTrack from cache to avoid flash during player switch
     // This ensures the UI shows the correct track info immediately, before
-    // the async _updatePlayerState() completes
-    final cachedTrack = _cacheService.getCachedTrackForPlayer(player.playerId);
-    if (cachedTrack != null) {
-      _currentTrack = cachedTrack;
-    }
+    // the async _updatePlayerState() completes.
+    // IMPORTANT: Always set from cache, even if null - this prevents showing
+    // stale track info when switching to a non-playing player.
+    _currentTrack = _cacheService.getCachedTrackForPlayer(player.playerId);
 
     _startPlayerStatePolling();
 
