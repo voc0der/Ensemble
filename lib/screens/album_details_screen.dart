@@ -87,13 +87,14 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
         actualItemId = mapping.itemId;
       }
 
-      _logger.log('Toggling favorite for album: provider=$actualProvider, itemId=$actualItemId');
+      final newState = !_isFavorite;
+      _logger.log('${newState ? "Adding" : "Removing"} favorite for album: provider=$actualProvider, itemId=$actualItemId');
 
-      final newState = await maProvider.api!.toggleFavorite(
-        'album',
-        actualItemId,
-        actualProvider,
-      );
+      if (newState) {
+        await maProvider.api!.addToFavorites('album', actualItemId, actualProvider);
+      } else {
+        await maProvider.api!.removeFromFavorites('album', actualItemId, actualProvider);
+      }
 
       setState(() {
         _isFavorite = newState;
@@ -600,9 +601,6 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                           onPressed: _toggleFavorite,
                           style: FilledButton.styleFrom(
                             padding: EdgeInsets.zero,
-                            backgroundColor: _isFavorite
-                                ? colorScheme.errorContainer.withOpacity(0.8)
-                                : null,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(25), // Circular
                             ),
