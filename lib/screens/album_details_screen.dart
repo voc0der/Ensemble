@@ -74,13 +74,25 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
     if (maProvider.api == null) return;
 
     try {
-      // Toggle the state locally first
-      final newState = !_isFavorite;
+      // Get the actual provider from provider_mappings if available
+      String actualProvider = widget.album.provider;
+      String actualItemId = widget.album.itemId;
 
-      await maProvider.api!.toggleFavorite(
+      if (widget.album.providerMappings != null && widget.album.providerMappings!.isNotEmpty) {
+        final mapping = widget.album.providerMappings!.firstWhere(
+          (m) => m.available,
+          orElse: () => widget.album.providerMappings!.first,
+        );
+        actualProvider = mapping.providerInstance;
+        actualItemId = mapping.itemId;
+      }
+
+      _logger.log('Toggling favorite for album: provider=$actualProvider, itemId=$actualItemId');
+
+      final newState = await maProvider.api!.toggleFavorite(
         'album',
-        widget.album.itemId,
-        widget.album.provider,
+        actualItemId,
+        actualProvider,
       );
 
       setState(() {
@@ -99,6 +111,14 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
       }
     } catch (e) {
       _logger.log('Error toggling favorite: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update favorite: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -165,34 +185,84 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
     }
   }
 
-  Future<void> _addAlbumToQueue() async {
+  void _addAlbumToQueue() {
     final maProvider = context.read<MusicAssistantProvider>();
+    final players = maProvider.availablePlayers;
 
-    try {
-      final player = maProvider.selectedPlayer;
-      if (player == null) {
-        _showError('No player selected');
-        return;
-      }
+    // Slide mini player down out of the way
+    GlobalPlayerOverlay.hidePlayer();
 
-      _logger.log('Adding album to queue on ${player.name}');
-
-      // Add all tracks to queue without clearing
-      await maProvider.playTracks(player.playerId, _tracks, startIndex: 0, clearQueue: false);
-      _logger.log('Album added to queue on ${player.name}');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Album added to queue'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
-    } catch (e) {
-      _logger.log('Error adding album to queue: $e');
-      _showError('Failed to add album to queue: $e');
-    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            Text(
+              'Add album to queue on...',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            if (players.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Text('No players available'),
+              )
+            else
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: players.length,
+                  itemBuilder: (context, playerIndex) {
+                    final player = players[playerIndex];
+                    return ListTile(
+                      leading: Icon(
+                        Icons.speaker,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      title: Text(player.name),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        try {
+                          _logger.log('Adding album to queue on ${player.name}');
+                          await maProvider.playTracks(
+                            player.playerId,
+                            _tracks,
+                            startIndex: 0,
+                            clearQueue: false,
+                          );
+                          _logger.log('Album added to queue on ${player.name}');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Album added to queue'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          _logger.log('Error adding album to queue: $e');
+                          _showError('Failed to add album to queue: $e');
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
+          ],
+        ),
+      ),
+    ).whenComplete(() {
+      // Show mini player again when sheet closes
+      GlobalPlayerOverlay.showPlayer();
+    });
   }
 
   void _addTrackToQueue(BuildContext context, int index) {
@@ -523,18 +593,25 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                       const SizedBox(width: 12),
 
                       // Favorite Button
-                      Container(
+                      SizedBox(
                         height: 50,
                         width: 50,
-                        decoration: BoxDecoration(
-                          color: _isFavorite ? colorScheme.errorContainer : colorScheme.surfaceVariant,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
+                        child: FilledButton.tonal(
                           onPressed: _toggleFavorite,
-                          icon: Icon(
+                          style: FilledButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            backgroundColor: _isFavorite
+                                ? colorScheme.errorContainer.withOpacity(0.8)
+                                : null,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25), // Circular
+                            ),
+                          ),
+                          child: Icon(
                             _isFavorite ? Icons.favorite : Icons.favorite_border,
-                            color: _isFavorite ? colorScheme.error : colorScheme.onSurfaceVariant,
+                            color: _isFavorite
+                                ? colorScheme.error
+                                : colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
