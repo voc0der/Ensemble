@@ -45,9 +45,19 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
     super.initState();
     _isFavorite = widget.artist.favorite ?? false;
     _loadArtistAlbums();
-    _loadArtistImage();
     _loadArtistDescription();
     _refreshFavoriteStatus();
+
+    // CRITICAL FIX: Defer image loading and color extraction until after transition
+    // This prevents expensive operations during hero animation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) {
+          _loadArtistImage();
+          // Note: _extractColors is called by _loadArtistImage after image loads
+        }
+      });
+    });
   }
 
   Future<void> _refreshFavoriteStatus() async {
@@ -360,16 +370,30 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
   
   @override
   Widget build(BuildContext context) {
-    final maProvider = context.watch<MusicAssistantProvider>();
-    final themeProvider = context.watch<ThemeProvider>();
+    // CRITICAL FIX: Use select() instead of watch() to reduce rebuilds
+    // Only rebuild when specific properties change, not on every provider update
+    final adaptiveTheme = context.select<ThemeProvider, bool>(
+      (provider) => provider.adaptiveTheme,
+    );
+    final adaptiveLightScheme = context.select<ThemeProvider, ColorScheme?>(
+      (provider) => provider.adaptiveLightScheme,
+    );
+    final adaptiveDarkScheme = context.select<ThemeProvider, ColorScheme?>(
+      (provider) => provider.adaptiveDarkScheme,
+    );
+
     // Use the loaded image URL (with fallback) instead of directly from MA
     final imageUrl = _artistImageUrl;
 
-    final useAdaptiveTheme = themeProvider.adaptiveTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Get the color scheme to use - prefer local state over provider
     ColorScheme? adaptiveScheme;
-    if (useAdaptiveTheme) {
-      adaptiveScheme = isDark ? _darkColorScheme : _lightColorScheme;
+    if (adaptiveTheme) {
+      // Use local state first (from _extractColors), fallback to provider
+      adaptiveScheme = isDark
+        ? (_darkColorScheme ?? adaptiveDarkScheme)
+        : (_lightColorScheme ?? adaptiveLightScheme);
     }
     final colorScheme = adaptiveScheme ?? Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -605,7 +629,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final album = _albums[index];
-                      return _buildAlbumCard(album, maProvider);
+                      return _buildAlbumCard(album);
                     },
                     childCount: _albums.length,
                   ),
@@ -639,7 +663,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final album = _providerAlbums[index];
-                      return _buildAlbumCard(album, maProvider);
+                      return _buildAlbumCard(album);
                     },
                     childCount: _providerAlbums.length,
                   ),
@@ -654,8 +678,10 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
     );
   }
 
-  Widget _buildAlbumCard(Album album, MusicAssistantProvider provider) {
-    final imageUrl = provider.getImageUrl(album, size: 256);
+  Widget _buildAlbumCard(Album album) {
+    // Use read instead of passing provider to avoid rebuild dependencies
+    final maProvider = context.read<MusicAssistantProvider>();
+    final imageUrl = maProvider.getImageUrl(album, size: 256);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     const String heroSuffix = 'artist_albums';

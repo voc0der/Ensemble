@@ -86,6 +86,11 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   bool _isCurrentTrackFavorite = false;
   String? _lastTrackUri; // Track which track we last checked favorite status for
 
+  // Cached title height to avoid TextPainter.layout() every animation frame
+  double? _cachedExpandedTitleHeight;
+  String? _lastMeasuredTrackName;
+  double? _lastMeasuredTitleWidth;
+
   @override
   void initState() {
     super.initState();
@@ -900,19 +905,27 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final expandedTitleWidth = screenSize.width - (contentPadding * 2);
     final titleWidth = _lerpDouble(collapsedTitleWidth, expandedTitleWidth, t);
 
-    // Measure actual title height for dynamic layout
+    // Measure actual title height for dynamic layout (CACHED to avoid layout every frame)
     final titleStyle = TextStyle(
       fontSize: 24.0,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.5,
       height: 1.2,
     );
-    final titlePainter = TextPainter(
-      text: TextSpan(text: currentTrack.name, style: titleStyle),
-      maxLines: 2,
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: expandedTitleWidth);
-    final expandedTitleHeight = titlePainter.height;
+    // Only recalculate if track name or width changed
+    if (_lastMeasuredTrackName != currentTrack.name ||
+        _lastMeasuredTitleWidth != expandedTitleWidth ||
+        _cachedExpandedTitleHeight == null) {
+      final titlePainter = TextPainter(
+        text: TextSpan(text: currentTrack.name, style: titleStyle),
+        maxLines: 2,
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: expandedTitleWidth);
+      _cachedExpandedTitleHeight = titlePainter.height;
+      _lastMeasuredTrackName = currentTrack.name;
+      _lastMeasuredTitleWidth = expandedTitleWidth;
+    }
+    final expandedTitleHeight = _cachedExpandedTitleHeight!;
 
     // Calculate track info block height (title + gap + artist + gap + album)
     final titleToArtistGap = 12.0;
@@ -1091,21 +1104,25 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                               ]
                             : null,
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(artBorderRadius),
-                        child: imageUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: imageUrl,
-                                fit: BoxFit.cover,
-                                memCacheWidth: t > 0.5 ? 1024 : 256,
-                                memCacheHeight: t > 0.5 ? 1024 : 256,
-                                fadeInDuration: Duration.zero,
-                                fadeOutDuration: Duration.zero,
-                                placeholderFadeInDuration: Duration.zero,
-                                placeholder: (_, __) => _buildPlaceholderArt(colorScheme, t),
-                                errorWidget: (_, __, ___) => _buildPlaceholderArt(colorScheme, t),
-                              )
-                            : _buildPlaceholderArt(colorScheme, t),
+                      // Use RepaintBoundary to isolate art repaints during animation
+                      child: RepaintBoundary(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(artBorderRadius),
+                          child: imageUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  fit: BoxFit.cover,
+                                  // Fixed cache size to avoid mid-animation cache thrashing
+                                  memCacheWidth: 512,
+                                  memCacheHeight: 512,
+                                  fadeInDuration: Duration.zero,
+                                  fadeOutDuration: Duration.zero,
+                                  placeholderFadeInDuration: Duration.zero,
+                                  placeholder: (_, __) => _buildPlaceholderArt(colorScheme, t),
+                                  errorWidget: (_, __, ___) => _buildPlaceholderArt(colorScheme, t),
+                                )
+                              : _buildPlaceholderArt(colorScheme, t),
+                        ),
                       ),
                     ),
                   ),

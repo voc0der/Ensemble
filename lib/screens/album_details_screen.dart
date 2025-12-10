@@ -43,9 +43,20 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
     super.initState();
     _isFavorite = widget.album.favorite ?? false;
     _loadTracks();
-    _extractColors();
     _loadAlbumDescription();
     _refreshFavoriteStatus();
+
+    // CRITICAL FIX: Defer color extraction until after the transition completes
+    // This prevents expensive palette extraction during hero animation
+    // Wait for the first frame to be painted, then extract colors
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Add small delay to ensure transition is complete
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) {
+          _extractColors();
+        }
+      });
+    });
   }
 
   Future<void> _refreshFavoriteStatus() async {
@@ -530,18 +541,32 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    final maProvider = context.watch<MusicAssistantProvider>();
-    final themeProvider = context.watch<ThemeProvider>();
-    final imageUrl = maProvider.getImageUrl(widget.album, size: 512);
-    
+    // CRITICAL FIX: Use select() instead of watch() to reduce rebuilds
+    // Only rebuild when specific properties change, not on every provider update
+    final imageUrl = context.select<MusicAssistantProvider, String?>(
+      (provider) => provider.getImageUrl(widget.album, size: 512),
+    );
+    final adaptiveTheme = context.select<ThemeProvider, bool>(
+      (provider) => provider.adaptiveTheme,
+    );
+    final adaptiveLightScheme = context.select<ThemeProvider, ColorScheme?>(
+      (provider) => provider.adaptiveLightScheme,
+    );
+    final adaptiveDarkScheme = context.select<ThemeProvider, ColorScheme?>(
+      (provider) => provider.adaptiveDarkScheme,
+    );
+
     // Determine if we should use adaptive theme colors
-    final useAdaptiveTheme = themeProvider.adaptiveTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Get the color scheme to use
+    // Get the color scheme to use - prefer local state over provider
+    // Local state (_darkColorScheme/_lightColorScheme) is set by _extractColors()
     ColorScheme? adaptiveScheme;
-    if (useAdaptiveTheme) {
-      adaptiveScheme = isDark ? _darkColorScheme : _lightColorScheme;
+    if (adaptiveTheme) {
+      // Use local state first (from _extractColors), fallback to provider
+      adaptiveScheme = isDark
+        ? (_darkColorScheme ?? adaptiveDarkScheme)
+        : (_lightColorScheme ?? adaptiveLightScheme);
     }
 
     // Use adaptive scheme if available, otherwise use global theme

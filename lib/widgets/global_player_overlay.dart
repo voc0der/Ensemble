@@ -149,19 +149,65 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
                     navSelectedColor = hsl.withLightness((hsl.lightness - 0.3).clamp(0.2, 1.0)).toColor();
                   }
 
+                  // Base background: use adaptive surface color if available, otherwise default surface
+                  final baseBgColor = (themeProvider.adaptiveTheme && themeProvider.adaptiveSurfaceColor != null)
+                      ? themeProvider.adaptiveSurfaceColor!
+                      : colorScheme.surface;
+
                   return ValueListenableBuilder<PlayerExpansionState>(
                     valueListenable: playerExpansionNotifier,
-                    builder: (context, expansionState, child) {
-                      // Base background: use adaptive surface color if available, otherwise default surface
-                      final baseBgColor = (themeProvider.adaptiveTheme && themeProvider.adaptiveSurfaceColor != null)
-                          ? themeProvider.adaptiveSurfaceColor!
-                          : colorScheme.surface;
-
-                      // Lerp between base color and player background when expanded
+                    // Pass BottomNavigationBar as child to avoid rebuilding it every frame
+                    child: BottomNavigationBar(
+                      currentIndex: navigationProvider.selectedIndex,
+                      onTap: (index) {
+                        if (GlobalPlayerOverlay.isPlayerExpanded) {
+                          GlobalPlayerOverlay.collapsePlayer();
+                        }
+                        navigationProvider.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+                        if (index == 3) {
+                          GlobalPlayerOverlay.hidePlayer();
+                        } else if (navigationProvider.selectedIndex == 3) {
+                          GlobalPlayerOverlay.showPlayer();
+                        }
+                        navigationProvider.setSelectedIndex(index);
+                      },
+                      backgroundColor: Colors.transparent,
+                      selectedItemColor: navSelectedColor,
+                      unselectedItemColor: colorScheme.onSurface.withOpacity(0.54),
+                      elevation: 0,
+                      type: BottomNavigationBarType.fixed,
+                      selectedFontSize: 12,
+                      unselectedFontSize: 12,
+                      items: const [
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.home_outlined),
+                          activeIcon: Icon(Icons.home_rounded),
+                          label: 'Home',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.library_music_outlined),
+                          activeIcon: Icon(Icons.library_music_rounded),
+                          label: 'Library',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.search_rounded),
+                          activeIcon: Icon(Icons.search_rounded),
+                          label: 'Search',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.settings_outlined),
+                          activeIcon: Icon(Icons.settings_rounded),
+                          label: 'Settings',
+                        ),
+                      ],
+                    ),
+                    builder: (context, expansionState, navBar) {
+                      // Only compute colors during animation - this is the hot path
                       final navBgColor = expansionState.progress > 0 && expansionState.backgroundColor != null
                           ? Color.lerp(baseBgColor, expansionState.backgroundColor, expansionState.progress)!
                           : baseBgColor;
 
+                      // Use AnimatedContainer for smoother transitions instead of rebuilding
                       return Container(
                         decoration: BoxDecoration(
                           color: navBgColor,
@@ -175,56 +221,7 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
                                 ]
                               : null,
                         ),
-                        child: BottomNavigationBar(
-                          currentIndex: navigationProvider.selectedIndex,
-                          onTap: (index) {
-                            // Collapse player if expanded
-                            if (GlobalPlayerOverlay.isPlayerExpanded) {
-                              GlobalPlayerOverlay.collapsePlayer();
-                            }
-
-                            // Pop any pushed routes (album/artist details) first
-                            navigationProvider.navigatorKey.currentState?.popUntil((route) => route.isFirst);
-
-                            // Hide mini player on Settings screen, show on other screens
-                            if (index == 3) {
-                              GlobalPlayerOverlay.hidePlayer();
-                            } else if (navigationProvider.selectedIndex == 3) {
-                              GlobalPlayerOverlay.showPlayer();
-                            }
-
-                            navigationProvider.setSelectedIndex(index);
-                          },
-                          backgroundColor: Colors.transparent,
-                          selectedItemColor: navSelectedColor,
-                          unselectedItemColor: colorScheme.onSurface.withOpacity(0.54),
-                          elevation: 0,
-                          type: BottomNavigationBarType.fixed,
-                          selectedFontSize: 12,
-                          unselectedFontSize: 12,
-                          items: const [
-                            BottomNavigationBarItem(
-                              icon: Icon(Icons.home_outlined),
-                              activeIcon: Icon(Icons.home_rounded),
-                              label: 'Home',
-                            ),
-                            BottomNavigationBarItem(
-                              icon: Icon(Icons.library_music_outlined),
-                              activeIcon: Icon(Icons.library_music_rounded),
-                              label: 'Library',
-                            ),
-                            BottomNavigationBarItem(
-                              icon: Icon(Icons.search_rounded),
-                              activeIcon: Icon(Icons.search_rounded),
-                              label: 'Search',
-                            ),
-                            BottomNavigationBarItem(
-                              icon: Icon(Icons.settings_outlined),
-                              activeIcon: Icon(Icons.settings_rounded),
-                              label: 'Settings',
-                            ),
-                          ],
-                        ),
+                        child: navBar, // Reuse pre-built navigation bar
                       );
                     },
                   );
@@ -234,17 +231,22 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
           ),
         ),
         // Global player overlay - slides down when hidden, renders ON TOP of bottom nav
-        AnimatedBuilder(
-          animation: _slideAnimation,
-          builder: (context, child) {
-            return Consumer<MusicAssistantProvider>(
-              builder: (context, maProvider, _) {
-                // Only show player if connected and has a selected player
-                // Mini player is now permanent - shows device selector even without a track
-                if (!maProvider.isConnected ||
-                    maProvider.selectedPlayer == null) {
-                  return const SizedBox.shrink();
-                }
+        // Use Selector instead of Consumer to avoid rebuilds during animation
+        Selector<MusicAssistantProvider, ({bool isConnected, bool hasPlayer})>(
+          selector: (_, provider) => (
+            isConnected: provider.isConnected,
+            hasPlayer: provider.selectedPlayer != null,
+          ),
+          builder: (context, state, child) {
+            // Only show player if connected and has a selected player
+            if (!state.isConnected || !state.hasPlayer) {
+              return const SizedBox.shrink();
+            }
+            return AnimatedBuilder(
+              animation: _slideAnimation,
+              child: ExpandablePlayer(key: globalPlayerKey, slideOffset: 0),
+              builder: (context, staticChild) {
+                // Only slideOffset changes during animation, player widget stays same
                 return ExpandablePlayer(
                   key: globalPlayerKey,
                   slideOffset: _slideAnimation.value,
