@@ -749,35 +749,18 @@ class MusicAssistantAPI {
   }
 
   // Favorites
-  /// Toggle favorite status for any media item
-  Future<bool> toggleFavorite(String mediaType, String itemId, String provider) async {
-    try {
-      final response = await _sendCommand(
-        'music/favorites/toggle',
-        args: {
-          'media_type': mediaType,
-          'item_id': itemId,
-          'provider': provider,
-        },
-      );
-
-      final isFavorite = response['result'] as bool? ?? false;
-      return isFavorite;
-    } catch (e) {
-      _logger.log('Error toggling favorite: $e');
-      return false;
-    }
-  }
-
-  /// Mark item as favorite
+  /// Mark item as favorite using URI format
+  /// The item parameter should be a URI like "spotify://album/6XyFhbFtcRRR9peJ16em4h"
   Future<void> addToFavorites(String mediaType, String itemId, String provider) async {
     try {
+      // Build the URI for the item
+      final uri = '$provider://$mediaType/$itemId';
+      _logger.log('Adding to favorites: $uri');
+
       await _sendCommand(
-        'music/favorites/add',
+        'music/favorites/add_item',
         args: {
-          'media_type': mediaType,
-          'item_id': itemId,
-          'provider': provider,
+          'item': uri,
         },
       );
     } catch (e) {
@@ -787,14 +770,16 @@ class MusicAssistantAPI {
   }
 
   /// Remove item from favorites
-  Future<void> removeFromFavorites(String mediaType, String itemId, String provider) async {
+  /// Requires the library_item_id (the numeric ID in the MA library)
+  Future<void> removeFromFavorites(String mediaType, int libraryItemId) async {
     try {
+      _logger.log('Removing from favorites: mediaType=$mediaType, libraryItemId=$libraryItemId');
+
       await _sendCommand(
-        'music/favorites/remove',
+        'music/favorites/remove_item',
         args: {
           'media_type': mediaType,
-          'item_id': itemId,
-          'provider': provider,
+          'library_item_id': libraryItemId,
         },
       );
     } catch (e) {

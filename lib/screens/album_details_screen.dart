@@ -74,26 +74,54 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
     if (maProvider.api == null) return;
 
     try {
-      // Get the actual provider from provider_mappings if available
-      String actualProvider = widget.album.provider;
-      String actualItemId = widget.album.itemId;
-
-      if (widget.album.providerMappings != null && widget.album.providerMappings!.isNotEmpty) {
-        final mapping = widget.album.providerMappings!.firstWhere(
-          (m) => m.available,
-          orElse: () => widget.album.providerMappings!.first,
-        );
-        actualProvider = mapping.providerInstance;
-        actualItemId = mapping.itemId;
-      }
-
       final newState = !_isFavorite;
-      _logger.log('${newState ? "Adding" : "Removing"} favorite for album: provider=$actualProvider, itemId=$actualItemId');
 
       if (newState) {
+        // For adding: use the actual provider and itemId from provider_mappings
+        String actualProvider = widget.album.provider;
+        String actualItemId = widget.album.itemId;
+
+        if (widget.album.providerMappings != null && widget.album.providerMappings!.isNotEmpty) {
+          // Find a non-library provider mapping (e.g., spotify, qobuz, etc.)
+          final mapping = widget.album.providerMappings!.firstWhere(
+            (m) => m.available && m.providerInstance != 'library',
+            orElse: () => widget.album.providerMappings!.firstWhere(
+              (m) => m.available,
+              orElse: () => widget.album.providerMappings!.first,
+            ),
+          );
+          actualProvider = mapping.providerInstance;
+          actualItemId = mapping.itemId;
+        }
+
+        _logger.log('Adding to favorites: provider=$actualProvider, itemId=$actualItemId');
         await maProvider.api!.addToFavorites('album', actualItemId, actualProvider);
       } else {
-        await maProvider.api!.removeFromFavorites('album', actualItemId, actualProvider);
+        // For removing: need the library_item_id (numeric)
+        // When provider is "library", itemId is the library ID as a string
+        // Otherwise, we need to find it from provider_mappings
+        int? libraryItemId;
+
+        if (widget.album.provider == 'library') {
+          libraryItemId = int.tryParse(widget.album.itemId);
+        } else if (widget.album.providerMappings != null) {
+          // Find the library mapping
+          final libraryMapping = widget.album.providerMappings!.firstWhere(
+            (m) => m.providerInstance == 'library',
+            orElse: () => widget.album.providerMappings!.first,
+          );
+          if (libraryMapping.providerInstance == 'library') {
+            libraryItemId = int.tryParse(libraryMapping.itemId);
+          }
+        }
+
+        if (libraryItemId == null) {
+          _logger.log('Error: Could not determine library_item_id for removal');
+          throw Exception('Could not determine library ID for this album');
+        }
+
+        _logger.log('Removing from favorites: libraryItemId=$libraryItemId');
+        await maProvider.api!.removeFromFavorites('album', libraryItemId);
       }
 
       setState(() {
