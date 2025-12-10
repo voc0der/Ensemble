@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/animation_debugger.dart';
 
 /// A page route optimized for hero animations.
 ///
@@ -6,9 +7,11 @@ import 'package:flutter/material.dart';
 /// On back navigation: quick fade out + slide down
 class FadeSlidePageRoute<T> extends PageRouteBuilder<T> {
   final Widget child;
+  final String? debugLabel;
 
   FadeSlidePageRoute({
     required this.child,
+    this.debugLabel,
   }) : super(
           pageBuilder: (context, animation, secondaryAnimation) => child,
           transitionDuration: const Duration(milliseconds: 300),
@@ -23,6 +26,13 @@ class FadeSlidePageRoute<T> extends PageRouteBuilder<T> {
 
             // Check direction for slide
             final isReverse = animation.status == AnimationStatus.reverse;
+
+            // Log animation progress for debugging
+            if (animation.value == 0.0 || animation.value == 1.0) {
+              final direction = isReverse ? 'reverse' : 'forward';
+              final state = animation.value == 0.0 ? 'START' : 'END';
+              AnimationDebugger.logEvent('PageTransition $state ($direction)', details: 'value=${animation.value}');
+            }
 
             if (isReverse) {
               // Back navigation: slide DOWN with easeInCubic for smooth deceleration

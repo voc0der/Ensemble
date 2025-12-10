@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../constants/timings.dart';
 import '../providers/music_assistant_provider.dart';
 import '../models/player.dart';
+import '../services/animation_debugger.dart';
 import '../theme/palette_helper.dart';
 import '../theme/theme_provider.dart';
 import 'animated_icon_button.dart';
@@ -101,6 +102,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Notify listeners of expansion progress changes
     _controller.addListener(_notifyExpansionProgress);
 
+    // Animation debugging - record every frame
+    _controller.addListener(_recordAnimationFrame);
+
     // Queue panel animation
     _queuePanelController = AnimationController(
       duration: const Duration(milliseconds: 300),
@@ -168,15 +172,25 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     super.dispose();
   }
 
+  void _recordAnimationFrame() {
+    AnimationDebugger.recordFrame(_controller.value);
+  }
+
   void expand() {
-    _controller.forward();
+    AnimationDebugger.startSession('playerExpand');
+    _controller.forward().then((_) {
+      AnimationDebugger.endSession();
+    });
   }
 
   void collapse() {
+    AnimationDebugger.startSession('playerCollapse');
     // Instantly hide queue panel when collapsing to avoid visual glitches
     // during Android's predictive back gesture
     _queuePanelController.value = 0;
-    _controller.reverse();
+    _controller.reverse().then((_) {
+      AnimationDebugger.endSession();
+    });
   }
 
   bool get isExpanded => _controller.value > 0.5;
