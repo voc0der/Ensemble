@@ -232,8 +232,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               tabs: [
                 const Tab(text: 'Artists'),
                 const Tab(text: 'Albums'),
-                const Tab(text: 'Playlists'),
                 if (_showFavoritesOnly) const Tab(text: 'Tracks'),
+                const Tab(text: 'Playlists'),
               ],
             ),
           ),
@@ -242,8 +242,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             children: [
               _buildArtistsTab(context),
               _buildAlbumsTab(context),
-              _buildPlaylistsTab(context),
               if (_showFavoritesOnly) _buildTracksTab(context),
+              _buildPlaylistsTab(context),
             ],
           ),
         );
@@ -512,6 +512,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildTracksTab(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final maProvider = context.read<MusicAssistantProvider>();
 
     if (_isLoadingTracks) {
       return Center(child: CircularProgressIndicator(color: colorScheme.primary));
@@ -525,15 +526,33 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       );
     }
 
-    // Group tracks by album
-    final tracksByAlbum = <String, List<Track>>{};
+    // Group tracks by artist, then by album
+    final tracksByArtistAlbum = <String, Map<String, List<Track>>>{};
     for (final track in _favoriteTracks) {
+      final artistKey = track.artistsString.isNotEmpty ? track.artistsString : 'Unknown Artist';
       final albumKey = track.album?.name ?? 'Unknown Album';
-      tracksByAlbum.putIfAbsent(albumKey, () => []).add(track);
+      tracksByArtistAlbum.putIfAbsent(artistKey, () => {});
+      tracksByArtistAlbum[artistKey]!.putIfAbsent(albumKey, () => []).add(track);
     }
 
-    // Sort albums alphabetically
-    final sortedAlbums = tracksByAlbum.keys.toList()..sort();
+    // Sort artists alphabetically
+    final sortedArtists = tracksByArtistAlbum.keys.toList()..sort();
+
+    // Build flat list of sections for ListView
+    final sections = <_TrackSection>[];
+    for (final artistName in sortedArtists) {
+      final albumsMap = tracksByArtistAlbum[artistName]!;
+      final sortedAlbums = albumsMap.keys.toList()..sort();
+      for (final albumName in sortedAlbums) {
+        final tracks = albumsMap[albumName]!;
+        sections.add(_TrackSection(
+          artistName: artistName,
+          albumName: albumName,
+          tracks: tracks,
+          firstTrack: tracks.first,
+        ));
+      }
+    }
 
     return RefreshIndicator(
       color: colorScheme.primary,
@@ -543,45 +562,70 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         key: const PageStorageKey<String>('library_tracks_list'),
         cacheExtent: 500,
         padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.navBarOnly),
-        itemCount: sortedAlbums.length,
-        itemBuilder: (context, albumIndex) {
-          final albumName = sortedAlbums[albumIndex];
-          final albumTracks = tracksByAlbum[albumName]!;
-          final firstTrack = albumTracks.first;
-          final artistName = firstTrack.artistsString;
+        itemCount: sections.length,
+        itemBuilder: (context, index) {
+          final section = sections[index];
+          final albumImageUrl = section.firstTrack.album != null
+              ? maProvider.api?.getImageUrl(section.firstTrack.album!, size: 128)
+              : null;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Album header
+              // Album header with art
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      albumName,
-                      style: textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
+                    // Album art
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(8),
+                        image: albumImageUrl != null
+                            ? DecorationImage(
+                                image: CachedNetworkImageProvider(albumImageUrl),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      child: albumImageUrl == null
+                          ? Icon(Icons.album, color: colorScheme.onSurfaceVariant)
+                          : null,
                     ),
-                    if (artistName.isNotEmpty)
-                      Text(
-                        artistName,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    const SizedBox(width: 12),
+                    // Artist and album info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            section.artistName,
+                            style: textTheme.titleMedium?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            section.albumName,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),
               // Tracks under this album
-              ...albumTracks.map((track) => _buildTrackTile(context, track)),
+              ...section.tracks.map((track) => _buildTrackTile(context, track)),
               const Divider(height: 1),
             ],
           );
@@ -596,10 +640,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final textTheme = Theme.of(context).textTheme;
 
     return ListTile(
-      leading: Icon(
-        Icons.music_note_rounded,
-        color: colorScheme.primary.withOpacity(0.7),
-      ),
+      contentPadding: const EdgeInsets.only(left: 84, right: 16),
       title: Text(
         track.name,
         style: textTheme.bodyLarge?.copyWith(
@@ -616,19 +657,39 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       ),
       onTap: () async {
         final player = maProvider.selectedPlayer;
-        if (player == null) return;
+        if (player == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No player selected')),
+          );
+          return;
+        }
 
         try {
-          await maProvider.playTracks(player.playerId, [track], startIndex: 0);
+          // Start radio from this track
+          await maProvider.api?.playRadio(player.playerId, track);
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to play track: $e')),
+              SnackBar(content: Text('Failed to start radio: $e')),
             );
           }
         }
       },
     );
   }
+}
 
+/// Helper class for track sections grouped by artist/album
+class _TrackSection {
+  final String artistName;
+  final String albumName;
+  final List<Track> tracks;
+  final Track firstTrack;
+
+  _TrackSection({
+    required this.artistName,
+    required this.albumName,
+    required this.tracks,
+    required this.firstTrack,
+  });
 }

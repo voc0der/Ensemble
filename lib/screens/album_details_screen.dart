@@ -861,36 +861,62 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                         curve: Curves.easeInOut,
                         child: isExpanded
                             ? Padding(
-                                padding: const EdgeInsets.only(right: 12.0, bottom: 8.0, top: 4.0),
+                                padding: const EdgeInsets.only(right: 16.0, bottom: 12.0, top: 4.0),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     // Radio button
-                                    IconButton(
-                                      onPressed: () => _showPlayRadioMenu(context, index),
-                                      icon: Icon(
-                                        Icons.radio_rounded,
-                                        color: colorScheme.tertiary,
+                                    SizedBox(
+                                      height: 44,
+                                      width: 44,
+                                      child: FilledButton.tonal(
+                                        onPressed: () => _showPlayRadioMenu(context, index),
+                                        style: FilledButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        child: const Icon(Icons.radio, size: 20),
                                       ),
-                                      tooltip: 'Start radio',
                                     ),
+                                    const SizedBox(width: 10),
                                     // Add to queue button
-                                    IconButton(
-                                      onPressed: () => _addTrackToQueue(context, index),
-                                      icon: Icon(
-                                        Icons.playlist_add_rounded,
-                                        color: colorScheme.secondary,
+                                    SizedBox(
+                                      height: 44,
+                                      width: 44,
+                                      child: FilledButton.tonal(
+                                        onPressed: () => _addTrackToQueue(context, index),
+                                        style: FilledButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        child: const Icon(Icons.playlist_add, size: 20),
                                       ),
-                                      tooltip: 'Add to queue',
                                     ),
+                                    const SizedBox(width: 10),
                                     // Favorite button
-                                    IconButton(
-                                      onPressed: () => _toggleTrackFavorite(index),
-                                      icon: Icon(
-                                        track.favorite == true ? Icons.favorite : Icons.favorite_border,
-                                        color: track.favorite == true ? Colors.red : colorScheme.onSurface.withOpacity(0.6),
+                                    SizedBox(
+                                      height: 44,
+                                      width: 44,
+                                      child: FilledButton.tonal(
+                                        onPressed: () => _toggleTrackFavorite(index),
+                                        style: FilledButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(22),
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          track.favorite == true ? Icons.favorite : Icons.favorite_border,
+                                          size: 20,
+                                          color: track.favorite == true
+                                              ? colorScheme.error
+                                              : colorScheme.onSurfaceVariant,
+                                        ),
                                       ),
-                                      tooltip: track.favorite == true ? 'Remove from favorites' : 'Add to favorites',
                                     ),
                                   ],
                                 ),
