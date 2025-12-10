@@ -237,8 +237,6 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
           artists: track.artists,
           album: track.album,
           duration: track.duration,
-          trackNumber: track.trackNumber,
-          discNumber: track.discNumber,
           providerMappings: track.providerMappings,
         );
       });
