@@ -816,8 +816,6 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final titleLeft = _lerpDouble(collapsedTitleLeft, expandedTitleLeft, t);
 
     final collapsedTitleTop = (_collapsedHeight - 36) / 2; // Centered vertically (adjusted for increased track/artist gap)
-    final expandedTitleTop = expandedArtTop + expandedArtSize + 28;
-    final titleTop = _lerpDouble(collapsedTitleTop, expandedTitleTop, t);
 
     final collapsedTitleWidth = screenSize.width - _collapsedArtSize - 150;
     final expandedTitleWidth = screenSize.width - (contentPadding * 2);
@@ -837,16 +835,33 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     )..layout(maxWidth: expandedTitleWidth);
     final expandedTitleHeight = titlePainter.height;
 
+    // Calculate track info block height (title + gap + artist + gap + album)
+    final titleToArtistGap = 12.0;
+    final artistToAlbumGap = 8.0;
+    final artistHeight = 22.0; // Approximate height for 18px font
+    final albumHeight = currentTrack.album != null ? 20.0 : 0.0; // Album line or nothing
+    final trackInfoBlockHeight = expandedTitleHeight + titleToArtistGap + artistHeight +
+        (currentTrack.album != null ? artistToAlbumGap + albumHeight : 0.0);
+
+    // Define where progress bar should be (fixed position from bottom of expanded area)
+    final expandedProgressTop = screenSize.height - 220; // Fixed distance from bottom
+
+    // Calculate available space between art bottom and progress bar
+    final artBottom = expandedArtTop + expandedArtSize;
+    final availableSpace = expandedProgressTop - artBottom;
+
+    // Center the track info block in available space
+    final trackInfoTopMargin = (availableSpace - trackInfoBlockHeight) / 2;
+    final expandedTitleTop = artBottom + trackInfoTopMargin;
+    final titleTop = _lerpDouble(collapsedTitleTop, expandedTitleTop, t);
+
     // Artist positioned dynamically based on actual title height
     final collapsedArtistTop = collapsedTitleTop + 22; // Increased gap from 18 to 22
-    final expandedArtistTop = expandedTitleTop + expandedTitleHeight + 12; // Increased from 8 to 12
+    final expandedArtistTop = expandedTitleTop + expandedTitleHeight + titleToArtistGap;
     final artistTop = _lerpDouble(collapsedArtistTop, expandedArtistTop, t);
 
     // Album - subtle, below artist
-    final expandedAlbumTop = expandedArtistTop + 28; // Increased from 24 to 28
-
-    // Progress bar - with generous spacing
-    final expandedProgressTop = expandedAlbumTop + 106; // Increased from 36 to 106 (+70px)
+    final expandedAlbumTop = expandedArtistTop + artistHeight + artistToAlbumGap;
 
     // Controls - main row with comfortable touch targets
     final collapsedControlsRight = 8.0;
