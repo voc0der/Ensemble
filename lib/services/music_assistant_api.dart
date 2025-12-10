@@ -1101,11 +1101,13 @@ class MusicAssistantAPI {
   }
 
   /// Build URI for radio mode, preferring streaming providers for better recommendations
-  /// Priority: Spotify > Tidal > Deezer > Qobuz > Apple > YTM > any available > library
+  /// Priority: Spotify > Tidal > Deezer > Apple > YTM > Subsonic > any available > library
+  /// Note: Qobuz does NOT support radio mode (no dynamic_tracks API)
   String _buildRadioUri(Track track) {
     if (track.providerMappings != null && track.providerMappings!.isNotEmpty) {
       // Providers that support dynamic radio recommendations (in priority order)
-      const radioProviders = ['spotify', 'tidal', 'deezer', 'qobuz', 'apple', 'ytmusic'];
+      // Qobuz is excluded - it doesn't support similar tracks API
+      const radioProviders = ['spotify', 'tidal', 'deezer', 'apple', 'ytmusic', 'subsonic', 'opensubsonic'];
 
       // Try to find a streaming provider first
       for (final providerPrefix in radioProviders) {
@@ -1178,9 +1180,11 @@ class MusicAssistantAPI {
   }
 
   /// Build URI for artist radio mode, preferring streaming providers
+  /// Note: Qobuz does NOT support radio mode (no dynamic_tracks API)
   String _buildArtistRadioUri(Artist artist) {
     if (artist.providerMappings != null && artist.providerMappings!.isNotEmpty) {
-      const radioProviders = ['spotify', 'tidal', 'deezer', 'qobuz', 'apple', 'ytmusic'];
+      // Qobuz is excluded - it doesn't support similar tracks API
+      const radioProviders = ['spotify', 'tidal', 'deezer', 'apple', 'ytmusic', 'subsonic', 'opensubsonic'];
 
       for (final providerPrefix in radioProviders) {
         final mapping = artist.providerMappings!.firstWhere(

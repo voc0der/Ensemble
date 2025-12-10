@@ -129,35 +129,57 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            title: Text(
-              'Library',
-              style: textTheme.titleLarge?.copyWith(
-                color: colorScheme.onBackground,
-                fontWeight: FontWeight.w300,
-              ),
-            ),
-            centerTitle: true,
-            actions: [
-              // Favorites filter toggle
-              IconButton(
-                icon: Icon(
-                  _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
-                  color: _showFavoritesOnly ? colorScheme.error : colorScheme.onSurface,
+            titleSpacing: 16,
+            title: Row(
+              children: [
+                // Favorites toggle with label
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showFavoritesOnly = !_showFavoritesOnly;
+                    });
+                    if (_showFavoritesOnly) {
+                      _loadPlaylists(favoriteOnly: true);
+                    } else {
+                      _loadPlaylists();
+                    }
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Switch(
+                        value: _showFavoritesOnly,
+                        onChanged: (value) {
+                          setState(() {
+                            _showFavoritesOnly = value;
+                          });
+                          if (value) {
+                            _loadPlaylists(favoriteOnly: true);
+                          } else {
+                            _loadPlaylists();
+                          }
+                        },
+                        activeColor: colorScheme.primary,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Favourites',
+                        style: textTheme.titleMedium?.copyWith(
+                          color: _showFavoritesOnly
+                              ? colorScheme.primary
+                              : colorScheme.onSurface.withOpacity(0.7),
+                          fontWeight: _showFavoritesOnly ? FontWeight.w500 : FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                tooltip: _showFavoritesOnly ? 'Show all' : 'Show favorites only',
-                onPressed: () {
-                  setState(() {
-                    _showFavoritesOnly = !_showFavoritesOnly;
-                  });
-                  if (_showFavoritesOnly) {
-                    // Reload playlists with favorites filter
-                    _loadPlaylists(favoriteOnly: true);
-                  } else {
-                    _loadPlaylists();
-                  }
-                },
-              ),
-              const PlayerSelector(),
+              ],
+            ),
+            centerTitle: false,
+            actions: const [
+              PlayerSelector(),
             ],
             bottom: TabBar(
               controller: _tabController,
