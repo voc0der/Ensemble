@@ -87,6 +87,8 @@ Ensemble supports multiple authentication methods:
 - Network connectivity to your Music Assistant server
 - Android device (Android 5.0+)
 
+> **Note:** Local device playback (streaming to your phone) is not currently supported on Music Assistant beta 20+. This is due to MA replacing the built-in player with Sendspin. Support will be added once Sendspin is more stable. Remote control of other players works fine.
+
 ## About Music Assistant
 
 Ensemble is a mobile client for [Music Assistant](https://music-assistant.io/), an open-source music library manager that integrates with various music sources and streaming providers.
