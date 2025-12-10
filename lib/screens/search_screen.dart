@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../constants/timings.dart';
 import '../providers/music_assistant_provider.dart';
 import '../models/media_item.dart';
 import '../services/debug_logger.dart';
@@ -57,6 +59,7 @@ class SearchScreenState extends State<SearchScreen> {
   final _logger = DebugLogger();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  Timer? _debounceTimer;
   Map<String, List<MediaItem>> _searchResults = {
     'artists': [],
     'albums': [],
@@ -88,17 +91,20 @@ class SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
-  void _onSearchSubmitted(String query) {
-    // Only search when user explicitly submits (presses Enter/Done)
-    _performSearch(query);
+  void _onSearchChanged(String query) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(Timings.searchDebounce, () {
+      _performSearch(query, keepFocus: true);
+    });
   }
 
-  Future<void> _performSearch(String query) async {
+  Future<void> _performSearch(String query, {bool keepFocus = false}) async {
     if (query.isEmpty) {
       setState(() {
         _searchResults = {'artists': [], 'albums': [], 'tracks': []};
@@ -123,6 +129,10 @@ class SearchScreenState extends State<SearchScreen> {
           _isSearching = false;
           _hasSearched = true;
         });
+        // Keep keyboard open if user is still typing
+        if (keepFocus && _focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
       }
     } catch (e) {
       _logger.log('Search error: $e');
@@ -132,6 +142,9 @@ class SearchScreenState extends State<SearchScreen> {
           _hasSearched = true;
           _searchError = 'Search failed. Please check your connection.';
         });
+        if (keepFocus && _focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
       }
     }
   }
@@ -171,10 +184,10 @@ class SearchScreenState extends State<SearchScreen> {
                 : null,
           ),
           onChanged: (value) {
-            // Just trigger rebuild to show/hide clear button
-            setState(() {});
+            setState(() {}); // Update clear button visibility
+            _onSearchChanged(value);
           },
-          onSubmitted: _onSearchSubmitted,
+          onSubmitted: (query) => _performSearch(query),
         ),
       ),
       body: !maProvider.isConnected
