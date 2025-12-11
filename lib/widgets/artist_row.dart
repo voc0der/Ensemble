@@ -8,12 +8,14 @@ class ArtistRow extends StatefulWidget {
   final String title;
   final Future<List<Artist>> Function() loadArtists;
   final String? heroTagSuffix;
+  final double? rowHeight;
 
   const ArtistRow({
     super.key,
     required this.title,
     required this.loadArtists,
     this.heroTagSuffix,
+    this.rowHeight,
   });
 
   @override
@@ -64,7 +66,7 @@ class _ArtistRowState extends State<ArtistRow> with AutomaticKeepAliveClientMixi
           ),
         ),
         SizedBox(
-          height: 163,
+          height: widget.rowHeight ?? 163,
           child: FutureBuilder<List<Artist>>(
             future: _artistsFuture,
             builder: (context, snapshot) {
@@ -91,22 +93,28 @@ class _ArtistRowState extends State<ArtistRow> with AutomaticKeepAliveClientMixi
                 );
               }
 
+              // Scale card width based on row height (maintains aspect ratio)
+              final height = widget.rowHeight ?? 163;
+              final cardWidth = height * 0.74; // Maintains roughly same proportions
+              final itemExtent = cardWidth + 16; // width + horizontal margins
+
               return ScrollConfiguration(
                 behavior: const _StretchScrollBehavior(),
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
                   itemCount: artists.length,
-                  itemExtent: 136, // 120px width + 16px horizontal margins
+                  itemExtent: itemExtent,
                   itemBuilder: (context, index) {
                     final artist = artists[index];
                     return Container(
                       key: ValueKey(artist.uri ?? artist.itemId),
-                      width: 120,
+                      width: cardWidth,
                       margin: const EdgeInsets.symmetric(horizontal: 8.0),
                       child: ArtistCard(
                         artist: artist,
                         heroTagSuffix: widget.heroTagSuffix,
+                        imageSize: height * 0.67, // Scale image with row height
                       ),
                     );
                   },

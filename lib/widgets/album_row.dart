@@ -8,12 +8,14 @@ class AlbumRow extends StatefulWidget {
   final String title;
   final Future<List<Album>> Function() loadAlbums;
   final String? heroTagSuffix;
+  final double? rowHeight;
 
   const AlbumRow({
     super.key,
     required this.title,
     required this.loadAlbums,
     this.heroTagSuffix,
+    this.rowHeight,
   });
 
   @override
@@ -64,7 +66,7 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
           ),
         ),
         SizedBox(
-          height: 193,
+          height: widget.rowHeight ?? 193,
           child: FutureBuilder<List<Album>>(
             future: _albumsFuture,
             builder: (context, snapshot) {
@@ -91,18 +93,23 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
                 );
               }
 
+              // Scale card width based on row height (maintains aspect ratio)
+              final height = widget.rowHeight ?? 193;
+              final cardWidth = height * 0.78; // Maintains roughly same proportions
+              final itemExtent = cardWidth + 12; // width + horizontal margins
+
               return ScrollConfiguration(
                 behavior: const _StretchScrollBehavior(),
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
                   itemCount: albums.length,
-                  itemExtent: 162, // 150px width + 12px horizontal margins
+                  itemExtent: itemExtent,
                   itemBuilder: (context, index) {
                     final album = albums[index];
                     return Container(
                       key: ValueKey(album.uri ?? album.itemId),
-                      width: 150,
+                      width: cardWidth,
                       margin: const EdgeInsets.symmetric(horizontal: 6.0),
                       child: AlbumCard(
                         album: album,

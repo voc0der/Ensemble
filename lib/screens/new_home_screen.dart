@@ -96,42 +96,69 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
 
   Widget _buildConnectedView(
       BuildContext context, MusicAssistantProvider provider) {
-    // Use Android 12+ stretch overscroll effect
-    return ScrollConfiguration(
-      behavior: const _StretchScrollBehavior(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-        key: _refreshKey,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Recently played albums (with caching)
-          // Stable keys prevent widget recreation on parent rebuilds
-          AlbumRow(
-            key: const ValueKey('recent-albums'),
-            title: 'Recently Played',
-            loadAlbums: () => provider.getRecentAlbumsWithCache(),
-          ),
-          const SizedBox(height: 21),
+    // Use LayoutBuilder to adapt to available screen height
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate available height for content
+        // We have 3 rows: 2 album rows and 1 artist row
+        // Each row has ~40px for title/padding
+        final availableHeight = constraints.maxHeight - BottomSpacing.withMiniPlayer;
 
-          // Discover Artists (with caching)
-          ArtistRow(
-            key: const ValueKey('discover-artists'),
-            title: 'Discover Artists',
-            loadArtists: () => provider.getDiscoverArtistsWithCache(),
-          ),
-          const SizedBox(height: 3),
+        // Total spacing between rows
+        const totalSpacing = 24.0; // 21 + 3
+        const titleHeight = 40.0; // Approximate height for title text + padding
+        const numRows = 3;
 
-          // Discover Albums (with caching)
-          AlbumRow(
-            key: const ValueKey('discover-albums'),
-            title: 'Discover Albums',
-            loadAlbums: () => provider.getDiscoverAlbumsWithCache(),
+        // Calculate height available for row content (excluding titles and spacing)
+        final contentHeight = availableHeight - totalSpacing - (titleHeight * numRows);
+
+        // Distribute height proportionally:
+        // Album rows get slightly more space (ratio 1.18:1:1.18 based on original 193:163:193)
+        final totalRatio = 1.18 + 1.0 + 1.18; // 3.36
+        final artistRowHeight = (contentHeight / totalRatio).clamp(120.0, 180.0);
+        final albumRowHeight = (artistRowHeight * 1.18).clamp(140.0, 210.0);
+
+        // Use Android 12+ stretch overscroll effect
+        return ScrollConfiguration(
+          behavior: const _StretchScrollBehavior(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+            key: _refreshKey,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Recently played albums (with caching)
+              // Stable keys prevent widget recreation on parent rebuilds
+              AlbumRow(
+                key: const ValueKey('recent-albums'),
+                title: 'Recently Played',
+                loadAlbums: () => provider.getRecentAlbumsWithCache(),
+                rowHeight: albumRowHeight,
+              ),
+              const SizedBox(height: 21),
+
+              // Discover Artists (with caching)
+              ArtistRow(
+                key: const ValueKey('discover-artists'),
+                title: 'Discover Artists',
+                loadArtists: () => provider.getDiscoverArtistsWithCache(),
+                rowHeight: artistRowHeight,
+              ),
+              const SizedBox(height: 3),
+
+              // Discover Albums (with caching)
+              AlbumRow(
+                key: const ValueKey('discover-albums'),
+                title: 'Discover Albums',
+                loadAlbums: () => provider.getDiscoverAlbumsWithCache(),
+                rowHeight: albumRowHeight,
+              ),
+              SizedBox(height: BottomSpacing.withMiniPlayer), // Space for bottom nav + mini player
+            ],
+            ),
           ),
-          SizedBox(height: BottomSpacing.withMiniPlayer), // Space for bottom nav + mini player
-        ],
-        ),
-      ),
+        );
+      },
     );
   }
 }

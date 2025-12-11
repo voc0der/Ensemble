@@ -13,12 +13,14 @@ class ArtistCard extends StatefulWidget {
   final Artist artist;
   final VoidCallback? onTap;
   final String? heroTagSuffix;
+  final double? imageSize;
 
   const ArtistCard({
     super.key,
     required this.artist,
     this.onTap,
     this.heroTagSuffix,
+    this.imageSize,
   });
 
   @override
@@ -68,31 +70,34 @@ class _ArtistCardState extends State<ArtistCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Artist image - circular
-            Hero(
-              tag: HeroTags.artistImage + (widget.artist.uri ?? widget.artist.itemId) + suffix,
-              child: ClipOval(
-                child: Container(
-                  width: 110,
-                  height: 110,
-                  color: colorScheme.surfaceVariant,
-                  child: imageUrl != null
-                      ? Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          cacheWidth: 256,
-                          cacheHeight: 256,
-                          errorBuilder: (_, __, ___) => Icon(
-                            Icons.person_rounded,
-                            size: 60,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        )
-                      : Icon(Icons.person_rounded, size: 60, color: colorScheme.onSurfaceVariant),
+            // Artist image - circular, scales with imageSize
+            Expanded(
+              child: Hero(
+                tag: HeroTags.artistImage + (widget.artist.uri ?? widget.artist.itemId) + suffix,
+                child: AspectRatio(
+                  aspectRatio: 1.0,
+                  child: ClipOval(
+                    child: Container(
+                      color: colorScheme.surfaceVariant,
+                      child: imageUrl != null
+                          ? Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              cacheWidth: 256,
+                              cacheHeight: 256,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.person_rounded,
+                                size: (widget.imageSize ?? 110) * 0.55,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            )
+                          : Icon(Icons.person_rounded, size: (widget.imageSize ?? 110) * 0.55, color: colorScheme.onSurfaceVariant),
+                    ),
+                  ),
                 ),
               ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           // Artist name
           Hero(
             tag: HeroTags.artistName + (widget.artist.uri ?? widget.artist.itemId) + suffix,
