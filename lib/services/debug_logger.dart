@@ -5,6 +5,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 
 /// Log levels for filtering and display
 enum LogLevel {
+  perf,   // Performance timing (for FPS diagnosis)
   debug,  // Verbose debugging info (hidden by default)
   info,   // General information
   warning, // Potential issues
@@ -98,6 +99,54 @@ class DebugLogger {
   /// Legacy method for backward compatibility
   void log(String message) {
     _addEntry(LogLevel.info, message);
+  }
+
+  /// Performance logging - always prints to console for real-time monitoring
+  void perf(String message, {String? context}) {
+    _addEntry(LogLevel.perf, message, context: context);
+  }
+
+  /// Track build time of a widget
+  final Map<String, Stopwatch> _buildTimers = {};
+
+  void startBuild(String widgetName) {
+    _buildTimers[widgetName] = Stopwatch()..start();
+  }
+
+  void endBuild(String widgetName) {
+    final sw = _buildTimers.remove(widgetName);
+    if (sw != null) {
+      sw.stop();
+      if (sw.elapsedMilliseconds > 4) { // Only log if > 4ms (slow for 60fps)
+        perf('BUILD ${sw.elapsedMilliseconds}ms', context: widgetName);
+      }
+    }
+  }
+
+  /// Track frame times during scroll
+  Stopwatch? _frameTimer;
+  int _slowFrameCount = 0;
+  int _totalFrameCount = 0;
+
+  void startFrame() {
+    _frameTimer = Stopwatch()..start();
+  }
+
+  void endFrame() {
+    if (_frameTimer != null) {
+      _frameTimer!.stop();
+      _totalFrameCount++;
+      final ms = _frameTimer!.elapsedMilliseconds;
+      if (ms > 16) { // > 16ms means dropped frame at 60fps
+        _slowFrameCount++;
+        perf('SLOW FRAME ${ms}ms (${_slowFrameCount}/${_totalFrameCount} slow)', context: 'Scroll');
+      }
+    }
+  }
+
+  void resetFrameStats() {
+    _slowFrameCount = 0;
+    _totalFrameCount = 0;
   }
 
   void clear() {

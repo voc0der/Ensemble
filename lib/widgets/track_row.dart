@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
+import '../services/debug_logger.dart';
 
 class TrackRow extends StatefulWidget {
   final String title;
@@ -44,8 +45,11 @@ class _TrackRowState extends State<TrackRow> with AutomaticKeepAliveClientMixin 
     }
   }
 
+  static final _logger = DebugLogger();
+
   @override
   Widget build(BuildContext context) {
+    _logger.startBuild('TrackRow:${widget.title}');
     super.build(context);
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
@@ -55,7 +59,7 @@ class _TrackRowState extends State<TrackRow> with AutomaticKeepAliveClientMixin 
     const titleHeight = 44.0; // 12 top padding + ~24 text + 8 bottom padding
     final contentHeight = totalHeight - titleHeight;
 
-    return RepaintBoundary(
+    final result = RepaintBoundary(
       child: SizedBox(
         height: totalHeight,
         child: Column(
@@ -132,6 +136,8 @@ class _TrackRowState extends State<TrackRow> with AutomaticKeepAliveClientMixin 
         ),
       ),
     );
+    _logger.endBuild('TrackRow:${widget.title}');
+    return result;
   }
 }
 

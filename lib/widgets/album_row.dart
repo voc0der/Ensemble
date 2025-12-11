@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
+import '../services/debug_logger.dart';
 import 'album_card.dart';
 
 class AlbumRow extends StatefulWidget {
@@ -46,8 +47,11 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
     }
   }
 
+  static final _logger = DebugLogger();
+
   @override
   Widget build(BuildContext context) {
+    _logger.startBuild('AlbumRow:${widget.title}');
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
@@ -57,7 +61,7 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
     const titleHeight = 44.0; // 12 top padding + ~24 text + 8 bottom padding
     final contentHeight = totalHeight - titleHeight;
 
-    return RepaintBoundary(
+    final result = RepaintBoundary(
       child: SizedBox(
         height: totalHeight,
         child: Column(
@@ -135,6 +139,8 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
         ),
       ),
     );
+    _logger.endBuild('AlbumRow:${widget.title}');
+    return result;
   }
 }
 

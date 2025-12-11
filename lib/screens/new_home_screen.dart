@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/settings_service.dart';
+import '../services/debug_logger.dart';
 import '../widgets/global_player_overlay.dart';
 import '../widgets/player_selector.dart';
 import '../widgets/album_row.dart';
@@ -19,6 +21,7 @@ class NewHomeScreen extends StatefulWidget {
 }
 
 class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+  static final _logger = DebugLogger();
   Key _refreshKey = UniqueKey();
   // Main rows (default on)
   bool _showRecentAlbums = true;
@@ -30,6 +33,8 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
   bool _showFavoriteTracks = false;
   // Random order for favorites (generated once per session)
   late List<int> _favoritesOrder;
+  // Frame timing callback ID
+  int? _frameCallbackId;
 
   @override
   bool get wantKeepAlive => true;
@@ -45,6 +50,9 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
 
   @override
   void dispose() {
+    if (_frameCallbackId != null) {
+      SchedulerBinding.instance.cancelFrameCallbackWithId(_frameCallbackId!);
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -167,45 +175,61 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         final favoritesWidgets = _buildFavoritesRows(provider, rowHeight);
 
         // Use Android 12+ stretch overscroll effect
-        return ScrollConfiguration(
-          behavior: const _StretchScrollBehavior(),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.only(bottom: BottomSpacing.withMiniPlayer),
-            child: Column(
-              key: _refreshKey,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Recently played albums (optional)
-                if (_showRecentAlbums)
-                  AlbumRow(
-                    key: const ValueKey('recent-albums'),
-                    title: 'Recently Played',
-                    loadAlbums: () => provider.getRecentAlbumsWithCache(),
-                    rowHeight: rowHeight,
-                  ),
+        return NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification is ScrollStartNotification) {
+              _logger.resetFrameStats();
+              _logger.perf('SCROLL START', context: 'HomeScreen');
+            } else if (notification is ScrollUpdateNotification) {
+              _logger.startFrame();
+              SchedulerBinding.instance.addPostFrameCallback((_) {
+                _logger.endFrame();
+              });
+            } else if (notification is ScrollEndNotification) {
+              _logger.perf('SCROLL END', context: 'HomeScreen');
+            }
+            return false;
+          },
+          child: ScrollConfiguration(
+            behavior: const _StretchScrollBehavior(),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.only(bottom: BottomSpacing.withMiniPlayer),
+              child: Column(
+                key: _refreshKey,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Recently played albums (optional)
+                  if (_showRecentAlbums)
+                    AlbumRow(
+                      key: const ValueKey('recent-albums'),
+                      title: 'Recently Played',
+                      loadAlbums: () => provider.getRecentAlbumsWithCache(),
+                      rowHeight: rowHeight,
+                    ),
 
-                // Discover Artists (optional)
-                if (_showDiscoverArtists)
-                  ArtistRow(
-                    key: const ValueKey('discover-artists'),
-                    title: 'Discover Artists',
-                    loadArtists: () => provider.getDiscoverArtistsWithCache(),
-                    rowHeight: rowHeight,
-                  ),
+                  // Discover Artists (optional)
+                  if (_showDiscoverArtists)
+                    ArtistRow(
+                      key: const ValueKey('discover-artists'),
+                      title: 'Discover Artists',
+                      loadArtists: () => provider.getDiscoverArtistsWithCache(),
+                      rowHeight: rowHeight,
+                    ),
 
-                // Discover Albums (optional)
-                if (_showDiscoverAlbums)
-                  AlbumRow(
-                    key: const ValueKey('discover-albums'),
-                    title: 'Discover Albums',
-                    loadAlbums: () => provider.getDiscoverAlbumsWithCache(),
-                    rowHeight: rowHeight,
-                  ),
+                  // Discover Albums (optional)
+                  if (_showDiscoverAlbums)
+                    AlbumRow(
+                      key: const ValueKey('discover-albums'),
+                      title: 'Discover Albums',
+                      loadAlbums: () => provider.getDiscoverAlbumsWithCache(),
+                      rowHeight: rowHeight,
+                    ),
 
-                // Favorites rows in random order
-                ...favoritesWidgets,
-              ],
+                  // Favorites rows in random order
+                  ...favoritesWidgets,
+                ],
+              ),
             ),
           ),
         );
