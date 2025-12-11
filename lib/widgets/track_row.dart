@@ -128,8 +128,7 @@ class _TrackRowState extends State<TrackRow> with AutomaticKeepAliveClientMixin 
               },
             ),
           ),
-            ],
-          ),
+          ],
         ),
       ),
     );

@@ -131,8 +131,7 @@ class _ArtistRowState extends State<ArtistRow> with AutomaticKeepAliveClientMixi
               },
             ),
           ),
-            ],
-          ),
+          ],
         ),
       ),
     );
