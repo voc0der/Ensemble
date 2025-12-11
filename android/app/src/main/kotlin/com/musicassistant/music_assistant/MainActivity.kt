@@ -38,12 +38,31 @@ class MainActivity: FlutterActivity() {
         }
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        Log.d(TAG, "onKeyDown: keyCode=$keyCode, isListening=$isListening")
+    // Use dispatchKeyEvent instead of onKeyDown - Flutter's engine uses dispatchKeyEvent
+    // and may consume events before they reach onKeyDown
+    override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
+        if (event == null) {
+            return super.dispatchKeyEvent(event)
+        }
+
+        val keyCode = event.keyCode
+        val action = event.action
+
+        Log.d(TAG, "dispatchKeyEvent: keyCode=$keyCode, action=$action, isListening=$isListening")
+
+        // Only handle KEY_DOWN events to avoid double-triggering (down + up)
+        if (action != KeyEvent.ACTION_DOWN) {
+            // For volume keys when listening, also consume ACTION_UP to fully block system volume
+            if (isListening && (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+                Log.d(TAG, "Consuming ACTION_UP for volume key")
+                return true
+            }
+            return super.dispatchKeyEvent(event)
+        }
 
         if (!isListening) {
             Log.d(TAG, "Not listening, passing to super")
-            return super.onKeyDown(keyCode, event)
+            return super.dispatchKeyEvent(event)
         }
 
         return when (keyCode) {
@@ -59,7 +78,7 @@ class MainActivity: FlutterActivity() {
             }
             else -> {
                 Log.d(TAG, "Other key, passing to super")
-                super.onKeyDown(keyCode, event)
+                super.dispatchKeyEvent(event)
             }
         }
     }
