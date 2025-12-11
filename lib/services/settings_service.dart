@@ -21,6 +21,9 @@ class SettingsService {
   static const String _keyLocalPlayerName = 'local_player_name';
   static const String _keyOwnerName = 'owner_name';
   static const String _keyLastSelectedPlayerId = 'last_selected_player_id';
+  static const String _keyShowRecentAlbums = 'show_recent_albums';
+  static const String _keyShowDiscoverArtists = 'show_discover_artists';
+  static const String _keyShowDiscoverAlbums = 'show_discover_albums';
   static const String _keyShowFavoriteAlbums = 'show_favorite_albums';
   static const String _keyShowFavoriteArtists = 'show_favorite_artists';
   static const String _keyShowFavoriteTracks = 'show_favorite_tracks';
@@ -317,7 +320,38 @@ class SettingsService {
     await prefs.clear();
   }
 
-  // Home Screen Favorites Settings
+  // Home Screen Row Settings (Main rows - default on)
+  static Future<bool> getShowRecentAlbums() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyShowRecentAlbums) ?? true;
+  }
+
+  static Future<void> setShowRecentAlbums(bool show) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowRecentAlbums, show);
+  }
+
+  static Future<bool> getShowDiscoverArtists() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyShowDiscoverArtists) ?? true;
+  }
+
+  static Future<void> setShowDiscoverArtists(bool show) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowDiscoverArtists, show);
+  }
+
+  static Future<bool> getShowDiscoverAlbums() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyShowDiscoverAlbums) ?? true;
+  }
+
+  static Future<void> setShowDiscoverAlbums(bool show) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowDiscoverAlbums, show);
+  }
+
+  // Home Screen Favorites Settings (default off)
   static Future<bool> getShowFavoriteAlbums() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyShowFavoriteAlbums) ?? false;

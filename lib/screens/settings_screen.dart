@@ -18,6 +18,11 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _lastFmApiKeyController = TextEditingController();
   final _audioDbApiKeyController = TextEditingController();
+  // Main rows (default on)
+  bool _showRecentAlbums = true;
+  bool _showDiscoverArtists = true;
+  bool _showDiscoverAlbums = true;
+  // Favorites rows (default off)
   bool _showFavoriteAlbums = false;
   bool _showFavoriteArtists = false;
   bool _showFavoriteTracks = false;
@@ -40,11 +45,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     // Load home screen settings
+    final showRecent = await SettingsService.getShowRecentAlbums();
+    final showDiscArtists = await SettingsService.getShowDiscoverArtists();
+    final showDiscAlbums = await SettingsService.getShowDiscoverAlbums();
     final showFavAlbums = await SettingsService.getShowFavoriteAlbums();
     final showFavArtists = await SettingsService.getShowFavoriteArtists();
     final showFavTracks = await SettingsService.getShowFavoriteTracks();
     if (mounted) {
       setState(() {
+        _showRecentAlbums = showRecent;
+        _showDiscoverArtists = showDiscArtists;
+        _showDiscoverAlbums = showDiscAlbums;
         _showFavoriteAlbums = showFavAlbums;
         _showFavoriteArtists = showFavArtists;
         _showFavoriteTracks = showFavTracks;
@@ -333,13 +344,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Show additional favorite rows below the main content',
+              'Choose which rows to display on the home screen',
               style: textTheme.bodySmall?.copyWith(
                 color: colorScheme.onBackground.withOpacity(0.6),
               ),
             ),
             const SizedBox(height: 16),
 
+            // Main rows section
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: Text(
+                      'Recently Played',
+                      style: TextStyle(color: colorScheme.onSurface),
+                    ),
+                    subtitle: Text(
+                      'Show recently played albums',
+                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                    ),
+                    value: _showRecentAlbums,
+                    onChanged: (value) {
+                      setState(() => _showRecentAlbums = value);
+                      SettingsService.setShowRecentAlbums(value);
+                    },
+                    activeColor: colorScheme.primary,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  Divider(color: colorScheme.outline.withOpacity(0.2), height: 1),
+                  SwitchListTile(
+                    title: Text(
+                      'Discover Artists',
+                      style: TextStyle(color: colorScheme.onSurface),
+                    ),
+                    subtitle: Text(
+                      'Show random artists to discover',
+                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                    ),
+                    value: _showDiscoverArtists,
+                    onChanged: (value) {
+                      setState(() => _showDiscoverArtists = value);
+                      SettingsService.setShowDiscoverArtists(value);
+                    },
+                    activeColor: colorScheme.primary,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  Divider(color: colorScheme.outline.withOpacity(0.2), height: 1),
+                  SwitchListTile(
+                    title: Text(
+                      'Discover Albums',
+                      style: TextStyle(color: colorScheme.onSurface),
+                    ),
+                    subtitle: Text(
+                      'Show random albums to discover',
+                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                    ),
+                    value: _showDiscoverAlbums,
+                    onChanged: (value) {
+                      setState(() => _showDiscoverAlbums = value);
+                      SettingsService.setShowDiscoverAlbums(value);
+                    },
+                    activeColor: colorScheme.primary,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            Text(
+              'Favorites',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onBackground.withOpacity(0.6),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Favorites rows section
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(

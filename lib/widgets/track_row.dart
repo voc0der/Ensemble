@@ -54,7 +54,7 @@ class _TrackRowState extends State<TrackRow> with AutomaticKeepAliveClientMixin 
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
           child: Text(
             widget.title,
             style: textTheme.titleLarge?.copyWith(
@@ -138,9 +138,12 @@ class _TrackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final maProvider = context.read<MusicAssistantProvider>();
-    final imageUrl = track.album != null
+    // Try track image first, then album image
+    final trackImageUrl = maProvider.getImageUrl(track, size: 256);
+    final albumImageUrl = track.album != null
         ? maProvider.getImageUrl(track.album!, size: 256)
         : null;
+    final imageUrl = trackImageUrl ?? albumImageUrl;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 

@@ -56,7 +56,7 @@ class _ArtistRowState extends State<ArtistRow> with AutomaticKeepAliveClientMixi
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
           child: Text(
             widget.title,
             style: textTheme.titleLarge?.copyWith(
