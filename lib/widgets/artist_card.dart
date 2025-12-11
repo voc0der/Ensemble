@@ -70,30 +70,39 @@ class _ArtistCardState extends State<ArtistCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Artist image - circular, scales with imageSize
+            // Artist image - circular, constrained to be a proper circle
             Expanded(
-              child: Hero(
-                tag: HeroTags.artistImage + (widget.artist.uri ?? widget.artist.itemId) + suffix,
-                child: AspectRatio(
-                  aspectRatio: 1.0,
-                  child: ClipOval(
-                    child: Container(
-                      color: colorScheme.surfaceVariant,
-                      child: imageUrl != null
-                          ? Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              cacheWidth: 256,
-                              cacheHeight: 256,
-                              errorBuilder: (_, __, ___) => Icon(
-                                Icons.person_rounded,
-                                size: (widget.imageSize ?? 110) * 0.55,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            )
-                          : Icon(Icons.person_rounded, size: (widget.imageSize ?? 110) * 0.55, color: colorScheme.onSurfaceVariant),
-                    ),
-                  ),
+              child: Center(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Use the smaller dimension to ensure a circle
+                    final size = constraints.maxWidth < constraints.maxHeight
+                        ? constraints.maxWidth
+                        : constraints.maxHeight;
+                    return Hero(
+                      tag: HeroTags.artistImage + (widget.artist.uri ?? widget.artist.itemId) + suffix,
+                      child: ClipOval(
+                        child: Container(
+                          width: size,
+                          height: size,
+                          color: colorScheme.surfaceVariant,
+                          child: imageUrl != null
+                              ? Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 256,
+                                  cacheHeight: 256,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    Icons.person_rounded,
+                                    size: size * 0.55,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                )
+                              : Icon(Icons.person_rounded, size: size * 0.55, color: colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
