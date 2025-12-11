@@ -28,9 +28,18 @@ I am not a developer. This application was created using **Claude Code** and **G
 - **Full Playback Controls** - Play, pause, skip, seek, and adjust volume
 - **Queue Management** - View and manage the playback queue
 
+### Home Screen
+- **Customizable Rows** - Toggle Recently Played, Discover Artists, and Discover Albums
+- **Favorites Rows** - Optional rows for Favorite Albums, Artists, and Tracks
+- **Adaptive Layout** - Rows scale properly for different screen sizes and aspect ratios
+- **Pull to Refresh** - Refresh content with a simple pull gesture
+
 ### Library Browsing
-- **Browse Your Collection** - Artists, albums, and tracks from all your music sources
+- **Browse Your Collection** - Artists, albums, playlists, and tracks from all your music sources
+- **Favorites Filter** - Toggle to show only your favorite items
 - **Album Details** - View track listings with artwork
+- **Artist Details** - View artist albums and top tracks
+- **Playlist Support** - Browse and play your playlists
 - **Search** - Find music across your entire library
 
 ### Smart Features
