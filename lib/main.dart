@@ -90,15 +90,21 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
   }
 
   Future<void> _initHardwareVolumeControl() async {
+    _logger.log('🔊 Initializing hardware volume control...');
     await _hardwareVolumeService.init();
+    _logger.log('🔊 Hardware volume service initialized, setting up listeners...');
 
     _volumeUpSub = _hardwareVolumeService.onVolumeUp.listen((_) {
+      _logger.log('🔊 Volume UP event received in main.dart');
       _adjustVolume(_volumeStep);
     });
 
     _volumeDownSub = _hardwareVolumeService.onVolumeDown.listen((_) {
+      _logger.log('🔊 Volume DOWN event received in main.dart');
       _adjustVolume(-_volumeStep);
     });
+
+    _logger.log('🔊 Hardware volume control fully initialized');
   }
 
   Future<void> _adjustVolume(int delta) async {

@@ -39,11 +39,12 @@ class HardwareVolumeService {
     });
 
     try {
+      _logger.log('🔊 Calling startListening on native channel...');
       await _channel.invokeMethod('startListening');
       _isListening = true;
-      _logger.info('Hardware volume button listening started', context: 'VolumeService');
+      _logger.log('🔊 Hardware volume button listening STARTED successfully');
     } catch (e) {
-      _logger.error('Failed to start volume button listening', context: 'VolumeService', error: e);
+      _logger.log('🔊 ERROR: Failed to start volume button listening: $e');
     }
   }
 
