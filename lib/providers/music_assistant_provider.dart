@@ -50,6 +50,7 @@ class MusicAssistantProvider with ChangeNotifier {
 
   // Local player state
   bool _isLocalPlayerPowered = true;
+  int _localPlayerVolume = 100; // Tracked MA volume for builtin player (0-100)
   bool _builtinPlayerAvailable = true; // False on MA 2.7.0b20+ (uses Sendspin instead)
   StreamSubscription? _localPlayerEventSubscription;
   StreamSubscription? _playerUpdatedEventSubscription;
@@ -491,7 +492,9 @@ class MusicAssistantProvider with ChangeNotifier {
 
     final isPlaying = _localPlayer.isPlaying;
     final position = _localPlayer.position.inSeconds;
-    final volume = (_localPlayer.volume * 100).round();
+    // Use tracked MA volume instead of just_audio player volume
+    // just_audio volume is for local playback, MA volume is for server sync
+    final volume = _localPlayerVolume;
     final isPaused = !isPlaying && position > 0;
 
     await _api!.updateBuiltinPlayerState(
@@ -501,7 +504,7 @@ class MusicAssistantProvider with ChangeNotifier {
       paused: isPaused,
       position: position,
       volume: volume,
-      muted: _localPlayer.volume == 0.0,
+      muted: _localPlayerVolume == 0,
     );
   }
 
@@ -592,7 +595,9 @@ class MusicAssistantProvider with ChangeNotifier {
         case 'volume_set':
           final volume = event['volume_level'] as int?;
           if (volume != null) {
+            _localPlayerVolume = volume; // Track MA volume
             await _localPlayer.setVolume(volume / 100.0);
+            _logger.log('🔊 Builtin player volume set to $_localPlayerVolume from server event');
           }
           break;
 
@@ -1700,6 +1705,13 @@ class MusicAssistantProvider with ChangeNotifier {
 
   Future<void> setVolume(String playerId, int volumeLevel) async {
     try {
+      // Update tracked volume immediately for builtin player to prevent
+      // periodic state reporting from overwriting with stale volume
+      final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
+      if (builtinPlayerId != null && playerId == builtinPlayerId) {
+        _localPlayerVolume = volumeLevel;
+        _logger.log('🔊 Builtin player volume tracked: $_localPlayerVolume');
+      }
       await _api?.setVolume(playerId, volumeLevel);
     } catch (e) {
       ErrorHandler.logError('Set volume', e);
