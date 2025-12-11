@@ -595,13 +595,10 @@ class MusicAssistantProvider with ChangeNotifier {
 
         case 'volume_set':
         case 'set_volume':
-          // MA sends 'set_volume' in event type but 'volume' in data
           final volume = event['volume_level'] as int? ?? event['volume'] as int?;
           if (volume != null) {
-            _localPlayerVolume = volume; // Track MA volume
-            // Use device media volume (FlutterVolumeController), NOT just_audio software volume
+            _localPlayerVolume = volume;
             await FlutterVolumeController.setVolume(volume / 100.0);
-            _logger.log('🔊 Builtin player DEVICE volume set to ${(volume / 100.0).toStringAsFixed(2)} from server event');
           }
           break;
 
@@ -1709,19 +1706,12 @@ class MusicAssistantProvider with ChangeNotifier {
 
   Future<void> setVolume(String playerId, int volumeLevel) async {
     try {
-      // Check if this is the builtin player
       final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
       if (builtinPlayerId != null && playerId == builtinPlayerId) {
-        // For builtin player, control device media volume directly
         _localPlayerVolume = volumeLevel;
         await FlutterVolumeController.setVolume(volumeLevel / 100.0);
-        _logger.log('🔊 Builtin player DEVICE volume set to $volumeLevel%');
-        // Also notify MA server about the volume change
-        await _api?.setVolume(playerId, volumeLevel);
-      } else {
-        // For MA players, just send to MA server
-        await _api?.setVolume(playerId, volumeLevel);
       }
+      await _api?.setVolume(playerId, volumeLevel);
     } catch (e) {
       ErrorHandler.logError('Set volume', e);
       rethrow;

@@ -29,37 +29,23 @@ class HardwareVolumeService {
 
   /// Initialize the service and start listening for volume button events
   Future<void> init() async {
-    _logger.log('🔊 HardwareVolumeService.init() called, _isListening=$_isListening');
+    if (_isListening) return;
 
-    if (_isListening) {
-      _logger.log('🔊 HardwareVolumeService.init() - already listening, returning early');
-      return;
-    }
-
-    _logger.log('🔊 Setting up MethodChannel handler for volume events...');
     _channel.setMethodCallHandler((call) async {
-      _logger.log('🔊 MethodChannel received call: ${call.method}');
       switch (call.method) {
         case 'volumeUp':
-          _logger.log('🔊 Hardware VOLUME UP pressed - broadcasting event');
           _volumeUpController.add(null);
           break;
         case 'volumeDown':
-          _logger.log('🔊 Hardware VOLUME DOWN pressed - broadcasting event');
           _volumeDownController.add(null);
           break;
-        default:
-          _logger.log('🔊 Unknown method call: ${call.method}');
       }
     });
-    _logger.log('🔊 MethodChannel handler set up');
 
     try {
-      _logger.log('🔊 Invoking startListening on native channel...');
       await _channel.invokeMethod('startListening');
       _isListening = true;
       _isIntercepting = true;
-      _logger.log('🔊 Native startListening succeeded, _isListening=$_isListening');
     } catch (e) {
       _logger.error('Failed to start volume button listening', context: 'VolumeService', error: e);
     }
@@ -69,28 +55,18 @@ class HardwareVolumeService {
   /// When disabled, hardware volume buttons control device volume normally.
   /// When enabled, volume button events are sent to Flutter for MA player control.
   Future<void> setIntercepting(bool intercept) async {
-    if (!_isListening) {
-      _logger.log('🔊 setIntercepting($intercept) called but not listening yet');
-      return;
-    }
-
-    if (_isIntercepting == intercept) {
-      _logger.log('🔊 setIntercepting($intercept) - already in that state');
-      return;
-    }
+    if (!_isListening || _isIntercepting == intercept) return;
 
     try {
       if (intercept) {
         await _channel.invokeMethod('startListening');
         _isIntercepting = true;
-        _logger.log('🔊 Volume interception ENABLED - will capture buttons for MA players');
       } else {
         await _channel.invokeMethod('stopListening');
         _isIntercepting = false;
-        _logger.log('🔊 Volume interception DISABLED - native volume buttons work normally');
       }
     } catch (e) {
-      _logger.error('Failed to set volume interception to $intercept', context: 'VolumeService', error: e);
+      _logger.error('Failed to set volume interception', context: 'VolumeService', error: e);
     }
   }
 

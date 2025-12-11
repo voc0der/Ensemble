@@ -95,29 +95,18 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
 
   Future<void> _initHardwareVolumeControl() async {
     try {
-      _logger.log('🔊 [1/5] Starting hardware volume control initialization...');
-
-      // Get builtin player ID for detecting when to disable interception
       _builtinPlayerId = await SettingsService.getBuiltinPlayerId();
-      _logger.log('🔊 [2/5] Builtin player ID: $_builtinPlayerId');
-
-      _logger.log('🔊 [3/5] Calling HardwareVolumeService.init()...');
       await _hardwareVolumeService.init();
-      _logger.log('🔊 [4/5] HardwareVolumeService.init() completed, isListening=${_hardwareVolumeService.isListening}');
 
       _volumeUpSub = _hardwareVolumeService.onVolumeUp.listen((_) {
-        _logger.log('🔊 Volume UP event received in main.dart');
         _adjustVolume(_volumeStep);
       });
 
       _volumeDownSub = _hardwareVolumeService.onVolumeDown.listen((_) {
-        _logger.log('🔊 Volume DOWN event received in main.dart');
         _adjustVolume(-_volumeStep);
       });
-
-      _logger.log('🔊 [5/5] Hardware volume control fully initialized');
     } catch (e, stack) {
-      _logger.error('Hardware volume control initialization FAILED', context: 'VolumeInit', error: e, stackTrace: stack);
+      _logger.error('Hardware volume init failed', context: 'VolumeInit', error: e, stackTrace: stack);
     }
   }
 
@@ -131,40 +120,23 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
   }
 
   /// Enable/disable volume button interception based on selected player.
-  /// For builtin player: disable interception so native volume works
-  /// For MA players: enable interception to control player via API
   Future<void> _updateVolumeInterception() async {
     final isBuiltinPlayer = _builtinPlayerId != null &&
         _musicProvider.selectedPlayer?.playerId == _builtinPlayerId;
-
-    if (isBuiltinPlayer) {
-      _logger.log('🔊 Builtin player selected - disabling volume interception');
-      await _hardwareVolumeService.setIntercepting(false);
-    } else {
-      _logger.log('🔊 MA player selected - enabling volume interception');
-      await _hardwareVolumeService.setIntercepting(true);
-    }
+    await _hardwareVolumeService.setIntercepting(!isBuiltinPlayer);
   }
 
   Future<void> _adjustVolume(int delta) async {
     final player = _musicProvider.selectedPlayer;
-    if (player == null) {
-      _logger.log('🔊 Hardware volume button pressed but no player selected');
-      return;
-    }
-
-    _logger.log('🔊 Hardware volume: player=${player.name}, current=${player.volume}, delta=$delta');
+    if (player == null) return;
 
     final newVolume = (player.volume + delta).clamp(0, 100);
     if (newVolume != player.volume) {
       try {
         await _musicProvider.setVolume(player.playerId, newVolume);
-        _logger.log('🔊 Hardware volume adjusted: ${player.volume} -> $newVolume for ${player.name}');
       } catch (e) {
         _logger.error('Hardware volume adjustment failed', context: 'VolumeControl', error: e);
       }
-    } else {
-      _logger.log('🔊 Hardware volume: already at limit ($newVolume)');
     }
   }
 
