@@ -287,7 +287,6 @@ class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
   void updateLocalModeNotification({
     required MediaItem item,
     required bool playing,
-    Duration position = Duration.zero,
     Duration? duration,
   }) {
     // Keep local mode - DON'T set _isRemoteMode = true
@@ -296,6 +295,8 @@ class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
 
     _logger.log('MassivAudioHandler: Updating local mode notification - ${item.title} (playing: $playing)');
 
+    // Use actual player position for local playback - don't override with MA's elapsed_time
+    // which may be stale and cause the progress bar to jump backwards
     playbackState.add(playbackState.value.copyWith(
       controls: [
         MediaControl.skipToPrevious,
@@ -313,8 +314,8 @@ class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
       androidCompactActionIndices: const [1, 2, 3],
       processingState: AudioProcessingState.ready,
       playing: playing,
-      updatePosition: position,
-      bufferedPosition: duration ?? Duration.zero,
+      updatePosition: _player.position,
+      bufferedPosition: duration ?? _player.duration ?? Duration.zero,
       speed: 1.0,
     ));
   }
