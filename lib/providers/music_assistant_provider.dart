@@ -1167,26 +1167,37 @@ class MusicAssistantProvider with ChangeNotifier {
     if (isBuiltinPlayer) {
       audioHandler.setLocalMode();
       // Update notification immediately for builtin player too
+      // Use same notification mechanism as remote players (audioHandler) for consistency
       if (_currentTrack != null && (player.state == 'playing' || player.state == 'paused')) {
         final track = _currentTrack!;
         final artworkUrl = _api?.getImageUrl(track, size: 512);
         final artistWithPlayer = track.artistsString.isNotEmpty
             ? '${track.artistsString} • ${player.name}'
             : player.name;
-        _localPlayer.updateNotification(
+        final mediaItem = audio_service.MediaItem(
           id: track.uri ?? track.itemId,
           title: track.name,
           artist: artistWithPlayer,
-          album: track.album?.name,
-          artworkUrl: artworkUrl,
+          album: track.album?.name ?? '',
+          duration: track.duration,
+          artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+        );
+        audioHandler.setRemotePlaybackState(
+          item: mediaItem,
+          playing: player.state == 'playing',
           duration: track.duration,
         );
       } else if (player.state == 'playing' || player.state == 'paused') {
         // Builtin player active but no cached track - show player name placeholder
-        _localPlayer.updateNotification(
+        final mediaItem = audio_service.MediaItem(
           id: 'player_${player.playerId}',
           title: player.name,
           artist: 'Loading...',
+        );
+        audioHandler.setRemotePlaybackState(
+          item: mediaItem,
+          playing: player.state == 'playing',
+          duration: Duration.zero,
         );
       }
     } else {
@@ -1447,18 +1458,22 @@ class MusicAssistantProvider with ChangeNotifier {
         final isBuiltinPlayer = builtinPlayerId != null && _selectedPlayer!.playerId == builtinPlayerId;
 
         if (isBuiltinPlayer) {
-          // Local playback - use local player notification
-          // Include player name in artist line: "Artist • Player Name"
-          // Always update notification (not just on trackChanged) to ensure player name is current
+          // Local playback - use same notification mechanism as remote players
+          // Always update notification to ensure player name is current
           final artistWithPlayer = track.artistsString.isNotEmpty
               ? '${track.artistsString} • ${_selectedPlayer!.name}'
               : _selectedPlayer!.name;
-          _localPlayer.updateNotification(
+          final mediaItem = audio_service.MediaItem(
             id: track.uri ?? track.itemId,
             title: track.name,
             artist: artistWithPlayer,
-            album: track.album?.name,
-            artworkUrl: artworkUrl,
+            album: track.album?.name ?? '',
+            duration: track.duration,
+            artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+          );
+          audioHandler.setRemotePlaybackState(
+            item: mediaItem,
+            playing: _selectedPlayer!.state == 'playing',
             duration: track.duration,
           );
         } else {
@@ -1483,16 +1498,14 @@ class MusicAssistantProvider with ChangeNotifier {
         }
       } else {
         // No track data available - show player name placeholder for active players
-        final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
-        final isBuiltinPlayer = builtinPlayerId != null && _selectedPlayer!.playerId == builtinPlayerId;
-
         if (_currentTrack != null) {
           _currentTrack = null;
           stateChanged = true;
         }
 
         // Show player name placeholder so notification shows correct player
-        if (!isBuiltinPlayer && (_selectedPlayer!.state == 'playing' || _selectedPlayer!.state == 'paused')) {
+        // Works for both builtin and remote players using same notification mechanism
+        if (_selectedPlayer!.state == 'playing' || _selectedPlayer!.state == 'paused') {
           final mediaItem = audio_service.MediaItem(
             id: 'player_${_selectedPlayer!.playerId}',
             title: _selectedPlayer!.name,
@@ -1503,7 +1516,7 @@ class MusicAssistantProvider with ChangeNotifier {
             playing: _selectedPlayer!.state == 'playing',
             duration: Duration.zero,
           );
-        } else if (!isBuiltinPlayer) {
+        } else {
           audioHandler.clearRemotePlaybackState();
         }
       }
