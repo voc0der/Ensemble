@@ -15,9 +15,22 @@ class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
   // This allows us to update the notification when metadata arrives late
   MediaItem? _currentMediaItem;
 
-  // Callbacks for skip actions (wired up by MusicAssistantProvider)
+  // Callbacks for actions (wired up by MusicAssistantProvider)
   Function()? onSkipToNext;
   Function()? onSkipToPrevious;
+  Function()? onPlay;
+  Function()? onPause;
+  Function()? onSwitchPlayer;
+
+  // Track whether we're in remote control mode (controlling MA player, not playing locally)
+  bool _isRemoteMode = false;
+
+  // Custom action for switching players
+  static const switchPlayerAction = MediaControl(
+    androidIcon: 'drawable/ic_switch_player',
+    label: 'Switch Player',
+    action: MediaAction.custom0,
+  );
 
   MassivAudioHandler({required this.authManager}) {
     _init();
@@ -116,10 +129,28 @@ class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
   // --- Playback control methods ---
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() async {
+    if (_isRemoteMode) {
+      _logger.log('MassivAudioHandler: play requested (remote mode)');
+      if (onPlay != null) {
+        onPlay!();
+      }
+    } else {
+      await _player.play();
+    }
+  }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() async {
+    if (_isRemoteMode) {
+      _logger.log('MassivAudioHandler: pause requested (remote mode)');
+      if (onPause != null) {
+        onPause!();
+      }
+    } else {
+      await _player.pause();
+    }
+  }
 
   @override
   Future<void> stop() async {
@@ -144,6 +175,14 @@ class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
     _logger.log('MassivAudioHandler: skipToPrevious requested');
     if (onSkipToPrevious != null) {
       onSkipToPrevious!();
+    }
+  }
+
+  @override
+  Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
+    _logger.log('MassivAudioHandler: customAction requested: $name');
+    if (name == 'custom0' && onSwitchPlayer != null) {
+      onSwitchPlayer!();
     }
   }
 
@@ -187,6 +226,64 @@ class MassivAudioHandler extends BaseAudioHandler with SeekHandler {
   Future<void> setVolume(double volume) async {
     await _player.setVolume(volume.clamp(0.0, 1.0));
   }
+
+  /// Set remote playback state (for controlling MA players without local playback)
+  /// This shows the notification and responds to media controls without playing audio locally.
+  void setRemotePlaybackState({
+    required MediaItem item,
+    required bool playing,
+    Duration position = Duration.zero,
+    Duration? duration,
+  }) {
+    _isRemoteMode = true;
+    _currentMediaItem = item;
+    mediaItem.add(item);
+
+    _logger.log('MassivAudioHandler: Setting remote playback state - ${item.title} (playing: $playing)');
+
+    playbackState.add(playbackState.value.copyWith(
+      controls: [
+        MediaControl.skipToPrevious,
+        if (playing) MediaControl.pause else MediaControl.play,
+        MediaControl.skipToNext,
+        switchPlayerAction,
+      ],
+      systemActions: const {
+        MediaAction.play,
+        MediaAction.pause,
+        MediaAction.skipToNext,
+        MediaAction.skipToPrevious,
+        MediaAction.custom0,
+      },
+      androidCompactActionIndices: const [0, 1, 2],
+      processingState: AudioProcessingState.ready,
+      playing: playing,
+      updatePosition: position,
+      bufferedPosition: duration ?? Duration.zero,
+      speed: 1.0,
+    ));
+  }
+
+  /// Clear remote playback state and hide notification
+  void clearRemotePlaybackState() {
+    _logger.log('MassivAudioHandler: Clearing remote playback state');
+    _isRemoteMode = false;
+    _currentMediaItem = null;
+
+    playbackState.add(playbackState.value.copyWith(
+      controls: [],
+      processingState: AudioProcessingState.idle,
+      playing: false,
+    ));
+  }
+
+  /// Switch to local playback mode (when builtin player is selected)
+  void setLocalMode() {
+    _logger.log('MassivAudioHandler: Switching to local mode');
+    _isRemoteMode = false;
+  }
+
+  bool get isRemoteMode => _isRemoteMode;
 
   // --- Expose player state for provider ---
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import '../models/media_item.dart';
@@ -367,7 +368,7 @@ class MusicAssistantProvider with ChangeNotifier {
     await _localPlayer.initialize();
     _isLocalPlayerPowered = true;
 
-    // Wire up skip button callbacks
+    // Wire up notification button callbacks
     audioHandler.onSkipToNext = () {
       _logger.log('🎵 Notification: Skip to next pressed');
       nextTrackSelectedPlayer();
@@ -375,6 +376,18 @@ class MusicAssistantProvider with ChangeNotifier {
     audioHandler.onSkipToPrevious = () {
       _logger.log('🎵 Notification: Skip to previous pressed');
       previousTrackSelectedPlayer();
+    };
+    audioHandler.onPlay = () {
+      _logger.log('🎵 Notification: Play pressed');
+      playPauseSelectedPlayer();
+    };
+    audioHandler.onPause = () {
+      _logger.log('🎵 Notification: Pause pressed');
+      playPauseSelectedPlayer();
+    };
+    audioHandler.onSwitchPlayer = () {
+      _logger.log('🎵 Notification: Switch player pressed');
+      selectNextPlayer();
     };
 
     // Player registration is now handled in _initializeAfterConnection()
@@ -1133,7 +1146,7 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
-  void selectPlayer(Player player, {bool skipNotify = false}) {
+  void selectPlayer(Player player, {bool skipNotify = false}) async {
     _selectedPlayer = player;
 
     SettingsService.setLastSelectedPlayerId(player.playerId);
@@ -1145,6 +1158,17 @@ class MusicAssistantProvider with ChangeNotifier {
     // stale track info when switching to a non-playing player.
     _currentTrack = _cacheService.getCachedTrackForPlayer(player.playerId);
 
+    // Switch audio handler mode based on player type
+    final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
+    final isBuiltinPlayer = builtinPlayerId != null && player.playerId == builtinPlayerId;
+    if (isBuiltinPlayer) {
+      audioHandler.setLocalMode();
+    } else {
+      // Clear any existing remote state when switching players
+      // _updatePlayerState will set up the new remote state
+      audioHandler.clearRemotePlaybackState();
+    }
+
     _startPlayerStatePolling();
 
     _preloadAdjacentPlayers();
@@ -1152,6 +1176,21 @@ class MusicAssistantProvider with ChangeNotifier {
     if (!skipNotify) {
       notifyListeners();
     }
+  }
+
+  /// Cycle to the next available player (for notification switch button)
+  void selectNextPlayer() {
+    final players = _availablePlayers.where((p) => p.available).toList();
+    if (players.isEmpty || _selectedPlayer == null) return;
+
+    final currentIndex = players.indexWhere((p) => p.playerId == _selectedPlayer!.playerId);
+    if (currentIndex == -1) return;
+
+    final nextIndex = (currentIndex + 1) % players.length;
+    final nextPlayer = players[nextIndex];
+
+    _logger.log('🔄 Switching to next player: ${nextPlayer.name}');
+    selectPlayer(nextPlayer);
   }
 
   Future<void> _preloadAdjacentPlayers({bool preloadAll = false}) async {
@@ -1322,16 +1361,24 @@ class MusicAssistantProvider with ChangeNotifier {
       final queue = await getQueue(_selectedPlayer!.playerId);
 
       if (queue != null && queue.currentItem != null) {
-        if (_currentTrack == null ||
+        final trackChanged = _currentTrack == null ||
             _currentTrack!.uri != queue.currentItem!.track.uri ||
-            _currentTrack!.name != queue.currentItem!.track.name) {
+            _currentTrack!.name != queue.currentItem!.track.name;
+
+        if (trackChanged) {
           _currentTrack = queue.currentItem!.track;
           stateChanged = true;
+        }
 
-          final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
-          if (builtinPlayerId != null && _selectedPlayer!.playerId == builtinPlayerId) {
-            final track = _currentTrack!;
-            final artworkUrl = _api?.getImageUrl(track, size: 512);
+        // Update notification for ALL players
+        final track = _currentTrack!;
+        final artworkUrl = _api?.getImageUrl(track, size: 512);
+        final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
+        final isBuiltinPlayer = builtinPlayerId != null && _selectedPlayer!.playerId == builtinPlayerId;
+
+        if (isBuiltinPlayer) {
+          // Local playback - use local player notification
+          if (trackChanged) {
             _localPlayer.updateNotification(
               id: track.uri ?? track.itemId,
               title: track.name,
@@ -1341,11 +1388,32 @@ class MusicAssistantProvider with ChangeNotifier {
               duration: track.duration,
             );
           }
+        } else {
+          // Remote MA player - show notification via remote mode
+          final mediaItem = audio_service.MediaItem(
+            id: track.uri ?? track.itemId,
+            title: track.name,
+            artist: track.artistsString,
+            album: track.album?.name ?? '',
+            duration: track.duration,
+            artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+          );
+          audioHandler.setRemotePlaybackState(
+            item: mediaItem,
+            playing: _selectedPlayer!.state == 'playing',
+            duration: track.duration,
+          );
         }
       } else {
         if (_currentTrack != null) {
           _currentTrack = null;
           stateChanged = true;
+          // Clear notification when no track
+          final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
+          final isBuiltinPlayer = builtinPlayerId != null && _selectedPlayer!.playerId == builtinPlayerId;
+          if (!isBuiltinPlayer) {
+            audioHandler.clearRemotePlaybackState();
+          }
         }
       }
 
