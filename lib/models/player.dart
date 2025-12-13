@@ -66,16 +66,18 @@ class Player {
     // 1. Server doesn't send elapsed_time_last_updated
     // 2. Server timestamp is stale (e.g., after switching to a remote player)
     // 3. Clock skew between client and server
+    //
+    // Key insight: when server sends a NEW elapsed_time, we get a NEW key,
+    // so interpolation naturally starts fresh. We should NEVER reset an existing
+    // key's creation time, as that causes progress to jump backward.
     final creationKey = '$playerId:$elapsedTime';
-    final existingCreationTime = _playerCreationTimes[creationKey];
 
-    // Reset creation time if missing OR if stale (>10 seconds)
-    // This ensures progress bar keeps moving even after app backgrounding
-    if (existingCreationTime == null || (now - existingCreationTime) > 10.0) {
+    if (!_playerCreationTimes.containsKey(creationKey)) {
+      // First time seeing this elapsed_time - record when we saw it
       _playerCreationTimes[creationKey] = now;
       // Clean up old entries to prevent memory leak
-      if (_playerCreationTimes.length > 50) {
-        final keysToRemove = _playerCreationTimes.keys.take(25).toList();
+      if (_playerCreationTimes.length > 100) {
+        final keysToRemove = _playerCreationTimes.keys.take(50).toList();
         for (final key in keysToRemove) {
           _playerCreationTimes.remove(key);
         }
@@ -85,7 +87,9 @@ class Player {
     final creationTime = _playerCreationTimes[creationKey]!;
     final timeSinceCreation = now - creationTime;
 
-    // No clamp needed - we reset stale entries above so timeSinceCreation is always small
+    // Server sends updates every ~5 seconds with new elapsed_time values,
+    // which creates new keys and corrects any drift. Allow unlimited
+    // interpolation since new server data will naturally correct it.
     return elapsedTime! + timeSinceCreation;
   }
 
