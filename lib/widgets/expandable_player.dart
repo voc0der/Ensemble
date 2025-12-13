@@ -130,13 +130,15 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.forward) {
         _loadQueue();
-        _startProgressTimer();
       } else if (status == AnimationStatus.dismissed) {
-        _progressTimer?.cancel();
         // Close queue panel when player collapses
         _queuePanelController.reverse();
       }
     });
+
+    // Start progress timer immediately - it runs continuously to keep
+    // progress data fresh for when the player is expanded
+    _startProgressTimer();
 
     // Auto-refresh queue when panel is open
     _queuePanelController.addStatusListener((status) {
@@ -214,15 +216,16 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   void _startProgressTimer() {
     _progressTimer?.cancel();
-    // Use local player report interval for progress updates (1 second)
-    // Update only the progress notifier to avoid rebuilding the entire widget tree
+    // Progress timer runs continuously (not just when expanded) to ensure
+    // the progress notifier always has fresh interpolated data.
+    // This prevents stale progress showing when the player first expands.
     _progressTimer = Timer.periodic(Timings.localPlayerReportInterval, (_) {
-      if (mounted && isExpanded) {
-        final maProvider = context.read<MusicAssistantProvider>();
-        final selectedPlayer = maProvider.selectedPlayer;
-        if (selectedPlayer != null) {
-          _progressNotifier.value = selectedPlayer.currentElapsedTime.toInt();
-        }
+      if (!mounted) return;
+      final maProvider = context.read<MusicAssistantProvider>();
+      final selectedPlayer = maProvider.selectedPlayer;
+      if (selectedPlayer != null && selectedPlayer.isPlaying) {
+        // Only update when playing - no need to interpolate paused state
+        _progressNotifier.value = selectedPlayer.currentElapsedTime.toInt();
       }
     });
   }
@@ -695,6 +698,21 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
         // Update favorite status when track changes
         _updateFavoriteStatus(currentTrack);
+
+        // Sync progress notifier immediately when player state changes
+        // This ensures the progress bar shows correct position on expand,
+        // after seek, or when switching players - without waiting for timer
+        if (selectedPlayer.elapsedTime != null) {
+          final newProgress = selectedPlayer.currentElapsedTime.toInt();
+          if (_progressNotifier.value != newProgress) {
+            // Use addPostFrameCallback to avoid updating during build
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _progressNotifier.value = newProgress;
+              }
+            });
+          }
+        }
 
         return AnimatedBuilder(
           animation: Listenable.merge([_expandAnimation, _queuePanelAnimation]),
