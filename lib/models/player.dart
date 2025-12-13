@@ -47,20 +47,25 @@ class Player {
 
     final now = DateTime.now().millisecondsSinceEpoch / 1000.0;
 
-    // Try server-provided timestamp first
+    // Try server-provided timestamp first, but only if it's recent
     if (elapsedTimeLastUpdated != null) {
       final timeSinceUpdate = now - elapsedTimeLastUpdated!;
 
-      // Clamp to reasonable range: 0 to 10 seconds
-      // - Negative means clock skew (client ahead of server) - clamp to 0
-      // - > 10 seconds likely means stale data or network delay - clamp to 10
-      // This prevents jumps while still allowing some interpolation
-      final clampedTime = timeSinceUpdate.clamp(0.0, 10.0);
-      return elapsedTime! + clampedTime;
+      // Only use server timestamp if it's within valid range (0-10 seconds)
+      // - Negative means clock skew (client ahead of server)
+      // - > 10 seconds means stale data (e.g., after player switch)
+      // If outside this range, fall through to local fallback for smooth interpolation
+      if (timeSinceUpdate >= 0 && timeSinceUpdate <= 10.0) {
+        return elapsedTime! + timeSinceUpdate;
+      }
+      // Server timestamp is stale or invalid - fall through to local fallback
     }
 
     // Fallback: use local creation time for interpolation
-    // This handles the case where server doesn't send elapsed_time_last_updated
+    // This handles:
+    // 1. Server doesn't send elapsed_time_last_updated
+    // 2. Server timestamp is stale (e.g., after switching to a remote player)
+    // 3. Clock skew between client and server
     final creationKey = '$playerId:$elapsedTime';
     if (!_playerCreationTimes.containsKey(creationKey)) {
       // First time seeing this player/position combo - record creation time
