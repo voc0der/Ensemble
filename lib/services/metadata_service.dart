@@ -305,11 +305,11 @@ class MetadataService {
           }
 
           // Fall back to first result if no good match
-          bestMatch ??= albums[0];
+          final album = bestMatch ?? albums[0] as Map<String, dynamic>;
 
           // Use cover_xl for high quality, fall back to cover_medium
-          final imageUrl = bestMatch['cover_xl'] ?? bestMatch['cover_big'] ??
-              bestMatch['cover_medium'] ?? bestMatch['cover'];
+          final imageUrl = album['cover_xl'] ?? album['cover_big'] ??
+              album['cover_medium'] ?? album['cover'];
           _albumImageCache[cacheKey] = imageUrl;
           return imageUrl;
         }
