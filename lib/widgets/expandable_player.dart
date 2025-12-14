@@ -420,11 +420,18 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   /// Get provider icons for the current track
   List<Widget> _buildProviderIcons(dynamic currentTrack) {
-    if (currentTrack == null || currentTrack.providerMappings == null) {
+    if (currentTrack == null) return [];
+
+    // Try to get providerMappings - handle both typed and dynamic access
+    List<dynamic>? mappings;
+    try {
+      final rawMappings = currentTrack.providerMappings;
+      if (rawMappings == null) return [];
+      mappings = rawMappings as List<dynamic>?;
+    } catch (e) {
       return [];
     }
 
-    final mappings = currentTrack.providerMappings as List<dynamic>?;
     if (mappings == null || mappings.isEmpty) return [];
 
     // Get unique providers (exclude 'library' as it's not a music source)
@@ -432,27 +439,49 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final icons = <Widget>[];
 
     for (final mapping in mappings) {
-      if (mapping.available != true) continue;
-      final provider = (mapping.providerDomain ?? mapping.providerInstance ?? '').toString().toLowerCase();
-      if (provider.isEmpty || provider == 'library' || seenProviders.contains(provider)) continue;
-      seenProviders.add(provider);
+      try {
+        // Check if available
+        final available = mapping.available;
+        if (available != true) continue;
 
-      final icon = _getProviderIcon(provider);
-      if (icon != null) {
-        icons.add(
-          Container(
-            width: 24,
-            height: 24,
-            margin: const EdgeInsets.only(left: 4),
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(4),
+        // Get provider domain or instance
+        String provider = '';
+        try {
+          provider = (mapping.providerDomain ?? '').toString().toLowerCase();
+        } catch (e) {
+          // Fallback to providerInstance
+        }
+        if (provider.isEmpty) {
+          try {
+            provider = (mapping.providerInstance ?? '').toString().toLowerCase();
+          } catch (e) {
+            continue;
+          }
+        }
+
+        if (provider.isEmpty || provider == 'library' || seenProviders.contains(provider)) continue;
+        seenProviders.add(provider);
+
+        final icon = _getProviderIcon(provider);
+        if (icon != null) {
+          icons.add(
+            Container(
+              width: 24,
+              height: 24,
+              margin: const EdgeInsets.only(left: 4),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Center(
+                child: icon,
+              ),
             ),
-            child: Center(
-              child: icon,
-            ),
-          ),
-        );
+          );
+        }
+      } catch (e) {
+        // Skip this mapping on any error
+        continue;
       }
     }
 
@@ -1247,8 +1276,13 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
               children: [
                 // Mini player progress bar background (collapsed only)
                 // Shows played portion with brighter color, unplayed with darker
+                // Starts after album art so progress is visible
                 if (t < 0.5 && currentTrack?.duration != null)
-                  Positioned.fill(
+                  Positioned(
+                    left: _collapsedArtSize,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
                     child: ValueListenableBuilder<int>(
                       valueListenable: _progressNotifier,
                       builder: (context, elapsedSeconds, _) {
@@ -1257,14 +1291,18 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                         final progress = (elapsedSeconds / totalSeconds).clamp(0.0, 1.0);
                         // Fade out as we expand
                         final progressOpacity = (1.0 - (t / 0.5)).clamp(0.0, 1.0);
+                        final progressAreaWidth = width - _collapsedArtSize;
                         return Opacity(
                           opacity: progressOpacity,
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(borderRadius),
+                            borderRadius: BorderRadius.only(
+                              topRight: Radius.circular(borderRadius),
+                              bottomRight: Radius.circular(borderRadius),
+                            ),
                             child: Align(
                               alignment: Alignment.centerLeft,
                               child: Container(
-                                width: width * progress,
+                                width: progressAreaWidth * progress,
                                 height: height,
                                 color: collapsedBg,
                               ),
@@ -1304,6 +1342,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     left: artLeft + miniPlayerSlideOffset,
                     top: artTop,
                     child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: t > 0.5 ? () => _showFullscreenArt(context, imageUrl) : null,
                       child: Container(
                         width: artSize,
@@ -1347,19 +1386,22 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
                 // Provider icons overlay (expanded only)
                 if (t > 0.5 && _showProviderIcons && !(_inTransition && t < 0.1))
-                  Positioned(
-                    left: artLeft + artSize - 8,
-                    top: artTop + 8,
-                    child: Transform.translate(
-                      offset: Offset(-(_buildProviderIcons(currentTrack).length * 28).toDouble(), 0),
-                      child: Opacity(
-                        opacity: ((t - 0.5) / 0.5).clamp(0.0, 1.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: _buildProviderIcons(currentTrack),
+                  Builder(
+                    builder: (context) {
+                      final icons = _buildProviderIcons(currentTrack);
+                      if (icons.isEmpty) return const SizedBox.shrink();
+                      return Positioned(
+                        right: (screenSize.width - artLeft - artSize) + 8,
+                        top: artTop + 8,
+                        child: Opacity(
+                          opacity: ((t - 0.5) / 0.5).clamp(0.0, 1.0),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: icons,
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
 
                 // Track title - with slide animation when collapsed
