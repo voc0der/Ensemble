@@ -8,6 +8,7 @@ import '../constants/timings.dart';
 import '../providers/music_assistant_provider.dart';
 import '../models/player.dart';
 import '../services/animation_debugger.dart';
+import '../services/settings_service.dart';
 import '../theme/palette_helper.dart';
 import '../theme/theme_provider.dart';
 import 'animated_icon_button.dart';
@@ -90,6 +91,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   String? _lastMeasuredTrackName;
   double? _lastMeasuredTitleWidth;
 
+  // Provider icons setting
+  bool _showProviderIcons = false;
+
   @override
   void initState() {
     super.initState();
@@ -146,6 +150,18 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         _stopQueueRefreshTimer();
       }
     });
+
+    // Load provider icons setting
+    _loadProviderIconsSetting();
+  }
+
+  Future<void> _loadProviderIconsSetting() async {
+    final showIcons = await SettingsService.getShowProviderIcons();
+    if (mounted) {
+      setState(() {
+        _showProviderIcons = showIcons;
+      });
+    }
   }
 
   Timer? _queueRefreshTimer;
@@ -326,27 +342,69 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
     try {
       if (_isCurrentTrackFavorite) {
-        // Remove from favorites
-        final libraryItemId = currentTrack.itemId;
-        if (libraryItemId is int) {
-          await maProvider.api!.removeFromFavorites('track', libraryItemId);
-        } else if (libraryItemId is String) {
-          final parsed = int.tryParse(libraryItemId);
-          if (parsed != null) {
-            await maProvider.api!.removeFromFavorites('track', parsed);
+        // Remove from favorites - need library_item_id (numeric)
+        int? libraryItemId;
+
+        if (currentTrack.provider == 'library') {
+          // If provider is library, itemId is the library ID
+          libraryItemId = int.tryParse(currentTrack.itemId.toString());
+        } else if (currentTrack.providerMappings != null) {
+          // Find the library mapping to get the library ID
+          final mappings = currentTrack.providerMappings as List<dynamic>?;
+          if (mappings != null) {
+            for (final mapping in mappings) {
+              if (mapping.providerInstance == 'library') {
+                libraryItemId = int.tryParse(mapping.itemId.toString());
+                break;
+              }
+            }
           }
         }
+
+        if (libraryItemId != null) {
+          await maProvider.api!.removeFromFavorites('track', libraryItemId);
+        } else {
+          throw Exception('Could not determine library ID for this track');
+        }
       } else {
-        // Add to favorites
-        final provider = currentTrack.provider as String? ?? 'library';
-        final itemId = currentTrack.itemId?.toString() ?? '';
-        await maProvider.api!.addToFavorites('track', itemId, provider);
+        // Add to favorites - use the source provider (not library)
+        String actualProvider = currentTrack.provider?.toString() ?? 'library';
+        String actualItemId = currentTrack.itemId?.toString() ?? '';
+
+        if (currentTrack.providerMappings != null) {
+          final mappings = currentTrack.providerMappings as List<dynamic>?;
+          if (mappings != null && mappings.isNotEmpty) {
+            // Find a non-library provider mapping
+            for (final mapping in mappings) {
+              if (mapping.available == true && mapping.providerInstance != 'library') {
+                actualProvider = mapping.providerInstance;
+                actualItemId = mapping.itemId;
+                break;
+              }
+            }
+            // Fallback to first available if no non-library found
+            if (actualProvider == 'library') {
+              for (final mapping in mappings) {
+                if (mapping.available == true) {
+                  actualProvider = mapping.providerInstance;
+                  actualItemId = mapping.itemId;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        await maProvider.api!.addToFavorites('track', actualItemId, actualProvider);
       }
 
       // Toggle local state
       setState(() {
         _isCurrentTrackFavorite = !_isCurrentTrackFavorite;
       });
+
+      // Invalidate home cache so favorites are updated
+      maProvider.invalidateHomeCache();
     } catch (e) {
       // Show error feedback
       if (mounted) {
@@ -358,6 +416,119 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         );
       }
     }
+  }
+
+  /// Get provider icons for the current track
+  List<Widget> _buildProviderIcons(dynamic currentTrack) {
+    if (currentTrack == null || currentTrack.providerMappings == null) {
+      return [];
+    }
+
+    final mappings = currentTrack.providerMappings as List<dynamic>?;
+    if (mappings == null || mappings.isEmpty) return [];
+
+    // Get unique providers (exclude 'library' as it's not a music source)
+    final seenProviders = <String>{};
+    final icons = <Widget>[];
+
+    for (final mapping in mappings) {
+      if (mapping.available != true) continue;
+      final provider = (mapping.providerDomain ?? mapping.providerInstance ?? '').toString().toLowerCase();
+      if (provider.isEmpty || provider == 'library' || seenProviders.contains(provider)) continue;
+      seenProviders.add(provider);
+
+      final icon = _getProviderIcon(provider);
+      if (icon != null) {
+        icons.add(
+          Container(
+            width: 24,
+            height: 24,
+            margin: const EdgeInsets.only(left: 4),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Center(
+              child: icon,
+            ),
+          ),
+        );
+      }
+    }
+
+    return icons;
+  }
+
+  /// Get icon widget for a provider
+  Widget? _getProviderIcon(String provider) {
+    // Common Music Assistant providers
+    if (provider.contains('spotify')) {
+      return const Icon(Icons.music_note_rounded, size: 16, color: Color(0xFF1DB954));
+    } else if (provider.contains('subsonic') || provider.contains('opensubsonic')) {
+      return const Icon(Icons.cloud_rounded, size: 16, color: Color(0xFFF9A825));
+    } else if (provider.contains('tidal')) {
+      return const Icon(Icons.waves_rounded, size: 16, color: Colors.white);
+    } else if (provider.contains('qobuz')) {
+      return const Icon(Icons.high_quality_rounded, size: 16, color: Color(0xFF2C8BFF));
+    } else if (provider.contains('youtube') || provider.contains('ytmusic')) {
+      return const Icon(Icons.play_circle_filled_rounded, size: 16, color: Colors.red);
+    } else if (provider.contains('plex')) {
+      return const Icon(Icons.smart_display_rounded, size: 16, color: Color(0xFFE5A00D));
+    } else if (provider.contains('jellyfin')) {
+      return const Icon(Icons.video_library_rounded, size: 16, color: Color(0xFF00A4DC));
+    } else if (provider.contains('filesystem') || provider.contains('local')) {
+      return const Icon(Icons.folder_rounded, size: 16, color: Colors.grey);
+    } else if (provider.contains('soundcloud')) {
+      return const Icon(Icons.cloud_queue_rounded, size: 16, color: Color(0xFFFF5500));
+    } else if (provider.contains('deezer')) {
+      return const Icon(Icons.music_note_rounded, size: 16, color: Color(0xFFEF5466));
+    }
+    // Unknown provider - show generic icon
+    return const Icon(Icons.album_rounded, size: 16, color: Colors.white70);
+  }
+
+  /// Show fullscreen album art overlay
+  void _showFullscreenArt(BuildContext context, String? imageUrl) {
+    if (imageUrl == null) return;
+
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black87,
+        barrierDismissible: true,
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return FadeTransition(
+            opacity: animation,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              onVerticalDragEnd: (details) {
+                if (details.primaryVelocity != null && details.primaryVelocity!.abs() > 300) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                body: Center(
+                  child: Hero(
+                    tag: 'fullscreen_album_art',
+                    child: InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 3.0,
+                      child: CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.contain,
+                        memCacheWidth: 1024,
+                        memCacheHeight: 1024,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   /// Get available players sorted alphabetically (consistent with device selector)
@@ -830,6 +1001,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final collapsedBg = themeProvider.adaptiveTheme && adaptiveScheme != null
         ? adaptiveScheme.primaryContainer
         : colorScheme.primaryContainer;
+    // Create a darker shade for the "unplayed" portion of progress bar
+    final collapsedBgUnplayed = Color.lerp(collapsedBg, Colors.black, 0.3)!;
     final expandedBg = adaptiveScheme?.surface ?? const Color(0xFF121212);
     // Only update if we have adaptive colors, otherwise keep previous value
     if (adaptiveScheme != null) {
@@ -837,7 +1010,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     } else if (_currentExpandedBgColor == null) {
       _currentExpandedBgColor = expandedBg; // First time fallback
     }
-    final backgroundColor = Color.lerp(collapsedBg, expandedBg, t)!;
+    // When collapsed, use the darker unplayed color as base (progress bar will overlay the played portion)
+    // When expanded, transition to the normal background
+    final backgroundColor = Color.lerp(t < 0.5 ? collapsedBgUnplayed : collapsedBg, expandedBg, t)!;
 
     final collapsedTextColor = themeProvider.adaptiveTheme && adaptiveScheme != null
         ? adaptiveScheme.onPrimaryContainer
@@ -1070,6 +1245,36 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
             child: Stack(
               clipBehavior: Clip.none,
               children: [
+                // Mini player progress bar background (collapsed only)
+                // Shows played portion with brighter color, unplayed with darker
+                if (t < 0.5 && currentTrack?.duration != null)
+                  Positioned.fill(
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _progressNotifier,
+                      builder: (context, elapsedSeconds, _) {
+                        final totalSeconds = currentTrack!.duration!.inSeconds;
+                        if (totalSeconds <= 0) return const SizedBox.shrink();
+                        final progress = (elapsedSeconds / totalSeconds).clamp(0.0, 1.0);
+                        // Fade out as we expand
+                        final progressOpacity = (1.0 - (t / 0.5)).clamp(0.0, 1.0);
+                        return Opacity(
+                          opacity: progressOpacity,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(borderRadius),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                width: width * progress,
+                                height: height,
+                                color: collapsedBg,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
                 // Peek player content (shows when dragging OR during transition)
                 // Show when: actively dragging (slideOffset != 0) OR in transition state
                 // Must have peek data to render
@@ -1098,40 +1303,60 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                   Positioned(
                     left: artLeft + miniPlayerSlideOffset,
                     top: artTop,
-                    child: Container(
-                      width: artSize,
-                      height: artSize,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(artBorderRadius),
-                        // GPU PERF: Fixed blur/offset, only animate shadow opacity
-                        boxShadow: t > 0.3
-                            ? [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.25 * ((t - 0.3) / 0.7).clamp(0.0, 1.0)),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      // Use RepaintBoundary to isolate art repaints during animation
-                      child: RepaintBoundary(
-                        child: ClipRRect(
+                    child: GestureDetector(
+                      onTap: t > 0.5 ? () => _showFullscreenArt(context, imageUrl) : null,
+                      child: Container(
+                        width: artSize,
+                        height: artSize,
+                        decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(artBorderRadius),
-                          child: imageUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: imageUrl,
-                                  fit: BoxFit.cover,
-                                  // Fixed cache size to avoid mid-animation cache thrashing
-                                  memCacheWidth: 512,
-                                  memCacheHeight: 512,
-                                  fadeInDuration: Duration.zero,
-                                  fadeOutDuration: Duration.zero,
-                                  placeholderFadeInDuration: Duration.zero,
-                                  placeholder: (_, __) => _buildPlaceholderArt(colorScheme, t),
-                                  errorWidget: (_, __, ___) => _buildPlaceholderArt(colorScheme, t),
-                                )
-                              : _buildPlaceholderArt(colorScheme, t),
+                          // GPU PERF: Fixed blur/offset, only animate shadow opacity
+                          boxShadow: t > 0.3
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.25 * ((t - 0.3) / 0.7).clamp(0.0, 1.0)),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        // Use RepaintBoundary to isolate art repaints during animation
+                        child: RepaintBoundary(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(artBorderRadius),
+                            child: imageUrl != null
+                                ? CachedNetworkImage(
+                                    imageUrl: imageUrl,
+                                    fit: BoxFit.cover,
+                                    // Fixed cache size to avoid mid-animation cache thrashing
+                                    memCacheWidth: 512,
+                                    memCacheHeight: 512,
+                                    fadeInDuration: Duration.zero,
+                                    fadeOutDuration: Duration.zero,
+                                    placeholderFadeInDuration: Duration.zero,
+                                    placeholder: (_, __) => _buildPlaceholderArt(colorScheme, t),
+                                    errorWidget: (_, __, ___) => _buildPlaceholderArt(colorScheme, t),
+                                  )
+                                : _buildPlaceholderArt(colorScheme, t),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Provider icons overlay (expanded only)
+                if (t > 0.5 && _showProviderIcons && !(_inTransition && t < 0.1))
+                  Positioned(
+                    left: artLeft + artSize - 8,
+                    top: artTop + 8,
+                    child: Transform.translate(
+                      offset: Offset(-(_buildProviderIcons(currentTrack).length * 28).toDouble(), 0),
+                      child: Opacity(
+                        opacity: ((t - 0.5) / 0.5).clamp(0.0, 1.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: _buildProviderIcons(currentTrack),
                         ),
                       ),
                     ),

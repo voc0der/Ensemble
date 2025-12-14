@@ -26,6 +26,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _showFavoriteAlbums = false;
   bool _showFavoriteArtists = false;
   bool _showFavoriteTracks = false;
+  // Player settings
+  bool _showProviderIcons = false;
 
   @override
   void initState() {
@@ -51,6 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final showFavAlbums = await SettingsService.getShowFavoriteAlbums();
     final showFavArtists = await SettingsService.getShowFavoriteArtists();
     final showFavTracks = await SettingsService.getShowFavoriteTracks();
+    final showProviderIcons = await SettingsService.getShowProviderIcons();
     if (mounted) {
       setState(() {
         _showRecentAlbums = showRecent;
@@ -59,6 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _showFavoriteAlbums = showFavAlbums;
         _showFavoriteArtists = showFavArtists;
         _showFavoriteTracks = showFavTracks;
+        _showProviderIcons = showProviderIcons;
       });
     }
   }
@@ -330,6 +334,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 );
               },
+            ),
+
+            const SizedBox(height: 32),
+
+            // Player section
+            Text(
+              'Player',
+              style: textTheme.titleMedium?.copyWith(
+                color: colorScheme.onBackground,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SwitchListTile(
+                title: Text(
+                  'Provider Icons',
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                subtitle: Text(
+                  'Show music provider icons on album art (Spotify, Subsonic, etc.)',
+                  style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                ),
+                value: _showProviderIcons,
+                onChanged: (value) {
+                  setState(() => _showProviderIcons = value);
+                  SettingsService.setShowProviderIcons(value);
+                },
+                activeColor: colorScheme.primary,
+                contentPadding: EdgeInsets.zero,
+              ),
             ),
 
             const SizedBox(height: 32),

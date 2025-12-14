@@ -27,6 +27,7 @@ class SettingsService {
   static const String _keyShowFavoriteAlbums = 'show_favorite_albums';
   static const String _keyShowFavoriteArtists = 'show_favorite_artists';
   static const String _keyShowFavoriteTracks = 'show_favorite_tracks';
+  static const String _keyShowProviderIcons = 'show_provider_icons';
 
   static Future<String?> getServerUrl() async {
     final prefs = await SharedPreferences.getInstance();
@@ -380,5 +381,16 @@ class SettingsService {
   static Future<void> setShowFavoriteTracks(bool show) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyShowFavoriteTracks, show);
+  }
+
+  // Provider Icons Setting (default off)
+  static Future<bool> getShowProviderIcons() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyShowProviderIcons) ?? false;
+  }
+
+  static Future<void> setShowProviderIcons(bool show) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowProviderIcons, show);
   }
 }
