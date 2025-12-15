@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
+import 'package:flutter_pcm_sound/flutter_pcm_sound.dart' as pcm;
 import 'debug_logger.dart';
 
 /// Audio format configuration matching Sendspin protocol
@@ -65,20 +65,20 @@ class PcmAudioPlayer {
       _logger.log('PcmAudioPlayer: Initializing (${_format.sampleRate}Hz, ${_format.channels}ch, ${_format.bitDepth}bit)');
 
       // Setup flutter_pcm_sound with Sendspin audio format
-      await FlutterPcmSound.setup(
+      await pcm.FlutterPcmSound.setup(
         sampleRate: _format.sampleRate,
         channelCount: _format.channels,
       );
 
       // Set feed threshold - request more data when buffer has fewer frames
       // Lower threshold = lower latency but more risk of underruns
-      await FlutterPcmSound.setFeedThreshold(8000);
+      await pcm.FlutterPcmSound.setFeedThreshold(8000);
 
       // Set up feed callback for when buffer needs more data
-      FlutterPcmSound.setFeedCallback(_onFeedRequested);
+      pcm.FlutterPcmSound.setFeedCallback(_onFeedRequested);
 
       // Set log level for debugging
-      await FlutterPcmSound.setLogLevel(LogLevel.standard);
+      await pcm.FlutterPcmSound.setLogLevel(pcm.LogLevel.standard);
 
       _state = PcmPlayerState.ready;
       _logger.log('PcmAudioPlayer: Initialized successfully');
@@ -144,7 +144,7 @@ class PcmAudioPlayer {
     if (_isStarted) return;
 
     try {
-      await FlutterPcmSound.start();
+      await pcm.FlutterPcmSound.start();
       _isStarted = true;
       _state = PcmPlayerState.playing;
       _logger.log('PcmAudioPlayer: Started playback');
@@ -169,7 +169,7 @@ class PcmAudioPlayer {
         final samples = _bytesToInt16List(chunk);
 
         if (samples.isNotEmpty) {
-          await FlutterPcmSound.feed(PcmArrayInt16.fromList(samples));
+          await pcm.FlutterPcmSound.feed(pcm.PcmArrayInt16.fromList(samples));
 
           _framesPlayed++;
           _bytesPlayed += chunk.length;
@@ -244,7 +244,7 @@ class PcmAudioPlayer {
     _audioBuffer.clear();
 
     try {
-      await FlutterPcmSound.release();
+      await pcm.FlutterPcmSound.release();
     } catch (e) {
       _logger.log('PcmAudioPlayer: Error releasing: $e');
     }
@@ -275,7 +275,7 @@ class PcmAudioPlayer {
     _audioBuffer.clear();
 
     try {
-      await FlutterPcmSound.release();
+      await pcm.FlutterPcmSound.release();
     } catch (e) {
       _logger.log('PcmAudioPlayer: Error releasing: $e');
     }
