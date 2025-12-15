@@ -1458,6 +1458,14 @@ class MusicAssistantAPI {
     return _eventStreams['player_updated']!.stream;
   }
 
+  /// Stream of player_added events (for refreshing player list when new players join)
+  Stream<Map<String, dynamic>> get playerAddedEvents {
+    if (!_eventStreams.containsKey('player_added')) {
+      _eventStreams['player_added'] = StreamController<Map<String, dynamic>>.broadcast();
+    }
+    return _eventStreams['player_added']!.stream;
+  }
+
   /// Register this device as a player with retry logic
   /// CRITICAL: This creates a player config in MA's settings.json
   /// The server expects: player_id and player_name

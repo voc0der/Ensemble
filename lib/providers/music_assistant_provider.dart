@@ -60,6 +60,7 @@ class MusicAssistantProvider with ChangeNotifier {
   bool _builtinPlayerAvailable = true; // False on MA 2.7.0b20+ (uses Sendspin instead)
   StreamSubscription? _localPlayerEventSubscription;
   StreamSubscription? _playerUpdatedEventSubscription;
+  StreamSubscription? _playerAddedEventSubscription;
   Timer? _localPlayerStateReportTimer;
   TrackMetadata? _pendingTrackMetadata;
   TrackMetadata? _currentNotificationMetadata;
@@ -214,6 +215,12 @@ class MusicAssistantProvider with ChangeNotifier {
         onError: (error) => _logger.log('Player updated event stream error: $error'),
       );
 
+      _playerAddedEventSubscription?.cancel();
+      _playerAddedEventSubscription = _api!.playerAddedEvents.listen(
+        _handlePlayerAddedEvent,
+        onError: (error) => _logger.log('Player added event stream error: $error'),
+      );
+
       await _api!.connect();
       notifyListeners();
     } catch (e) {
@@ -329,6 +336,7 @@ class MusicAssistantProvider with ChangeNotifier {
     _localPlayerStateReportTimer?.cancel();
     _localPlayerEventSubscription?.cancel();
     _playerUpdatedEventSubscription?.cancel();
+    _playerAddedEventSubscription?.cancel();
     _positionTracker.clear();
     // Disconnect Sendspin if connected
     if (_sendspinConnected) {
@@ -836,6 +844,21 @@ class MusicAssistantProvider with ChangeNotifier {
       await _reportLocalPlayerState();
     } catch (e) {
       _logger.log('Error handling local player event: $e');
+    }
+  }
+
+  /// Handle player_added event - refresh player list when new players join
+  Future<void> _handlePlayerAddedEvent(Map<String, dynamic> event) async {
+    try {
+      final playerId = event['player_id'] as String?;
+      final playerName = event['name'] as String?;
+      _logger.log('🆕 Player added: $playerName ($playerId)');
+
+      // Refresh the player list to include the new player
+      await _loadAndSelectPlayers(forceRefresh: true);
+      notifyListeners();
+    } catch (e) {
+      _logger.log('Error handling player added event: $e');
     }
   }
 
@@ -2292,6 +2315,7 @@ class MusicAssistantProvider with ChangeNotifier {
     _localPlayerStateReportTimer?.cancel();
     _localPlayerEventSubscription?.cancel();
     _playerUpdatedEventSubscription?.cancel();
+    _playerAddedEventSubscription?.cancel();
     _positionTracker.dispose();
     _sendspinService?.dispose();
     _api?.dispose();
