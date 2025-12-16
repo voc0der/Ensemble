@@ -563,6 +563,8 @@ class MusicAssistantProvider with ChangeNotifier {
       _sendspinService!.onStop = _handleSendspinStop;
       _sendspinService!.onSeek = _handleSendspinSeek;
       _sendspinService!.onVolume = _handleSendspinVolume;
+      _sendspinService!.onStreamStart = _handleSendspinStreamStart;
+      _sendspinService!.onStreamEnd = _handleSendspinStreamEnd;
 
       final playerId = await DeviceIdService.getOrCreateDevicePlayerId();
 
@@ -688,6 +690,99 @@ class MusicAssistantProvider with ChangeNotifier {
     _localPlayerVolume = volumeLevel;
     await FlutterVolumeController.setVolume(volumeLevel / 100.0);
     _sendspinService?.reportState(volume: volumeLevel);
+  }
+
+  /// Handle Sendspin stream start - server is about to send PCM audio data
+  /// This is called when audio streaming begins, before any audio frames arrive.
+  /// We use this to:
+  /// 1. Ensure PCM player is ready
+  /// 2. Start the foreground service to prevent background throttling
+  void _handleSendspinStreamStart(Map<String, dynamic>? trackInfo) async {
+    _logger.log('🎵 Sendspin: Stream starting');
+
+    // Ensure PCM player is initialized and ready
+    if (_pcmAudioPlayer == null || _pcmAudioPlayer!.state == PcmPlayerState.idle) {
+      _logger.log('🎵 Sendspin: Reinitializing PCM player for stream');
+      _pcmAudioPlayer?.dispose();
+      _pcmAudioPlayer = PcmAudioPlayer();
+      final initialized = await _pcmAudioPlayer!.initialize();
+      if (initialized) {
+        await _pcmAudioPlayer!.connectToStream(_sendspinService!.audioDataStream);
+      } else {
+        _logger.log('⚠️ Sendspin: Failed to initialize PCM player');
+        return;
+      }
+    }
+
+    // Extract track info for notification
+    String? title = trackInfo?['title'] as String? ?? trackInfo?['name'] as String?;
+    String? artist = trackInfo?['artist'] as String?;
+    String? album = trackInfo?['album'] as String?;
+    String? artworkUrl = trackInfo?['image_url'] as String? ?? trackInfo?['artwork_url'] as String?;
+    int? durationSecs = trackInfo?['duration'] as int?;
+
+    // If no track info in stream/start, try to get from current player state
+    if (title == null && _selectedPlayer != null) {
+      final currentTrack = _selectedPlayer!.currentTrack;
+      if (currentTrack != null) {
+        title = currentTrack.title;
+        artist = currentTrack.artist;
+        album = currentTrack.album;
+        artworkUrl = currentTrack.imageUrl;
+        durationSecs = currentTrack.duration?.inSeconds;
+      }
+    }
+
+    // Keep the foreground service active to prevent Android from throttling
+    // the PCM audio playback when the app goes to background.
+    // We use setRemotePlaybackState to maintain the notification without
+    // actually playing audio through just_audio.
+    final mediaItem = audio_service.MediaItem(
+      id: 'sendspin_pcm_stream',
+      title: title ?? 'Playing via Sendspin',
+      artist: artist ?? 'Music Assistant',
+      album: album,
+      artUri: artworkUrl != null ? Uri.parse(artworkUrl) : null,
+      duration: durationSecs != null ? Duration(seconds: durationSecs) : null,
+    );
+
+    audioHandler.setRemotePlaybackState(
+      item: mediaItem,
+      playing: true,
+      duration: mediaItem.duration,
+    );
+
+    _logger.log('🎵 Sendspin: Foreground service activated for PCM streaming');
+  }
+
+  /// Handle Sendspin stream end - server stopped sending PCM audio data
+  /// This is called when audio streaming ends (pause, stop, track end, etc.)
+  void _handleSendspinStreamEnd() async {
+    _logger.log('🎵 Sendspin: Stream ended');
+
+    // Stop PCM playback
+    await _pcmAudioPlayer?.stop();
+
+    // Update foreground service to show paused/stopped state
+    // Don't completely clear it - keep showing the notification
+    // in case user wants to resume
+    if (_selectedPlayer != null) {
+      final currentTrack = _selectedPlayer!.currentTrack;
+      final mediaItem = audio_service.MediaItem(
+        id: 'sendspin_pcm_stream',
+        title: currentTrack?.title ?? 'Music Assistant',
+        artist: currentTrack?.artist ?? 'Paused',
+        album: currentTrack?.album,
+        artUri: currentTrack?.imageUrl != null ? Uri.parse(currentTrack!.imageUrl!) : null,
+        duration: currentTrack?.duration,
+      );
+
+      audioHandler.setRemotePlaybackState(
+        item: mediaItem,
+        playing: false,
+        duration: mediaItem.duration,
+      );
+    }
   }
 
   void _startReportingLocalPlayerState() {

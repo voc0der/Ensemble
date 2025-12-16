@@ -23,6 +23,8 @@ typedef SendspinStopCallback = void Function();
 typedef SendspinSeekCallback = void Function(int positionSeconds);
 typedef SendspinVolumeCallback = void Function(int volumeLevel);
 typedef SendspinAudioDataCallback = void Function(Uint8List audioData);
+typedef SendspinStreamStartCallback = void Function(Map<String, dynamic>? trackInfo);
+typedef SendspinStreamEndCallback = void Function();
 
 /// Service to manage Sendspin WebSocket connection for local playback
 /// Sendspin is the replacement for builtin_player in MA 2.7.0b20+
@@ -61,6 +63,8 @@ class SendspinService {
   SendspinSeekCallback? onSeek;
   SendspinVolumeCallback? onVolume;
   SendspinAudioDataCallback? onAudioData;
+  SendspinStreamStartCallback? onStreamStart;
+  SendspinStreamEndCallback? onStreamEnd;
 
   // Audio data stream for raw PCM frames
   final _audioDataController = StreamController<Uint8List>.broadcast();
@@ -292,12 +296,18 @@ class SendspinService {
           _audioFramesReceived = 0;
           _isPlaying = true;
           _isPaused = false;
+          // Notify provider to start PCM player and foreground service
+          final streamPayload = data['payload'] as Map<String, dynamic>?;
+          onStreamStart?.call(streamPayload);
           break;
 
         case 'stream/end':
           // Server finished sending audio data
           _logger.log('Sendspin: Audio stream ended (received $_audioFramesReceived frames)');
           _isStreamingAudio = false;
+          _isPlaying = false;
+          // Notify provider to stop PCM player
+          onStreamEnd?.call();
           break;
 
         case 'ack':
