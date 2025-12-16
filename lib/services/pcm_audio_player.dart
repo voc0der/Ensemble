@@ -232,6 +232,7 @@ class PcmAudioPlayer {
   }
 
   /// Feed the next chunk of audio data to the player
+  /// CRITICAL: This loop must yield to the event loop to prevent UI freeze
   Future<void> _feedNextChunk() async {
     if (_isFeeding || _audioBuffer.isEmpty || _isPausePending) return;
 
@@ -239,6 +240,8 @@ class PcmAudioPlayer {
     _feedCompleter = Completer<void>();
 
     try {
+      int chunksProcessed = 0;
+
       while (_audioBuffer.isNotEmpty && _state == PcmPlayerState.playing && !_isPausePending) {
         final chunk = _audioBuffer.removeAt(0);
 
@@ -254,12 +257,19 @@ class PcmAudioPlayer {
           if (!_isPausePending) {
             _framesPlayed++;
             _bytesPlayed += chunk.length;
+            chunksProcessed++;
 
             // Log periodically
             if (_framesPlayed % 100 == 0) {
               _logger.log('PcmAudioPlayer: Played $_framesPlayed frames (${(_bytesPlayed / 1024).toStringAsFixed(1)} KB)');
             }
           }
+        }
+
+        // CRITICAL: Yield to event loop every few chunks to allow UI to respond
+        // This prevents the feed loop from starving the event loop and causing freeze
+        if (chunksProcessed % 5 == 0) {
+          await Future.delayed(Duration.zero);
         }
       }
     } catch (e) {
