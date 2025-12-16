@@ -367,40 +367,52 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(48),
-              child: Row(
+              child: Stack(
                 children: [
-                  Expanded(
-                    child: TabBar(
-                      controller: _tabController,
-                      labelColor: colorScheme.primary,
-                      unselectedLabelColor: colorScheme.onSurface.withOpacity(0.6),
-                      indicatorColor: colorScheme.primary,
-                      indicatorWeight: 3,
-                      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
-                      isScrollable: true,
-                      tabAlignment: TabAlignment.start,
-                      tabs: [
-                        const Tab(text: 'Artists'),
-                        const Tab(text: 'Albums'),
-                        if (_showFavoritesOnly) const Tab(text: 'Tracks'),
-                        const Tab(text: 'Playlists'),
-                      ],
+                  // Bottom border line extending full width
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      height: 1,
+                      color: colorScheme.outlineVariant.withOpacity(0.3),
                     ),
                   ),
-                  // View mode toggle in tab row
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: IconButton(
-                      icon: Icon(
-                        _getViewModeIcon(_getCurrentViewMode()),
-                        color: colorScheme.primary,
-                        size: 22,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TabBar(
+                          controller: _tabController,
+                          labelColor: colorScheme.primary,
+                          unselectedLabelColor: colorScheme.onSurface.withOpacity(0.6),
+                          indicatorColor: colorScheme.primary,
+                          indicatorWeight: 3,
+                          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
+                          tabs: [
+                            const Tab(text: 'Artists'),
+                            const Tab(text: 'Albums'),
+                            if (_showFavoritesOnly) const Tab(text: 'Tracks'),
+                            const Tab(text: 'Playlists'),
+                          ],
+                        ),
                       ),
-                      onPressed: _cycleCurrentViewMode,
-                      tooltip: 'Change view',
-                      visualDensity: VisualDensity.compact,
-                    ),
+                      // View mode toggle in tab row
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: IconButton(
+                          icon: Icon(
+                            _getViewModeIcon(_getCurrentViewMode()),
+                            color: colorScheme.primary,
+                            size: 22,
+                          ),
+                          onPressed: _cycleCurrentViewMode,
+                          tooltip: 'Change view',
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
