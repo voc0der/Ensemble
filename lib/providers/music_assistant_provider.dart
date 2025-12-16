@@ -697,6 +697,7 @@ class MusicAssistantProvider with ChangeNotifier {
   /// We use this to:
   /// 1. Ensure PCM player is ready
   /// 2. Start the foreground service to prevent background throttling
+  /// 3. Reset position for new track and start position timer
   void _handleSendspinStreamStart(Map<String, dynamic>? trackInfo) async {
     _logger.log('🎵 Sendspin: Stream starting');
 
@@ -713,6 +714,9 @@ class MusicAssistantProvider with ChangeNotifier {
         return;
       }
     }
+
+    // Reset position for new stream (new track)
+    _pcmAudioPlayer!.resetPosition();
 
     // Extract track info for notification
     String? title = trackInfo?['title'] as String? ?? trackInfo?['name'] as String?;
@@ -743,11 +747,16 @@ class MusicAssistantProvider with ChangeNotifier {
       duration: durationSecs != null ? Duration(seconds: durationSecs) : null,
     );
 
+    // Initialize notification with position 0
     audioHandler.setRemotePlaybackState(
       item: mediaItem,
       playing: true,
+      position: Duration.zero,
       duration: mediaItem.duration,
     );
+
+    // Start notification position timer for Sendspin PCM
+    _manageNotificationPositionTimer();
 
     _logger.log('🎵 Sendspin: Foreground service activated for PCM streaming');
   }
@@ -755,12 +764,17 @@ class MusicAssistantProvider with ChangeNotifier {
   /// Handle Sendspin stream end - server stopped sending PCM audio data
   /// This is called when audio streaming ends (pause, stop, track end, etc.)
   void _handleSendspinStreamEnd() async {
-    _logger.log('🎵 Sendspin: Stream ended');
+    // Capture current position before stopping
+    final lastPosition = _pcmAudioPlayer?.elapsedTime ?? Duration.zero;
+    _logger.log('🎵 Sendspin: Stream ended at position ${lastPosition.inSeconds}s');
 
-    // Stop PCM playback
-    await _pcmAudioPlayer?.stop();
+    // Stop notification position timer
+    _notificationPositionTimer?.cancel();
 
-    // Update foreground service to show paused/stopped state
+    // Pause PCM playback (preserves position) instead of stop (resets position)
+    await _pcmAudioPlayer?.pause();
+
+    // Update foreground service to show paused/stopped state with last position
     // Don't completely clear it - keep showing the notification
     // in case user wants to resume
     final metadata = _currentNotificationMetadata;
@@ -773,9 +787,11 @@ class MusicAssistantProvider with ChangeNotifier {
       duration: metadata?.duration,
     );
 
+    // Show paused state with preserved position
     audioHandler.setRemotePlaybackState(
       item: mediaItem,
       playing: false,
+      position: lastPosition,
       duration: mediaItem.duration,
     );
   }
@@ -1640,7 +1656,7 @@ class MusicAssistantProvider with ChangeNotifier {
     selectPlayer(nextPlayer);
   }
 
-  /// Manage notification position timer for remote players.
+  /// Manage notification position timer for remote players and Sendspin PCM.
   /// This timer updates the notification position every second using interpolated time,
   /// making the progress bar smooth instead of jumping every 5 seconds (polling interval).
   void _manageNotificationPositionTimer() {
@@ -1648,24 +1664,30 @@ class MusicAssistantProvider with ChangeNotifier {
 
     if (_selectedPlayer == null || _currentTrack == null) return;
 
-    // Check if this is a builtin/local player (doesn't need timer - just_audio handles position)
-    // Note: We can't use async/await in this method easily, so check using pattern matching
+    // Check if this is a builtin/local player
     final playerId = _selectedPlayer!.playerId;
     if (playerId.startsWith('ensemble_')) {
-      // Local player - no timer needed, just_audio handles position automatically
-      return;
+      // This is a local player ID, but we need to check if it's using Sendspin PCM
+      // Sendspin PCM needs the timer because flutter_pcm_sound doesn't broadcast position
+      // just_audio (non-Sendspin) handles position automatically via native events
+      if (!_sendspinConnected || _pcmAudioPlayer == null) {
+        // True local player using just_audio - no timer needed
+        return;
+      }
+      // Sendspin PCM player - continue to start timer
+      _logger.log('🔔 Starting notification timer for Sendspin PCM player');
     }
 
-    // Only run timer if remote player is playing
+    // Only run timer if player is playing
     if (_selectedPlayer!.state != 'playing') return;
 
     _notificationPositionTimer = Timer.periodic(
-      const Duration(seconds: 1),
+      const Duration(milliseconds: 500), // 500ms for smoother progress
       (_) => _updateNotificationPosition(),
     );
   }
 
-  /// Update just the notification position (called every second for remote players)
+  /// Update just the notification position (called every 500ms for remote/Sendspin players)
   void _updateNotificationPosition() {
     if (_selectedPlayer == null || _currentTrack == null) {
       _notificationPositionTimer?.cancel();
@@ -1678,15 +1700,28 @@ class MusicAssistantProvider with ChangeNotifier {
       return;
     }
 
-    // Use position tracker for consistent position (single source of truth)
-    final position = _positionTracker.currentPosition;
     final track = _currentTrack!;
+    Duration position;
 
-    // Check if track has ended (position reached duration)
-    if (_positionTracker.hasReachedEnd) {
-      _logger.log('PositionTracker: Track appears to have ended (position >= duration)');
-      // Don't update notification, let the next poll handle the state change
-      return;
+    // For Sendspin PCM, use the PCM player's elapsed time (based on bytes played)
+    // For remote players, use the position tracker (server-based interpolation)
+    if (_sendspinConnected && _pcmAudioPlayer != null && _pcmAudioPlayer!.isPlaying) {
+      position = _pcmAudioPlayer!.elapsedTime;
+
+      // Check if track has ended based on PCM elapsed time
+      if (track.duration != null && position >= track.duration!) {
+        _logger.log('🔔 Sendspin: Track appears to have ended (position >= duration)');
+        return;
+      }
+    } else {
+      // Use position tracker for remote players
+      position = _positionTracker.currentPosition;
+
+      // Check if track has ended (position reached duration)
+      if (_positionTracker.hasReachedEnd) {
+        _logger.log('PositionTracker: Track appears to have ended (position >= duration)');
+        return;
+      }
     }
 
     final artworkUrl = _api?.getImageUrl(track, size: 512);

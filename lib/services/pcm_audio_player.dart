@@ -3,6 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter_pcm_sound/flutter_pcm_sound.dart' as pcm;
 import 'debug_logger.dart';
 
+/// Callback type for elapsed time updates
+typedef ElapsedTimeCallback = void Function(Duration elapsed);
+
 /// Audio format configuration matching Sendspin protocol
 class PcmAudioFormat {
   final int sampleRate;
@@ -48,11 +51,40 @@ class PcmAudioPlayer {
   int _framesPlayed = 0;
   int _bytesPlayed = 0;
 
+  // Elapsed time tracking for notification sync
+  Timer? _elapsedTimeTimer;
+  final _elapsedTimeController = StreamController<Duration>.broadcast();
+  ElapsedTimeCallback? onElapsedTimeUpdate;
+
+  // Track offset for pause/resume (preserves position across pause cycles)
+  int _bytesPlayedAtLastPause = 0;
+  DateTime? _playbackStartTime;
+
   PcmPlayerState get state => _state;
   bool get isPlaying => _state == PcmPlayerState.playing;
   bool get isReady => _state == PcmPlayerState.ready || _state == PcmPlayerState.playing || _state == PcmPlayerState.paused;
   int get framesPlayed => _framesPlayed;
   int get bytesPlayed => _bytesPlayed;
+
+  /// Stream of elapsed time updates (emits every 500ms when playing)
+  Stream<Duration> get elapsedTimeStream => _elapsedTimeController.stream;
+
+  /// Calculate elapsed playback time from bytes played
+  /// For 48kHz stereo 16-bit: 4 bytes per frame, 48000 frames per second
+  Duration get elapsedTime {
+    // Bytes per frame = channels * (bitDepth / 8) = 2 * 2 = 4
+    final bytesPerFrame = _format.channels * (_format.bitDepth ~/ 8);
+    final framesFromBytes = _bytesPlayed / bytesPerFrame;
+    final elapsedSeconds = framesFromBytes / _format.sampleRate;
+    return Duration(milliseconds: (elapsedSeconds * 1000).round());
+  }
+
+  /// Get elapsed time in seconds (for convenience)
+  double get elapsedTimeSeconds {
+    final bytesPerFrame = _format.channels * (_format.bitDepth ~/ 8);
+    final framesFromBytes = _bytesPlayed / bytesPerFrame;
+    return framesFromBytes / _format.sampleRate;
+  }
 
   /// Initialize the PCM player with the given format
   Future<bool> initialize({PcmAudioFormat? format}) async {
@@ -147,11 +179,41 @@ class PcmAudioPlayer {
       await pcm.FlutterPcmSound.start();
       _isStarted = true;
       _state = PcmPlayerState.playing;
+      _playbackStartTime = DateTime.now();
+      _startElapsedTimeTimer();
       _logger.log('PcmAudioPlayer: Started playback');
     } catch (e) {
       _logger.log('PcmAudioPlayer: Error starting playback: $e');
       _state = PcmPlayerState.error;
     }
+  }
+
+  /// Start the elapsed time update timer
+  void _startElapsedTimeTimer() {
+    _elapsedTimeTimer?.cancel();
+    _elapsedTimeTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => _emitElapsedTime(),
+    );
+    // Emit immediately
+    _emitElapsedTime();
+  }
+
+  /// Stop the elapsed time update timer
+  void _stopElapsedTimeTimer() {
+    _elapsedTimeTimer?.cancel();
+    _elapsedTimeTimer = null;
+  }
+
+  /// Emit the current elapsed time to listeners
+  void _emitElapsedTime() {
+    if (_state != PcmPlayerState.playing) return;
+
+    final elapsed = elapsedTime;
+    if (!_elapsedTimeController.isClosed) {
+      _elapsedTimeController.add(elapsed);
+    }
+    onElapsedTimeUpdate?.call(elapsed);
   }
 
   /// Feed the next chunk of audio data to the player
@@ -217,11 +279,21 @@ class PcmAudioPlayer {
   Future<void> play() async {
     if (_state == PcmPlayerState.error) return;
 
-    if (_state == PcmPlayerState.paused || _state == PcmPlayerState.ready) {
-      await _startPlayback();
-      _logger.log('PcmAudioPlayer: Resumed playback');
+    if (_state == PcmPlayerState.paused) {
+      // Resume from pause - restart timer, keep position
+      _state = PcmPlayerState.playing;
+      _startElapsedTimeTimer();
+      _logger.log('PcmAudioPlayer: Resumed playback from ${elapsedTime.inSeconds}s');
 
       // Resume feeding
+      if (!_isFeeding && _audioBuffer.isNotEmpty) {
+        _feedNextChunk();
+      }
+    } else if (_state == PcmPlayerState.ready) {
+      await _startPlayback();
+      _logger.log('PcmAudioPlayer: Started playback');
+
+      // Start feeding
       if (!_isFeeding && _audioBuffer.isNotEmpty) {
         _feedNextChunk();
       }
@@ -235,13 +307,16 @@ class PcmAudioPlayer {
     // flutter_pcm_sound doesn't have a native pause, so we just stop feeding
     // and mark as paused
     _state = PcmPlayerState.paused;
-    _logger.log('PcmAudioPlayer: Paused playback');
+    _bytesPlayedAtLastPause = _bytesPlayed;
+    _stopElapsedTimeTimer();
+    _logger.log('PcmAudioPlayer: Paused playback at ${elapsedTime.inSeconds}s');
   }
 
-  /// Stop playback (clears buffer)
+  /// Stop playback (clears buffer and resets position)
   Future<void> stop() async {
     _isStarted = false;
     _audioBuffer.clear();
+    _stopElapsedTimeTimer();
 
     try {
       await pcm.FlutterPcmSound.release();
@@ -252,10 +327,22 @@ class PcmAudioPlayer {
     _state = PcmPlayerState.ready;
     _framesPlayed = 0;
     _bytesPlayed = 0;
+    _bytesPlayedAtLastPause = 0;
+    _playbackStartTime = null;
     _logger.log('PcmAudioPlayer: Stopped playback');
 
     // Re-initialize for next playback
     await initialize(format: _format);
+  }
+
+  /// Reset position to zero (for new track) without stopping playback
+  void resetPosition() {
+    _framesPlayed = 0;
+    _bytesPlayed = 0;
+    _bytesPlayedAtLastPause = 0;
+    _playbackStartTime = DateTime.now();
+    _logger.log('PcmAudioPlayer: Position reset to 0');
+    _emitElapsedTime();
   }
 
   /// Disconnect from audio stream
@@ -270,6 +357,7 @@ class PcmAudioPlayer {
   Future<void> dispose() async {
     _isFeeding = false;
     _isStarted = false;
+    _stopElapsedTimeTimer();
     await _audioSubscription?.cancel();
     _audioSubscription = null;
     _audioBuffer.clear();
@@ -278,6 +366,10 @@ class PcmAudioPlayer {
       await pcm.FlutterPcmSound.release();
     } catch (e) {
       _logger.log('PcmAudioPlayer: Error releasing: $e');
+    }
+
+    if (!_elapsedTimeController.isClosed) {
+      await _elapsedTimeController.close();
     }
 
     _state = PcmPlayerState.idle;
