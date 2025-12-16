@@ -1045,7 +1045,20 @@ class MusicAssistantAPI {
   /// If clearQueue is true, replaces the queue (default behavior)
   /// If startIndex is provided, only tracks from that index onwards will be queued
   Future<void> playTracks(String playerId, List<Track> tracks, {int? startIndex, bool clearQueue = true}) async {
-    return await RetryHelper.retryCritical(
+    return await RetryHelper.retry(
+      maxAttempts: 3,
+      initialDelaySeconds: 1,
+      maxDelaySeconds: 4,
+      // Don't retry errors about missing/unavailable tracks - those won't resolve with retries
+      shouldRetry: (error) {
+        final errorStr = error.toString().toLowerCase();
+        if (errorStr.contains('no playable') ||
+            errorStr.contains('no tracks') ||
+            errorStr.contains('lack available')) {
+          return false;
+        }
+        return true;
+      },
       operation: () async {
         // If startIndex is provided, slice the tracks list to start from that index
         // This is a workaround since Music Assistant ignores the start_item parameter
@@ -1053,8 +1066,36 @@ class MusicAssistantAPI {
             ? tracks.sublist(startIndex)
             : tracks;
 
+        if (tracksToPlay.isEmpty) {
+          throw Exception('No tracks to play');
+        }
+
+        // Filter to only tracks with available provider mappings
+        final playableTracks = tracksToPlay.where((track) {
+          if (track.providerMappings == null || track.providerMappings!.isEmpty) {
+            _logger.log('⚠️ Track "${track.name}" has no provider mappings');
+            return false;
+          }
+          final hasAvailable = track.providerMappings!.any((m) => m.available);
+          if (!hasAvailable) {
+            _logger.log('⚠️ Track "${track.name}" has no available providers');
+          }
+          return hasAvailable;
+        }).toList();
+
+        if (playableTracks.isEmpty) {
+          _logger.log('❌ No playable tracks found (${tracksToPlay.length} tracks had no available providers)');
+          throw Exception('No playable tracks - all ${tracksToPlay.length} tracks lack available providers');
+        }
+
+        if (playableTracks.length < tracksToPlay.length) {
+          _logger.log('⚠️ ${tracksToPlay.length - playableTracks.length} tracks skipped (no available providers)');
+        }
+
         // Build array of URI strings (not objects!)
-        final mediaUris = tracksToPlay.map((track) => _buildTrackUri(track)).toList();
+        final mediaUris = playableTracks.map((track) => _buildTrackUri(track)).toList();
+
+        _logger.log('🎵 Playing ${mediaUris.length} tracks: ${mediaUris.take(3).join(", ")}${mediaUris.length > 3 ? "..." : ""}');
 
         final option = clearQueue ? 'replace' : 'play';
 

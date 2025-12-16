@@ -71,6 +71,18 @@ class ErrorHandler {
       );
     }
 
+    // Unavailable content errors - these won't resolve with retry
+    if (errorStr.contains('no playable') ||
+        errorStr.contains('lack available providers') ||
+        errorStr.contains('no available providers')) {
+      return ErrorInfo(
+        type: ErrorType.playback,
+        userMessage: 'These tracks are unavailable. The music provider may not have them available for streaming.',
+        technicalMessage: error.toString(),
+        canRetry: false,
+      );
+    }
+
     // Playback errors
     if (errorStr.contains('queue') ||
         errorStr.contains('player') ||
