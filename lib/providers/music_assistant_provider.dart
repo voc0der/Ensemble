@@ -721,16 +721,13 @@ class MusicAssistantProvider with ChangeNotifier {
     String? artworkUrl = trackInfo?['image_url'] as String? ?? trackInfo?['artwork_url'] as String?;
     int? durationSecs = trackInfo?['duration'] as int?;
 
-    // If no track info in stream/start, try to get from current player state
-    if (title == null && _selectedPlayer != null) {
-      final currentTrack = _selectedPlayer!.currentTrack;
-      if (currentTrack != null) {
-        title = currentTrack.title;
-        artist = currentTrack.artist;
-        album = currentTrack.album;
-        artworkUrl = currentTrack.imageUrl;
-        durationSecs = currentTrack.duration?.inSeconds;
-      }
+    // If no track info in stream/start, try to get from cached notification metadata
+    if (title == null && _currentNotificationMetadata != null) {
+      title = _currentNotificationMetadata!.title;
+      artist = _currentNotificationMetadata!.artist;
+      album = _currentNotificationMetadata!.album;
+      artworkUrl = _currentNotificationMetadata!.artworkUrl;
+      durationSecs = _currentNotificationMetadata!.duration?.inSeconds;
     }
 
     // Keep the foreground service active to prevent Android from throttling
@@ -766,23 +763,21 @@ class MusicAssistantProvider with ChangeNotifier {
     // Update foreground service to show paused/stopped state
     // Don't completely clear it - keep showing the notification
     // in case user wants to resume
-    if (_selectedPlayer != null) {
-      final currentTrack = _selectedPlayer!.currentTrack;
-      final mediaItem = audio_service.MediaItem(
-        id: 'sendspin_pcm_stream',
-        title: currentTrack?.title ?? 'Music Assistant',
-        artist: currentTrack?.artist ?? 'Paused',
-        album: currentTrack?.album,
-        artUri: currentTrack?.imageUrl != null ? Uri.parse(currentTrack!.imageUrl!) : null,
-        duration: currentTrack?.duration,
-      );
+    final metadata = _currentNotificationMetadata;
+    final mediaItem = audio_service.MediaItem(
+      id: 'sendspin_pcm_stream',
+      title: metadata?.title ?? 'Music Assistant',
+      artist: metadata?.artist ?? 'Paused',
+      album: metadata?.album,
+      artUri: metadata?.artworkUrl != null ? Uri.parse(metadata!.artworkUrl!) : null,
+      duration: metadata?.duration,
+    );
 
-      audioHandler.setRemotePlaybackState(
-        item: mediaItem,
-        playing: false,
-        duration: mediaItem.duration,
-      );
-    }
+    audioHandler.setRemotePlaybackState(
+      item: mediaItem,
+      playing: false,
+      duration: mediaItem.duration,
+    );
   }
 
   void _startReportingLocalPlayerState() {
