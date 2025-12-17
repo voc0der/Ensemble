@@ -356,33 +356,6 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             elevation: 0,
             titleSpacing: 0,
             toolbarHeight: 56,
-            title: const PlayerSelector(),
-            centerTitle: false,
-            actions: [
-              // Favorites toggle (only for Music)
-              if (_selectedMediaType == LibraryMediaType.music)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Switch(
-                      value: _showFavoritesOnly,
-                      onChanged: _toggleFavoritesMode,
-                      activeColor: colorScheme.primary,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    Text(
-                      'Favs',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: _showFavoritesOnly
-                            ? colorScheme.primary
-                            : colorScheme.onSurface.withOpacity(0.5),
-                        fontWeight: _showFavoritesOnly ? FontWeight.w600 : FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ),
-            ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(100), // Pills + Tabs
               child: Column(
@@ -417,21 +390,6 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                               tabs: _buildTabs(),
                             ),
                           ),
-                          // View mode toggle (only for Music)
-                          if (_selectedMediaType == LibraryMediaType.music)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: IconButton(
-                                icon: Icon(
-                                  _getViewModeIcon(_getCurrentViewMode()),
-                                  color: colorScheme.primary,
-                                  size: 22,
-                                ),
-                                onPressed: _cycleCurrentViewMode,
-                                tooltip: 'Change view',
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ),
                         ],
                       ),
                     ],
