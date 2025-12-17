@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/music_assistant_provider.dart';
+import '../providers/navigation_provider.dart';
 import '../models/media_item.dart';
 import '../widgets/global_player_overlay.dart';
 import '../widgets/player_selector.dart';
@@ -17,9 +18,6 @@ import 'album_details_screen.dart';
 import 'artist_details_screen.dart';
 import 'playlist_details_screen.dart';
 import 'settings_screen.dart';
-
-/// Media type for the library
-enum LibraryMediaType { music, books, podcasts }
 
 class NewLibraryScreen extends StatefulWidget {
   const NewLibraryScreen({super.key});
@@ -37,9 +35,6 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   bool _isLoadingTracks = false;
   bool _showFavoritesOnly = false;
 
-  // Media type selection (Music, Books, Podcasts)
-  LibraryMediaType _selectedMediaType = LibraryMediaType.music;
-
   // View mode settings
   String _artistsViewMode = 'list'; // 'grid2', 'grid3', 'list'
   String _albumsViewMode = 'grid2'; // 'grid2', 'grid3', 'list'
@@ -48,8 +43,12 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   // Restoration: Remember selected tab across app restarts
   final RestorableInt _selectedTabIndex = RestorableInt(0);
 
+  // Cache the last media type to detect changes
+  LibraryMediaType? _lastMediaType;
+
   int get _tabCount {
-    switch (_selectedMediaType) {
+    final mediaType = navigationProvider.libraryMediaType;
+    switch (mediaType) {
       case LibraryMediaType.music:
         return _showFavoritesOnly ? 4 : 3;
       case LibraryMediaType.books:
@@ -75,11 +74,23 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   @override
   void initState() {
     super.initState();
+    _lastMediaType = navigationProvider.libraryMediaType;
     _tabController = TabController(length: _tabCount, vsync: this);
     // Listen to tab changes to persist selection
     _tabController.addListener(_onTabChanged);
+    // Listen to media type changes from navigation provider
+    navigationProvider.addListener(_onMediaTypeChanged);
     _loadPlaylists();
     _loadViewPreferences();
+  }
+
+  void _onMediaTypeChanged() {
+    final currentType = navigationProvider.libraryMediaType;
+    if (_lastMediaType != currentType) {
+      _lastMediaType = currentType;
+      _recreateTabController();
+      setState(() {});
+    }
   }
 
   Future<void> _loadViewPreferences() async {
@@ -230,14 +241,6 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     }
   }
 
-  void _changeMediaType(LibraryMediaType type) {
-    if (_selectedMediaType == type) return;
-    setState(() {
-      _selectedMediaType = type;
-      _recreateTabController();
-    });
-  }
-
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) {
       _selectedTabIndex.value = _tabController.index;
@@ -246,6 +249,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   @override
   void dispose() {
+    navigationProvider.removeListener(_onMediaTypeChanged);
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _selectedTabIndex.dispose();
@@ -349,6 +353,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           );
         }
 
+        final selectedMediaType = navigationProvider.libraryMediaType;
+
         return Scaffold(
           backgroundColor: colorScheme.background,
           appBar: AppBar(
@@ -357,7 +363,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             titleSpacing: 0,
             toolbarHeight: 56,
             // Top left: Favorites toggle + Layout toggle (only for Music)
-            title: _selectedMediaType == LibraryMediaType.music
+            title: selectedMediaType == LibraryMediaType.music
                 ? Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -391,40 +397,32 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             // Top right: Device selector
             actions: const [PlayerSelector()],
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(100), // Pills + Tabs
-              child: Column(
+              preferredSize: const Size.fromHeight(52), // Tabs only (no pills)
+              child: Stack(
                 children: [
-                  // Media type pills (centered)
-                  _buildMediaTypePills(colorScheme),
-                  const SizedBox(height: 8),
-                  // Contextual tabs
-                  Stack(
+                  // Bottom border line extending full width
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      height: 1,
+                      color: colorScheme.outlineVariant.withOpacity(0.3),
+                    ),
+                  ),
+                  Row(
                     children: [
-                      // Bottom border line extending full width
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          height: 1,
-                          color: colorScheme.outlineVariant.withOpacity(0.3),
+                      Expanded(
+                        child: TabBar(
+                          controller: _tabController,
+                          labelColor: colorScheme.primary,
+                          unselectedLabelColor: colorScheme.onSurface.withOpacity(0.6),
+                          indicatorColor: colorScheme.primary,
+                          indicatorWeight: 3,
+                          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
+                          tabs: _buildTabs(),
                         ),
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TabBar(
-                              controller: _tabController,
-                              labelColor: colorScheme.primary,
-                              unselectedLabelColor: colorScheme.onSurface.withOpacity(0.6),
-                              indicatorColor: colorScheme.primary,
-                              indicatorWeight: 3,
-                              labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
-                              tabs: _buildTabs(),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -441,67 +439,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     );
   }
 
-  // ============ MEDIA TYPE PILLS ============
-  Widget _buildMediaTypePills(ColorScheme colorScheme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildPill(
-          label: 'Music',
-          isSelected: _selectedMediaType == LibraryMediaType.music,
-          onTap: () => _changeMediaType(LibraryMediaType.music),
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(width: 12),
-        _buildPill(
-          label: 'Books',
-          isSelected: _selectedMediaType == LibraryMediaType.books,
-          onTap: () => _changeMediaType(LibraryMediaType.books),
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(width: 12),
-        _buildPill(
-          label: 'Podcasts',
-          isSelected: _selectedMediaType == LibraryMediaType.podcasts,
-          onTap: () => _changeMediaType(LibraryMediaType.podcasts),
-          colorScheme: colorScheme,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPill({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required ColorScheme colorScheme,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? colorScheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected
-                ? colorScheme.onPrimary
-                : colorScheme.primary.withOpacity(0.4),
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-
   // ============ CONTEXTUAL TABS ============
   List<Tab> _buildTabs() {
-    switch (_selectedMediaType) {
+    final mediaType = navigationProvider.libraryMediaType;
+    switch (mediaType) {
       case LibraryMediaType.music:
         return [
           const Tab(text: 'Artists'),
@@ -523,7 +464,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   }
 
   List<Widget> _buildTabViews(BuildContext context) {
-    switch (_selectedMediaType) {
+    final mediaType = navigationProvider.libraryMediaType;
+    switch (mediaType) {
       case LibraryMediaType.music:
         return [
           _buildArtistsTab(context),

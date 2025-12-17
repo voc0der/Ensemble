@@ -184,9 +184,11 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
 
                   return ValueListenableBuilder<PlayerExpansionState>(
                     valueListenable: playerExpansionNotifier,
-                    // Pass BottomNavigationBar as child to avoid rebuilding it every frame
-                    child: BottomNavigationBar(
-                      currentIndex: navigationProvider.selectedIndex,
+                    // Pass custom navigation bar as child to avoid rebuilding it every frame
+                    child: _CustomBottomNavBar(
+                      selectedIndex: navigationProvider.selectedIndex,
+                      selectedColor: navSelectedColor,
+                      unselectedColor: colorScheme.onSurface.withOpacity(0.54),
                       onTap: (index) {
                         if (GlobalPlayerOverlay.isPlayerExpanded) {
                           GlobalPlayerOverlay.collapsePlayer();
@@ -199,35 +201,6 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
                         }
                         navigationProvider.setSelectedIndex(index);
                       },
-                      backgroundColor: Colors.transparent,
-                      selectedItemColor: navSelectedColor,
-                      unselectedItemColor: colorScheme.onSurface.withOpacity(0.54),
-                      elevation: 0,
-                      type: BottomNavigationBarType.fixed,
-                      selectedFontSize: 12,
-                      unselectedFontSize: 12,
-                      items: const [
-                        BottomNavigationBarItem(
-                          icon: Icon(Icons.home_outlined),
-                          activeIcon: Icon(Icons.home_rounded),
-                          label: 'Home',
-                        ),
-                        BottomNavigationBarItem(
-                          icon: Icon(Icons.library_music_outlined),
-                          activeIcon: Icon(Icons.library_music_rounded),
-                          label: 'Library',
-                        ),
-                        BottomNavigationBarItem(
-                          icon: Icon(Icons.search_rounded),
-                          activeIcon: Icon(Icons.search_rounded),
-                          label: 'Search',
-                        ),
-                        BottomNavigationBarItem(
-                          icon: Icon(Icons.settings_outlined),
-                          activeIcon: Icon(Icons.settings_rounded),
-                          label: 'Settings',
-                        ),
-                      ],
                     ),
                     builder: (context, expansionState, navBar) {
                       // Only compute colors during animation - this is the hot path
@@ -284,6 +257,221 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
           },
         ),
       ],
+    );
+  }
+}
+
+/// Custom bottom navigation bar with gesture support for Library item
+class _CustomBottomNavBar extends StatefulWidget {
+  final int selectedIndex;
+  final Color selectedColor;
+  final Color unselectedColor;
+  final Function(int) onTap;
+
+  const _CustomBottomNavBar({
+    required this.selectedIndex,
+    required this.selectedColor,
+    required this.unselectedColor,
+    required this.onTap,
+  });
+
+  @override
+  State<_CustomBottomNavBar> createState() => _CustomBottomNavBarState();
+}
+
+class _CustomBottomNavBarState extends State<_CustomBottomNavBar> {
+  double _dragStartY = 0;
+  bool _isDragging = false;
+
+  void _showLibraryMediaTypeMenu(BuildContext context, Offset position) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentType = navigationProvider.libraryMediaType;
+
+    showMenu<LibraryMediaType>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx - 60,
+        position.dy - 160,
+        position.dx + 60,
+        position.dy,
+      ),
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: colorScheme.surface,
+      items: [
+        _buildMenuItem(
+          context,
+          LibraryMediaType.music,
+          'Music',
+          Icons.music_note_rounded,
+          currentType == LibraryMediaType.music,
+        ),
+        _buildMenuItem(
+          context,
+          LibraryMediaType.books,
+          'Books',
+          Icons.menu_book_rounded,
+          currentType == LibraryMediaType.books,
+        ),
+        _buildMenuItem(
+          context,
+          LibraryMediaType.podcasts,
+          'Podcasts',
+          Icons.podcasts_rounded,
+          currentType == LibraryMediaType.podcasts,
+        ),
+      ],
+    ).then((value) {
+      if (value != null) {
+        navigationProvider.setLibraryMediaType(value);
+        // Also navigate to Library tab if not already there
+        if (navigationProvider.selectedIndex != 1) {
+          widget.onTap(1);
+        }
+      }
+    });
+  }
+
+  PopupMenuItem<LibraryMediaType> _buildMenuItem(
+    BuildContext context,
+    LibraryMediaType type,
+    String label,
+    IconData icon,
+    bool isSelected,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PopupMenuItem<LibraryMediaType>(
+      value: type,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.7),
+            size: 22,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+          if (isSelected) ...[
+            const Spacer(),
+            Icon(Icons.check, color: colorScheme.primary, size: 18),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    bool hasGestures = false,
+  }) {
+    final isSelected = widget.selectedIndex == index;
+    final color = isSelected ? widget.selectedColor : widget.unselectedColor;
+
+    Widget item = InkWell(
+      onTap: () => widget.onTap(index),
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: 56,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              color: color,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Add gesture detection for Library item
+    if (hasGestures) {
+      item = GestureDetector(
+        onLongPressStart: (details) {
+          _showLibraryMediaTypeMenu(context, details.globalPosition);
+        },
+        onVerticalDragStart: (details) {
+          _dragStartY = details.globalPosition.dy;
+          _isDragging = true;
+        },
+        onVerticalDragUpdate: (details) {
+          if (_isDragging) {
+            final dragDistance = _dragStartY - details.globalPosition.dy;
+            // Trigger menu if swiped up at least 30 pixels
+            if (dragDistance > 30) {
+              _isDragging = false;
+              _showLibraryMediaTypeMenu(context, details.globalPosition);
+            }
+          }
+        },
+        onVerticalDragEnd: (_) {
+          _isDragging = false;
+        },
+        onVerticalDragCancel: () {
+          _isDragging = false;
+        },
+        child: item,
+      );
+    }
+
+    return Expanded(child: item);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: BottomSpacing.navBarHeight,
+        child: Row(
+          children: [
+            _buildNavItem(
+              index: 0,
+              icon: Icons.home_outlined,
+              activeIcon: Icons.home_rounded,
+              label: 'Home',
+            ),
+            _buildNavItem(
+              index: 1,
+              icon: Icons.library_music_outlined,
+              activeIcon: Icons.library_music_rounded,
+              label: 'Library',
+              hasGestures: true,
+            ),
+            _buildNavItem(
+              index: 2,
+              icon: Icons.search_rounded,
+              activeIcon: Icons.search_rounded,
+              label: 'Search',
+            ),
+            _buildNavItem(
+              index: 3,
+              icon: Icons.settings_outlined,
+              activeIcon: Icons.settings_rounded,
+              label: 'Settings',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
