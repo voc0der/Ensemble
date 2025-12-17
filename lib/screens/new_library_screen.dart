@@ -356,6 +356,40 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             elevation: 0,
             titleSpacing: 0,
             toolbarHeight: 56,
+            // Top left: Favorites toggle + Layout toggle (only for Music)
+            title: _selectedMediaType == LibraryMediaType.music
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 4),
+                      // Favorites toggle button
+                      IconButton(
+                        icon: Icon(
+                          _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
+                          color: _showFavoritesOnly ? Colors.red : colorScheme.onSurface.withOpacity(0.7),
+                          size: 22,
+                        ),
+                        onPressed: () => _toggleFavoritesMode(!_showFavoritesOnly),
+                        tooltip: _showFavoritesOnly ? 'Show all' : 'Show favorites only',
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      // Layout toggle button
+                      IconButton(
+                        icon: Icon(
+                          _getViewModeIcon(_getCurrentViewMode()),
+                          color: colorScheme.onSurface.withOpacity(0.7),
+                          size: 22,
+                        ),
+                        onPressed: _cycleCurrentViewMode,
+                        tooltip: 'Change view',
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  )
+                : null,
+            centerTitle: false,
+            // Top right: Device selector
+            actions: const [PlayerSelector()],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(100), // Pills + Tabs
               child: Column(
