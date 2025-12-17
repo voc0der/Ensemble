@@ -254,6 +254,9 @@ class MetadataService {
   // Cache for album images
   static final Map<String, String?> _albumImageCache = {};
 
+  // Cache for author images (audiobooks)
+  static final Map<String, String?> _authorImageCache = {};
+
   /// Fetches album cover URL from Deezer (free, no API key required)
   /// Returns the image URL if found, null otherwise
   static Future<String?> getAlbumImageUrl(String albumName, String? artistName) async {
@@ -323,10 +326,60 @@ class MetadataService {
     return null;
   }
 
+  /// Fetches author image URL from Open Library (free, no API key required)
+  /// Used for audiobook authors
+  /// Returns the image URL if found, null otherwise
+  static Future<String?> getAuthorImageUrl(String authorName) async {
+    // Check cache first
+    final cacheKey = 'authorImage:$authorName';
+    if (_authorImageCache.containsKey(cacheKey)) {
+      return _authorImageCache[cacheKey];
+    }
+
+    // Use Open Library API (free, no key, good coverage for book authors)
+    try {
+      final uri = Uri.https(
+        'openlibrary.org',
+        '/search/authors.json',
+        {
+          'q': authorName,
+          'limit': '1',
+        },
+      );
+
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final authors = data['docs'] as List?;
+        if (authors != null && authors.isNotEmpty) {
+          final author = authors[0];
+          final authorKey = author['key'] as String?;
+          if (authorKey != null) {
+            // Open Library author images are available at:
+            // https://covers.openlibrary.org/a/olid/{OLID}-L.jpg
+            // The key is like "OL123456A", we need just the ID part
+            final olid = authorKey.replaceAll('/authors/', '');
+            final imageUrl = 'https://covers.openlibrary.org/a/olid/$olid-L.jpg';
+            _authorImageCache[cacheKey] = imageUrl;
+            return imageUrl;
+          }
+        }
+      }
+    } catch (e) {
+      _logger.warning('Open Library author image error: $e', context: 'Metadata');
+    }
+
+    // Cache the null result to avoid repeated failed lookups
+    _authorImageCache[cacheKey] = null;
+    return null;
+  }
+
   /// Clears the metadata cache
   static void clearCache() {
     _cache.clear();
     _artistImageCache.clear();
     _albumImageCache.clear();
+    _authorImageCache.clear();
   }
 }

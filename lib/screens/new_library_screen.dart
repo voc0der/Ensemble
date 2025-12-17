@@ -14,6 +14,7 @@ import '../theme/theme_provider.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/common/disconnected_state.dart';
 import '../services/settings_service.dart';
+import '../services/metadata_service.dart';
 import '../services/debug_logger.dart';
 import 'album_details_screen.dart';
 import 'artist_details_screen.dart';
@@ -53,6 +54,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   String _audiobooksViewMode = 'grid2'; // 'grid2', 'grid3', 'list'
   String _authorsViewMode = 'list'; // 'grid2', 'grid3', 'list'
   String _audiobooksSortOrder = 'alpha'; // 'alpha', 'year'
+
+  // Author image cache
+  final Map<String, String?> _authorImages = {};
 
   // Restoration: Remember selected tab across app restarts
   final RestorableInt _selectedTabIndex = RestorableInt(0);
@@ -396,12 +400,38 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           _isLoadingAudiobooks = false;
         });
         _logger.log('📚 State updated, _audiobooks.length = ${_audiobooks.length}');
+        // Fetch author images in background
+        _fetchAuthorImages(audiobooks);
       }
     } else {
       _logger.log('📚 API is null!');
       if (mounted) {
         setState(() {
           _isLoadingAudiobooks = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchAuthorImages(List<Audiobook> audiobooks) async {
+    // Get unique authors
+    final authors = <String>{};
+    for (final book in audiobooks) {
+      authors.add(book.authorsString);
+    }
+
+    // Fetch images for authors not already cached
+    for (final authorName in authors) {
+      if (!_authorImages.containsKey(authorName)) {
+        // Mark as loading to avoid duplicate requests
+        _authorImages[authorName] = null;
+        // Fetch in background
+        MetadataService.getAuthorImageUrl(authorName).then((imageUrl) {
+          if (mounted && imageUrl != null) {
+            setState(() {
+              _authorImages[authorName] = imageUrl;
+            });
+          }
         });
       }
     }
@@ -755,20 +785,46 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildAuthorListTile(String authorName, List<Audiobook> books) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final authorImageUrl = _authorImages[authorName];
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       leading: CircleAvatar(
         backgroundColor: colorScheme.primaryContainer,
         radius: 24,
-        child: Text(
-          authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
-          style: TextStyle(
-            color: colorScheme.onPrimaryContainer,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
+        child: authorImageUrl != null
+            ? ClipOval(
+                child: CachedNetworkImage(
+                  imageUrl: authorImageUrl,
+                  fit: BoxFit.cover,
+                  width: 48,
+                  height: 48,
+                  placeholder: (_, __) => Text(
+                    authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
+                    style: TextStyle(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  errorWidget: (_, __, ___) => Text(
+                    authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
+                    style: TextStyle(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              )
+            : Text(
+                authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
+                style: TextStyle(
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
       ),
       title: Text(
         authorName,
@@ -791,6 +847,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildAuthorCard(String authorName, List<Audiobook> books) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final authorImageUrl = _authorImages[authorName];
 
     return InkWell(
       onTap: () => _navigateToAuthor(authorName, books),
@@ -804,15 +861,44 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                 color: colorScheme.primaryContainer,
                 shape: BoxShape.circle,
               ),
-              child: Center(
-                child: Text(
-                  authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
-                  style: TextStyle(
-                    color: colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.bold,
-                    fontSize: _authorsViewMode == 'grid3' ? 32 : 40,
-                  ),
-                ),
+              child: ClipOval(
+                child: authorImageUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: authorImageUrl,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        placeholder: (_, __) => Center(
+                          child: Text(
+                            authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
+                            style: TextStyle(
+                              color: colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                              fontSize: _authorsViewMode == 'grid3' ? 32 : 40,
+                            ),
+                          ),
+                        ),
+                        errorWidget: (_, __, ___) => Center(
+                          child: Text(
+                            authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
+                            style: TextStyle(
+                              color: colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                              fontSize: _authorsViewMode == 'grid3' ? 32 : 40,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
+                          style: TextStyle(
+                            color: colorScheme.onPrimaryContainer,
+                            fontWeight: FontWeight.bold,
+                            fontSize: _authorsViewMode == 'grid3' ? 32 : 40,
+                          ),
+                        ),
+                      ),
               ),
             ),
           ),
