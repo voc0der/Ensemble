@@ -521,8 +521,6 @@ class MusicAssistantAPI {
         args: args,
       );
 
-      _logger.log('📚 Audiobooks response keys: ${response.keys.toList()}');
-
       // Check for error in response
       if (response.containsKey('error_code')) {
         _logger.log('📚 ERROR: ${response['error_code']} - ${response['details']}');
@@ -531,25 +529,32 @@ class MusicAssistantAPI {
 
       final items = response['result'] as List<dynamic>?;
       if (items == null) {
-        _logger.log('📚 Audiobooks: result is null, full response: $response');
+        _logger.log('📚 Audiobooks: result is null');
         return [];
       }
 
-      _logger.log('📚 Audiobooks: found ${items.length} items');
+      _logger.log('📚 Audiobooks: found ${items.length} items from API');
 
+      // Log just the first item's keys to understand structure (not full data)
       if (items.isNotEmpty) {
-        _logger.log('📚 First audiobook raw: ${items.first}');
+        final firstItem = items.first as Map<String, dynamic>;
+        _logger.log('📚 First item keys: ${firstItem.keys.toList()}');
+        _logger.log('📚 First item name: ${firstItem['name']}, media_type: ${firstItem['media_type']}');
       }
 
       final audiobooks = <Audiobook>[];
+      final parseErrors = <String>[];
       for (int i = 0; i < items.length; i++) {
         try {
           final book = Audiobook.fromJson(items[i] as Map<String, dynamic>);
           audiobooks.add(book);
         } catch (e) {
-          _logger.log('📚 Failed to parse audiobook $i: $e');
-          _logger.log('📚 Raw data: ${items[i]}');
+          parseErrors.add('Item $i: $e');
         }
+      }
+
+      if (parseErrors.isNotEmpty) {
+        _logger.log('📚 Parse errors (${parseErrors.length}): ${parseErrors.take(3).join(", ")}');
       }
 
       _logger.log('📚 Successfully parsed ${audiobooks.length}/${items.length} audiobooks');
