@@ -30,8 +30,14 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
   bool _isFavorite = false;
   ColorScheme? _lightColorScheme;
   ColorScheme? _darkColorScheme;
+  int? _expandedChapterIndex;
+  Audiobook? _fullAudiobook;
+  bool _isLoadingDetails = false;
 
   String get _heroTagSuffix => widget.heroTagSuffix != null ? '_${widget.heroTagSuffix}' : '';
+
+  // Use full audiobook if loaded, otherwise use widget audiobook
+  Audiobook get _audiobook => _fullAudiobook ?? widget.audiobook;
 
   @override
   void initState() {
@@ -44,7 +50,46 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
           _extractColors();
         }
       });
+      // Load full audiobook details with chapters
+      _loadAudiobookDetails();
     });
+  }
+
+  Future<void> _loadAudiobookDetails() async {
+    if (_isLoadingDetails) return;
+
+    setState(() {
+      _isLoadingDetails = true;
+    });
+
+    try {
+      final maProvider = context.read<MusicAssistantProvider>();
+      if (maProvider.api != null) {
+        final fullBook = await maProvider.api!.getAudiobookDetails(
+          widget.audiobook.provider,
+          widget.audiobook.itemId,
+        );
+
+        if (mounted && fullBook != null) {
+          _logger.log('📚 Loaded full audiobook: ${fullBook.name}, chapters: ${fullBook.chapters?.length ?? 0}');
+          setState(() {
+            _fullAudiobook = fullBook;
+            _isLoadingDetails = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingDetails = false;
+          });
+        }
+      }
+    } catch (e) {
+      _logger.log('Error loading audiobook details: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingDetails = false;
+        });
+      }
+    }
   }
 
   Future<void> _extractColors() async {
@@ -217,7 +262,7 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
     final colorScheme = adaptiveScheme ?? Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    final book = widget.audiobook;
+    final book = _audiobook;
     final hasResumePosition = (book.resumePositionMs ?? 0) > 0;
 
     return PopScope(
@@ -483,31 +528,70 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
                       ),
                     ],
 
-                    // Chapters
-                    if (book.chapters != null && book.chapters!.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      Text(
-                        'Chapters',
-                        style: textTheme.titleLarge?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    // Chapters Header
+                    const SizedBox(height: 24),
+                    Text(
+                      'Chapters',
+                      style: textTheme.titleLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(height: 8),
-                    ],
+                    ),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
             ),
 
-            // Chapter List
-            if (book.chapters != null && book.chapters!.isNotEmpty)
+            // Chapter List or Loading/Empty State
+            if (_isLoadingDetails)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Loading chapters...',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else if (book.chapters != null && book.chapters!.isNotEmpty)
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => _buildChapterTile(book.chapters![index], index, colorScheme, textTheme),
                     childCount: book.chapters!.length,
+                  ),
+                ),
+              )
+            else
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Center(
+                    child: Text(
+                      'No chapter information available',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -520,65 +604,125 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
   }
 
   Widget _buildChapterTile(Chapter chapter, int index, ColorScheme colorScheme, TextTheme textTheme) {
-    final book = widget.audiobook;
+    final book = _audiobook;
     final resumeMs = book.resumePositionMs ?? 0;
     final chapterEndMs = chapter.positionMs + (chapter.duration?.inMilliseconds ?? 0);
 
     // Determine if chapter is played, in progress, or not started
     final isPlayed = resumeMs >= chapterEndMs;
     final isInProgress = resumeMs >= chapter.positionMs && resumeMs < chapterEndMs;
+    final isExpanded = _expandedChapterIndex == index;
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      leading: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: isPlayed
-              ? colorScheme.primary
-              : isInProgress
-                  ? colorScheme.primaryContainer
-                  : colorScheme.surfaceContainerHighest,
-          shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: isPlayed
-              ? Icon(Icons.check, size: 16, color: colorScheme.onPrimary)
-              : Text(
-                  '${index + 1}',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: isInProgress
-                        ? colorScheme.onPrimaryContainer
-                        : colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isPlayed
+                  ? colorScheme.primary
+                  : isInProgress
+                      ? colorScheme.primaryContainer
+                      : colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: isPlayed
+                  ? Icon(Icons.check, size: 18, color: colorScheme.onPrimary)
+                  : Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        color: isInProgress
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ),
+          title: Text(
+            chapter.title,
+            style: textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: isInProgress ? FontWeight.bold : FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: isInProgress
+              ? Text(
+                  'In progress',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.primary,
                   ),
-                ),
+                )
+              : null,
+          trailing: chapter.duration != null
+              ? Text(
+                  _formatDuration(chapter.duration!),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                )
+              : null,
+          onTap: () {
+            if (isExpanded) {
+              setState(() {
+                _expandedChapterIndex = null;
+              });
+            } else {
+              _playAudiobook(startPositionMs: chapter.positionMs);
+            }
+          },
+          onLongPress: () {
+            setState(() {
+              _expandedChapterIndex = isExpanded ? null : index;
+            });
+          },
         ),
-      ),
-      title: Text(
-        chapter.title,
-        style: textTheme.titleSmall?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: isInProgress ? FontWeight.bold : FontWeight.normal,
+        AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          child: isExpanded
+              ? Padding(
+                  padding: const EdgeInsets.only(right: 16.0, bottom: 12.0, top: 4.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // Play from here button
+                      SizedBox(
+                        height: 44,
+                        child: FilledButton.tonal(
+                          onPressed: () {
+                            setState(() {
+                              _expandedChapterIndex = null;
+                            });
+                            _playAudiobook(startPositionMs: chapter.positionMs);
+                          },
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.play_arrow, size: 20),
+                              const SizedBox(width: 8),
+                              Text(isInProgress ? 'Resume' : 'Play'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: chapter.duration != null
-          ? Text(
-              _formatDuration(chapter.duration!),
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.6),
-              ),
-            )
-          : null,
-      trailing: isInProgress
-          ? Icon(
-              Icons.play_arrow,
-              color: colorScheme.primary,
-            )
-          : null,
-      onTap: () => _playAudiobook(startPositionMs: chapter.positionMs),
+      ],
     );
   }
 

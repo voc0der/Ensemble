@@ -587,6 +587,39 @@ class MusicAssistantAPI {
     }
   }
 
+  /// Get full audiobook details including chapters
+  Future<Audiobook?> getAudiobookDetails(String provider, String itemId) async {
+    try {
+      _logger.log('📚 Getting audiobook details: provider=$provider, itemId=$itemId');
+
+      final response = await _sendCommand(
+        'music/audiobooks/get_item',
+        args: {
+          'provider_instance_id_or_domain': provider,
+          'item_id': itemId,
+        },
+      );
+
+      if (response.containsKey('error_code')) {
+        _logger.log('📚 Error getting audiobook details: ${response['error_code']}');
+        return null;
+      }
+
+      final result = response['result'];
+      if (result == null) {
+        _logger.log('📚 Audiobook details: result is null');
+        return null;
+      }
+
+      final audiobook = Audiobook.fromJson(result as Map<String, dynamic>);
+      _logger.log('📚 Got audiobook details: ${audiobook.name}, chapters: ${audiobook.chapters?.length ?? 0}');
+      return audiobook;
+    } catch (e) {
+      _logger.log('📚 Error getting audiobook details: $e');
+      return null;
+    }
+  }
+
   /// Get recently played albums
   /// Gets recently played tracks, then fetches full track details to extract album info
   /// Optimized: batches track lookups to avoid N+1 query problem
