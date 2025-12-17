@@ -10,6 +10,7 @@ import 'screens/login_screen.dart';
 import 'services/settings_service.dart';
 import 'services/database_service.dart';
 import 'services/profile_service.dart';
+import 'services/sync_service.dart';
 import 'services/audio/massiv_audio_handler.dart';
 import 'services/auth/auth_manager.dart';
 import 'services/debug_logger.dart';
@@ -35,6 +36,10 @@ Future<void> main() async {
 
   // Migrate existing ownerName to profile (one-time for existing users)
   await ProfileService.instance.migrateFromOwnerName();
+
+  // Load library from cache for instant startup
+  await SyncService.instance.loadFromCache();
+  _logger.log('📦 Library cache loaded');
 
   // Create auth manager for streaming headers
   final authManager = AuthManager();

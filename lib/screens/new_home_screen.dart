@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/settings_service.dart';
 import '../services/debug_logger.dart';
+import '../services/sync_service.dart';
 import '../widgets/global_player_overlay.dart';
 import '../widgets/player_selector.dart';
 import '../widgets/album_row.dart';
@@ -84,6 +85,9 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
     final provider = context.read<MusicAssistantProvider>();
     provider.invalidateHomeCache();
 
+    // Force full library sync from MA API
+    await provider.forceLibrarySync();
+
     // Reload settings in case they changed
     await _loadSettings();
 
@@ -127,6 +131,28 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         titleSpacing: 0,
         centerTitle: false,
         actions: [
+          // Sync indicator - shows when library is syncing in background
+          ListenableBuilder(
+            listenable: SyncService.instance,
+            builder: (context, _) {
+              if (!SyncService.instance.isSyncing) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
           const PlayerSelector(),
         ],
       ),

@@ -14,6 +14,7 @@ import '../services/auth/auth_manager.dart';
 import '../services/device_id_service.dart';
 import '../services/cache_service.dart';
 import '../services/recently_played_service.dart';
+import '../services/sync_service.dart';
 import '../services/local_player_service.dart';
 import '../services/metadata_service.dart';
 import '../services/position_tracker.dart';
@@ -100,6 +101,12 @@ class MusicAssistantProvider with ChangeNotifier {
   List<Album> get albums => _albums;
   List<Track> get tracks => _tracks;
   bool get isLoading => _isLoading;
+
+  /// Whether library is syncing in background
+  bool get isSyncing => SyncService.instance.isSyncing;
+
+  /// Current sync status
+  SyncStatus get syncStatus => SyncService.instance.status;
 
   Player? get selectedPlayer => _selectedPlayer;
   List<Player> get availablePlayers => _availablePlayers;
@@ -1235,6 +1242,28 @@ class MusicAssistantProvider with ChangeNotifier {
     _cacheService.invalidateHomeCache();
   }
 
+  /// Force a full library sync (for pull-to-refresh)
+  Future<void> forceLibrarySync() async {
+    if (_api == null) return;
+
+    _logger.log('🔄 Forcing full library sync...');
+    await SyncService.instance.forceSync(_api!);
+
+    // Update local lists from sync result
+    _albums = SyncService.instance.cachedAlbums;
+    _artists = SyncService.instance.cachedArtists;
+
+    // Also refresh tracks from API
+    try {
+      _tracks = await _api!.getTracks(limit: LibraryConstants.maxLibraryItems);
+    } catch (e) {
+      _logger.log('⚠️ Failed to refresh tracks: $e');
+    }
+
+    notifyListeners();
+    _logger.log('✅ Force sync complete');
+  }
+
   // ============================================================================
   // FAVORITES FOR HOME SCREEN
   // ============================================================================
@@ -2148,26 +2177,60 @@ class MusicAssistantProvider with ChangeNotifier {
     try {
       _isLoading = true;
       _error = null;
-      notifyListeners();
 
-      final results = await Future.wait([
-        _api!.getArtists(limit: LibraryConstants.maxLibraryItems),
-        _api!.getAlbums(limit: LibraryConstants.maxLibraryItems),
-        _api!.getTracks(limit: LibraryConstants.maxLibraryItems),
-      ]);
+      // Load from database cache first (instant)
+      final syncService = SyncService.instance;
+      if (syncService.hasCache) {
+        _albums = syncService.cachedAlbums;
+        _artists = syncService.cachedArtists;
+        _logger.log('📦 Loaded ${_albums.length} albums, ${_artists.length} artists from cache');
+        notifyListeners();
+      }
 
-      _artists = results[0] as List<Artist>;
-      _albums = results[1] as List<Album>;
-      _tracks = results[2] as List<Track>;
+      // Fetch tracks from API (not cached - too many items)
+      if (_api != null) {
+        try {
+          _tracks = await _api!.getTracks(limit: LibraryConstants.maxLibraryItems);
+          _logger.log('📥 Fetched ${_tracks.length} tracks from MA');
+        } catch (e) {
+          _logger.log('⚠️ Failed to fetch tracks: $e');
+        }
+      }
 
       _isLoading = false;
       notifyListeners();
+
+      // Trigger background sync (non-blocking)
+      if (_api != null) {
+        _syncLibraryInBackground();
+      }
     } catch (e) {
       final errorInfo = ErrorHandler.handleError(e, context: 'Load library');
       _error = errorInfo.userMessage;
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Sync library data in background without blocking UI
+  Future<void> _syncLibraryInBackground() async {
+    if (_api == null) return;
+
+    final syncService = SyncService.instance;
+
+    // Listen for sync completion to update our lists
+    void onSyncComplete() {
+      if (syncService.status == SyncStatus.completed) {
+        _albums = syncService.cachedAlbums;
+        _artists = syncService.cachedArtists;
+        _logger.log('🔄 Updated library from background sync: ${_albums.length} albums, ${_artists.length} artists');
+        notifyListeners();
+      }
+      syncService.removeListener(onSyncComplete);
+    }
+
+    syncService.addListener(onSyncComplete);
+    await syncService.syncFromApi(_api!);
   }
 
   Future<void> loadArtists({int? limit, int? offset, String? search}) async {

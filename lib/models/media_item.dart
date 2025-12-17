@@ -140,6 +140,9 @@ class Artist extends MediaItem {
       favorite: item.favorite,
     );
   }
+
+  @override
+  Map<String, dynamic> toJson() => super.toJson();
 }
 
 class Album extends MediaItem {
@@ -202,6 +205,17 @@ class Album extends MediaItem {
     if (provider == 'library') return true;
     return providerMappings?.any((m) => m.providerInstance == 'library') ?? false;
   }
+
+  @override
+  Map<String, dynamic> toJson() {
+    final json = super.toJson();
+    if (artists != null) {
+      json['artists'] = artists!.map((a) => a.toJson()).toList();
+    }
+    if (albumType != null) json['album_type'] = albumType;
+    if (year != null) json['year'] = year;
+    return json;
+  }
 }
 
 class Track extends MediaItem {
@@ -247,6 +261,16 @@ class Track extends MediaItem {
 
   String get artistsString =>
       artists?.map((a) => a.name).join(', ') ?? 'Unknown Artist';
+
+  @override
+  Map<String, dynamic> toJson() {
+    final json = super.toJson();
+    if (artists != null) {
+      json['artists'] = artists!.map((a) => a.toJson()).toList();
+    }
+    if (album != null) json['album'] = album!.toJson();
+    return json;
+  }
 }
 
 class Playlist extends MediaItem {
