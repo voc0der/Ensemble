@@ -13,6 +13,7 @@ import '../services/error_handler.dart';
 import '../services/auth/auth_manager.dart';
 import '../services/device_id_service.dart';
 import '../services/cache_service.dart';
+import '../services/recently_played_service.dart';
 import '../services/local_player_service.dart';
 import '../services/metadata_service.dart';
 import '../services/position_tracker.dart';
@@ -1162,6 +1163,18 @@ class MusicAssistantProvider with ChangeNotifier {
   // ============================================================================
 
   Future<List<Album>> getRecentAlbumsWithCache({bool forceRefresh = false}) async {
+    // Try local database first for instant results
+    if (!forceRefresh) {
+      final localAlbums = await RecentlyPlayedService.instance.getRecentAlbums(
+        limit: LibraryConstants.defaultRecentLimit,
+      );
+      if (localAlbums.isNotEmpty) {
+        _logger.log('📦 Using ${localAlbums.length} local recently played albums');
+        return localAlbums;
+      }
+    }
+
+    // Fall back to memory cache
     if (_cacheService.isRecentAlbumsCacheValid(forceRefresh: forceRefresh)) {
       _logger.log('📦 Using cached recent albums');
       return _cacheService.getCachedRecentAlbums()!;
@@ -1170,7 +1183,7 @@ class MusicAssistantProvider with ChangeNotifier {
     if (_api == null) return _cacheService.getCachedRecentAlbums() ?? [];
 
     try {
-      _logger.log('🔄 Fetching fresh recent albums...');
+      _logger.log('🔄 Fetching fresh recent albums from MA...');
       final albums = await _api!.getRecentAlbums(limit: LibraryConstants.defaultRecentLimit);
       _cacheService.setCachedRecentAlbums(albums);
       return albums;

@@ -8,6 +8,7 @@ import '../theme/palette_helper.dart';
 import '../theme/theme_provider.dart';
 import '../services/metadata_service.dart';
 import '../services/debug_logger.dart';
+import '../services/recently_played_service.dart';
 import '../widgets/global_player_overlay.dart';
 import 'artist_details_screen.dart';
 
@@ -308,6 +309,9 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
       // Queue all tracks via Music Assistant
       await maProvider.playTracks(player.playerId, _tracks, startIndex: 0);
       _logger.log('Album queued on ${player.name}');
+
+      // Record to local recently played (per-profile)
+      RecentlyPlayedService.instance.recordAlbumPlayed(widget.album);
       // Stay on album page - mini player will appear
     } catch (e) {
       _logger.log('Error playing album: $e');

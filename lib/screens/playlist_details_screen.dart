@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/debug_logger.dart';
+import '../services/recently_played_service.dart';
 
 final _playlistLogger = DebugLogger();
 
@@ -69,6 +70,9 @@ class _PlaylistDetailsScreenState extends State<PlaylistDetailsScreen> {
       // Queue all tracks via Music Assistant
       await maProvider.playTracks(player.playerId, _tracks, startIndex: 0);
       _playlistLogger.info('Playlist queued successfully', context: 'Playlist');
+
+      // Record to local recently played (per-profile)
+      RecentlyPlayedService.instance.recordPlaylistPlayed(widget.playlist);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
