@@ -42,6 +42,11 @@ class SettingsService {
   static const String _keyLibraryAudiobooksViewMode = 'library_audiobooks_view_mode'; // 'grid2', 'grid3', 'list'
   static const String _keyLibraryAudiobooksSortOrder = 'library_audiobooks_sort_order'; // 'alpha' or 'year'
 
+  // Audiobookshelf Direct Integration Settings
+  static const String _keyAbsServerUrl = 'abs_server_url';
+  static const String _keyAbsApiToken = 'abs_api_token';
+  static const String _keyAbsEnabled = 'abs_enabled';
+
   static Future<String?> getServerUrl() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyServerUrl);
@@ -501,5 +506,43 @@ class SettingsService {
   static Future<void> setLibraryAudiobooksSortOrder(String order) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLibraryAudiobooksSortOrder, order);
+  }
+
+  // Audiobookshelf Settings
+  static Future<String?> getAbsServerUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyAbsServerUrl);
+  }
+
+  static Future<void> setAbsServerUrl(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyAbsServerUrl, url);
+  }
+
+  static Future<String?> getAbsApiToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyAbsApiToken);
+  }
+
+  static Future<void> setAbsApiToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyAbsApiToken, token);
+  }
+
+  static Future<bool> getAbsEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAbsEnabled) ?? false;
+  }
+
+  static Future<void> setAbsEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAbsEnabled, enabled);
+  }
+
+  static Future<void> clearAbsSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyAbsServerUrl);
+    await prefs.remove(_keyAbsApiToken);
+    await prefs.remove(_keyAbsEnabled);
   }
 }

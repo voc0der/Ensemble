@@ -8,6 +8,8 @@ import '../widgets/global_player_overlay.dart';
 import '../theme/palette_helper.dart';
 import '../theme/theme_provider.dart';
 import '../services/debug_logger.dart';
+import '../services/audiobookshelf_service.dart';
+import '../services/settings_service.dart';
 import '../constants/hero_tags.dart';
 
 class AudiobookDetailScreen extends StatefulWidget {
@@ -33,6 +35,8 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
   int? _expandedChapterIndex;
   Audiobook? _fullAudiobook;
   bool _isLoadingDetails = false;
+  List<Chapter>? _absChapters; // Chapters from Audiobookshelf
+  String? _chapterSource; // 'ma' or 'abs' to track source
 
   String get _heroTagSuffix => widget.heroTagSuffix != null ? '_${widget.heroTagSuffix}' : '';
 
@@ -64,8 +68,10 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
 
     try {
       final maProvider = context.read<MusicAssistantProvider>();
+      Audiobook? fullBook;
+
       if (maProvider.api != null) {
-        final fullBook = await maProvider.api!.getAudiobookDetails(
+        fullBook = await maProvider.api!.getAudiobookDetails(
           widget.audiobook.provider,
           widget.audiobook.itemId,
         );
@@ -74,13 +80,24 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
           _logger.log('📚 Loaded full audiobook: ${fullBook.name}, chapters: ${fullBook.chapters?.length ?? 0}');
           setState(() {
             _fullAudiobook = fullBook;
-            _isLoadingDetails = false;
-          });
-        } else {
-          setState(() {
-            _isLoadingDetails = false;
+            if (fullBook!.chapters != null && fullBook.chapters!.isNotEmpty) {
+              _chapterSource = 'ma';
+            }
           });
         }
+      }
+
+      // If no chapters from MA, try Audiobookshelf
+      final hasChapters = fullBook?.chapters?.isNotEmpty ?? false;
+      if (!hasChapters) {
+        _logger.log('📚 No chapters from MA, trying Audiobookshelf...');
+        await _loadChaptersFromAbs();
+      }
+
+      if (mounted) {
+        setState(() {
+          _isLoadingDetails = false;
+        });
       }
     } catch (e) {
       _logger.log('Error loading audiobook details: $e');
@@ -89,6 +106,85 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
           _isLoadingDetails = false;
         });
       }
+    }
+  }
+
+  /// Try to fetch chapters from Audiobookshelf by searching for the book
+  Future<void> _loadChaptersFromAbs() async {
+    final absService = AudiobookshelfService();
+
+    // Initialize if not already done
+    if (!absService.isConfigured) {
+      await absService.initialize();
+    }
+
+    if (!absService.isConfigured) {
+      _logger.log('📚 Audiobookshelf not configured, skipping chapter lookup');
+      return;
+    }
+
+    try {
+      // Get all libraries to search
+      final libraries = await absService.getLibraries();
+      final bookLibraries = libraries.where((lib) => lib.mediaType == 'book').toList();
+
+      if (bookLibraries.isEmpty) {
+        _logger.log('📚 No audiobook libraries found in ABS');
+        return;
+      }
+
+      // Search for the audiobook by name
+      final bookName = widget.audiobook.name.toLowerCase();
+      final authorName = widget.audiobook.authorsString.toLowerCase();
+      _logger.log('📚 Searching ABS for: "$bookName" by "$authorName"');
+
+      // Try to find matching book in each library
+      for (final library in bookLibraries) {
+        final absItem = await _searchAbsLibrary(absService, library.id, bookName, authorName);
+
+        if (absItem != null && absItem.chapters != null && absItem.chapters!.isNotEmpty) {
+          _logger.log('📚 Found ${absItem.chapters!.length} chapters from Audiobookshelf');
+
+          // Convert ABS chapters to app Chapter model
+          final chapters = absItem.chapters!.map((absChapter) => Chapter(
+            chapterNumber: absChapter.id,
+            positionMs: absChapter.startMs,
+            title: absChapter.title,
+            duration: absChapter.duration,
+          )).toList();
+
+          if (mounted) {
+            setState(() {
+              _absChapters = chapters;
+              _chapterSource = 'abs';
+            });
+          }
+          return;
+        }
+      }
+
+      _logger.log('📚 Book not found in Audiobookshelf');
+    } catch (e) {
+      _logger.log('📚 Error fetching chapters from ABS: $e');
+    }
+  }
+
+  /// Search a single ABS library for the audiobook
+  Future<AbsLibraryItem?> _searchAbsLibrary(
+    AudiobookshelfService absService,
+    String libraryId,
+    String bookName,
+    String authorName,
+  ) async {
+    try {
+      return await absService.searchBookByTitle(
+        libraryId,
+        bookName,
+        authorName: authorName,
+      );
+    } catch (e) {
+      _logger.log('📚 Error searching ABS library: $e');
+      return null;
     }
   }
 
@@ -544,63 +640,109 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
             ),
 
             // Chapter List or Loading/Empty State
-            if (_isLoadingDetails)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Loading chapters...',
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurface.withOpacity(0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-            else if (book.chapters != null && book.chapters!.isNotEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildChapterTile(book.chapters![index], index, colorScheme, textTheme),
-                    childCount: book.chapters!.length,
-                  ),
-                ),
-              )
-            else
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Center(
-                    child: Text(
-                      'No chapter information available',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            // Use MA chapters if available, otherwise use ABS chapters
+            ..._buildChapterSection(book, colorScheme, textTheme),
 
             const SliverToBoxAdapter(child: SizedBox(height: 140)),
           ],
         ),
       ),
     );
+  }
+
+  /// Build the chapter section with loading, chapters, or empty state
+  List<Widget> _buildChapterSection(Audiobook book, ColorScheme colorScheme, TextTheme textTheme) {
+    // Loading state
+    if (_isLoadingDetails) {
+      return [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Center(
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Loading chapters...',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    // Get chapters from either MA or ABS
+    final chapters = (book.chapters != null && book.chapters!.isNotEmpty)
+        ? book.chapters!
+        : _absChapters;
+
+    // Show chapters if available
+    if (chapters != null && chapters.isNotEmpty) {
+      return [
+        // Source indicator (optional - shows where chapters came from)
+        if (_chapterSource == 'abs')
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.cloud_done_outlined,
+                    size: 14,
+                    color: colorScheme.onSurface.withOpacity(0.4),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Chapters from Audiobookshelf',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildChapterTile(chapters[index], index, colorScheme, textTheme),
+              childCount: chapters.length,
+            ),
+          ),
+        ),
+      ];
+    }
+
+    // Empty state
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Center(
+            child: Text(
+              'No chapter information available',
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildChapterTile(Chapter chapter, int index, ColorScheme colorScheme, TextTheme textTheme) {

@@ -601,7 +601,7 @@ class MusicAssistantAPI {
       );
 
       if (response.containsKey('error_code')) {
-        _logger.log('📚 Error getting audiobook details: ${response['error_code']}');
+        _logger.log('📚 Error getting audiobook details: ${response['error_code']} - ${response['details'] ?? 'no details'}');
         return null;
       }
 
@@ -611,11 +611,28 @@ class MusicAssistantAPI {
         return null;
       }
 
-      final audiobook = Audiobook.fromJson(result as Map<String, dynamic>);
+      // Log raw response to understand what MA returns
+      final resultMap = result as Map<String, dynamic>;
+      _logger.log('📚 Raw audiobook keys: ${resultMap.keys.toList()}');
+      if (resultMap.containsKey('chapters')) {
+        _logger.log('📚 Chapters field exists: ${resultMap['chapters']}');
+      } else {
+        _logger.log('📚 NO chapters field in response!');
+        // Check for alternative field names
+        final possibleChapterFields = ['chapters', 'chapter', 'tracks', 'parts', 'segments', 'media_items'];
+        for (final field in possibleChapterFields) {
+          if (resultMap.containsKey(field)) {
+            _logger.log('📚 Found alternative field "$field": ${resultMap[field]}');
+          }
+        }
+      }
+
+      final audiobook = Audiobook.fromJson(resultMap);
       _logger.log('📚 Got audiobook details: ${audiobook.name}, chapters: ${audiobook.chapters?.length ?? 0}');
       return audiobook;
-    } catch (e) {
+    } catch (e, stack) {
       _logger.log('📚 Error getting audiobook details: $e');
+      _logger.log('📚 Stack: $stack');
       return null;
     }
   }
