@@ -519,14 +519,22 @@ class MusicAssistantAPI {
         args: args,
       );
 
-      final items = response['result'] as List<dynamic>?;
-      if (items == null) return [];
+      _logger.log('Audiobooks response keys: ${response.keys.toList()}');
+      _logger.log('Audiobooks response: $response');
 
+      final items = response['result'] as List<dynamic>?;
+      if (items == null) {
+        _logger.log('Audiobooks: result is null');
+        return [];
+      }
+
+      _logger.log('Audiobooks: found ${items.length} items');
       return items
           .map((item) => Audiobook.fromJson(item as Map<String, dynamic>))
           .toList();
-    } catch (e) {
+    } catch (e, stack) {
       _logger.log('Error getting audiobooks: $e');
+      _logger.log('Stack: $stack');
       return [];
     }
   }
