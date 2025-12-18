@@ -535,11 +535,34 @@ class MusicAssistantAPI {
 
       _logger.log('📚 Audiobooks: found ${items.length} items from API');
 
-      // Log just the first item's keys to understand structure (not full data)
+      // Log first item's structure including metadata to find chapters/series
       if (items.isNotEmpty) {
         final firstItem = items.first as Map<String, dynamic>;
         _logger.log('📚 First item keys: ${firstItem.keys.toList()}');
         _logger.log('📚 First item name: ${firstItem['name']}, media_type: ${firstItem['media_type']}');
+
+        // Log metadata contents - this is where chapters/series info likely lives
+        if (firstItem.containsKey('metadata')) {
+          final metadata = firstItem['metadata'] as Map<String, dynamic>?;
+          if (metadata != null) {
+            _logger.log('📚 METADATA keys: ${metadata.keys.toList()}');
+            for (final key in metadata.keys) {
+              final value = metadata[key];
+              if (value is List) {
+                _logger.log('📚   metadata[$key] (List, ${value.length}): ${value.take(2)}');
+              } else if (value is Map) {
+                _logger.log('📚   metadata[$key] (Map): ${(value as Map).keys.toList()}');
+              } else if (value != null) {
+                _logger.log('📚   metadata[$key]: $value');
+              }
+            }
+          }
+        }
+
+        // Check for chapters at top level too
+        if (firstItem.containsKey('chapters')) {
+          _logger.log('📚 CHAPTERS at top level: ${firstItem['chapters']}');
+        }
       }
 
       final audiobooks = <Audiobook>[];
@@ -592,16 +615,44 @@ class MusicAssistantAPI {
     try {
       _logger.log('📚 Getting audiobook details: provider=$provider, itemId=$itemId');
 
-      final response = await _sendCommand(
-        'music/audiobooks/get_item',
-        args: {
-          'provider_instance_id_or_domain': provider,
-          'item_id': itemId,
-        },
-      );
+      // Try different API patterns to find the correct one
+      final apiPatterns = [
+        {'cmd': 'music/get_item', 'args': {'media_type': 'audiobook', 'item_id': itemId, 'provider_instance_id_or_domain': provider}},
+        {'cmd': 'music/audiobooks/get', 'args': {'item_id': itemId, 'provider_instance_id_or_domain': provider}},
+        {'cmd': 'music/item/audiobook/$itemId', 'args': <String, dynamic>{}},
+      ];
 
-      if (response.containsKey('error_code')) {
-        _logger.log('📚 Error getting audiobook details: ${response['error_code']} - ${response['details'] ?? 'no details'}');
+      Map<String, dynamic>? response;
+      String? successCmd;
+
+      for (final pattern in apiPatterns) {
+        final cmd = pattern['cmd'] as String;
+        final args = pattern['args'] as Map<String, dynamic>;
+        _logger.log('📚 Trying: $cmd');
+
+        try {
+          response = await _sendCommand(cmd, args: args);
+          if (!response.containsKey('error_code')) {
+            successCmd = cmd;
+            _logger.log('📚 SUCCESS with: $cmd');
+            break;
+          } else {
+            _logger.log('📚 Failed: ${response['error_code']}');
+          }
+        } catch (e) {
+          _logger.log('📚 Exception with $cmd: $e');
+        }
+      }
+
+      if (successCmd == null || response == null || response.containsKey('error_code')) {
+        _logger.log('📚 All API patterns failed, using list data instead');
+        // Fall back to fetching from list (which includes metadata)
+        final audiobooks = await getAudiobooks(limit: 10000);
+        final match = audiobooks.where((b) => b.itemId == itemId).firstOrNull;
+        if (match != null) {
+          _logger.log('📚 Found in list: ${match.name}');
+          return match;
+        }
         return null;
       }
 
