@@ -613,28 +613,121 @@ class MusicAssistantAPI {
 
       // Log raw response to understand what MA returns
       final resultMap = result as Map<String, dynamic>;
-      _logger.log('📚 Raw audiobook keys: ${resultMap.keys.toList()}');
+      _logger.log('📚 ============ AUDIOBOOK DETAILS RAW RESPONSE ============');
+      _logger.log('📚 All keys: ${resultMap.keys.toList()}');
+
+      // Log each field for discovery
+      for (final key in resultMap.keys) {
+        final value = resultMap[key];
+        if (value is List) {
+          _logger.log('📚 [$key] (List, ${value.length} items): ${value.take(2)}...');
+        } else if (value is Map) {
+          _logger.log('📚 [$key] (Map): ${(value as Map).keys.toList()}');
+        } else {
+          _logger.log('📚 [$key]: $value');
+        }
+      }
+
+      // Check for chapters specifically
       if (resultMap.containsKey('chapters')) {
-        _logger.log('📚 Chapters field exists: ${resultMap['chapters']}');
+        final chapters = resultMap['chapters'];
+        _logger.log('📚 CHAPTERS FOUND! Type: ${chapters.runtimeType}');
+        if (chapters is List && chapters.isNotEmpty) {
+          _logger.log('📚 First chapter: ${chapters.first}');
+        }
       } else {
-        _logger.log('📚 NO chapters field in response!');
-        // Check for alternative field names
-        final possibleChapterFields = ['chapters', 'chapter', 'tracks', 'parts', 'segments', 'media_items'];
-        for (final field in possibleChapterFields) {
+        _logger.log('📚 NO chapters field! Checking alternatives...');
+        final possibleFields = ['chapters', 'chapter', 'tracks', 'parts', 'segments', 'media_items', 'items', 'content'];
+        for (final field in possibleFields) {
           if (resultMap.containsKey(field)) {
-            _logger.log('📚 Found alternative field "$field": ${resultMap[field]}');
+            _logger.log('📚 Alternative field "$field" found: ${resultMap[field]}');
           }
         }
       }
 
+      // Check for series info
+      if (resultMap.containsKey('metadata')) {
+        final metadata = resultMap['metadata'] as Map<String, dynamic>?;
+        if (metadata != null) {
+          _logger.log('📚 METADATA keys: ${metadata.keys.toList()}');
+          for (final key in metadata.keys) {
+            _logger.log('📚   metadata[$key]: ${metadata[key]}');
+          }
+        }
+      }
+
+      _logger.log('📚 ============ END RAW RESPONSE ============');
+
       final audiobook = Audiobook.fromJson(resultMap);
-      _logger.log('📚 Got audiobook details: ${audiobook.name}, chapters: ${audiobook.chapters?.length ?? 0}');
+      _logger.log('📚 Parsed audiobook: ${audiobook.name}, chapters: ${audiobook.chapters?.length ?? 0}');
       return audiobook;
     } catch (e, stack) {
       _logger.log('📚 Error getting audiobook details: $e');
       _logger.log('📚 Stack: $stack');
       return null;
     }
+  }
+
+  /// Explore available MA endpoints for series (discovery/debugging)
+  Future<void> exploreSeries() async {
+    _logger.log('📚 ============ EXPLORING SERIES ENDPOINTS ============');
+
+    // Try various possible endpoints
+    final endpoints = [
+      'music/audiobooks/series',
+      'music/series',
+      'music/audiobooks/library_items',  // Check if audiobooks have series info
+    ];
+
+    for (final endpoint in endpoints) {
+      try {
+        _logger.log('📚 Trying endpoint: $endpoint');
+        final response = await _sendCommand(endpoint, args: {'limit': 5});
+
+        if (response.containsKey('error_code')) {
+          _logger.log('📚 [$endpoint] ERROR: ${response['error_code']}');
+        } else {
+          final result = response['result'];
+          if (result is List) {
+            _logger.log('📚 [$endpoint] SUCCESS! Got ${result.length} items');
+            if (result.isNotEmpty) {
+              final first = result.first as Map<String, dynamic>;
+              _logger.log('📚 [$endpoint] First item keys: ${first.keys.toList()}');
+              // Look for series-related fields
+              for (final key in first.keys) {
+                if (key.toLowerCase().contains('series')) {
+                  _logger.log('📚 [$endpoint] SERIES FIELD: $key = ${first[key]}');
+                }
+              }
+            }
+          } else {
+            _logger.log('📚 [$endpoint] Result type: ${result.runtimeType}');
+          }
+        }
+      } catch (e) {
+        _logger.log('📚 [$endpoint] Exception: $e');
+      }
+    }
+
+    // Also check a single audiobook for series info
+    _logger.log('📚 Checking audiobook details for series info...');
+    try {
+      final audiobooks = await getAudiobooks(limit: 1);
+      if (audiobooks.isNotEmpty) {
+        final book = audiobooks.first;
+        _logger.log('📚 Checking audiobook: ${book.name}');
+
+        // Get full details
+        final details = await getAudiobookDetails(book.provider, book.itemId);
+        if (details != null) {
+          _logger.log('📚 Full details retrieved - check logs above for metadata');
+        }
+      }
+    } catch (e) {
+      _logger.log('📚 Error checking audiobook: $e');
+    }
+
+    _logger.log('📚 ============ END SERIES EXPLORATION ============');
   }
 
   /// Get recently played albums

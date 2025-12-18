@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'debug_logger.dart';
-import 'audiobookshelf_service.dart';
 import 'settings_service.dart';
 
 class MetadataService {
@@ -328,28 +327,13 @@ class MetadataService {
   }
 
   /// Fetches author image URL from multiple sources
-  /// Priority: 1. Audiobookshelf (if configured), 2. Audnexus, 3. Open Library
+  /// Priority: 1. Audnexus, 2. Open Library
   /// Returns the image URL if found, null otherwise
   static Future<String?> getAuthorImageUrl(String authorName) async {
     // Check cache first
     final cacheKey = 'authorImage:$authorName';
     if (_authorImageCache.containsKey(cacheKey)) {
       return _authorImageCache[cacheKey];
-    }
-
-    // Try Audiobookshelf first if configured (best source - has actual author photos)
-    final absService = AudiobookshelfService();
-    if (absService.isConfigured) {
-      try {
-        final absImageUrl = await absService.getAuthorImageUrl(authorName);
-        if (absImageUrl != null) {
-          _logger.log('📖 Got author image from Audiobookshelf: $authorName');
-          _authorImageCache[cacheKey] = absImageUrl;
-          return absImageUrl;
-        }
-      } catch (e) {
-        _logger.warning('Audiobookshelf author image error: $e', context: 'Metadata');
-      }
     }
 
     // Try Audnexus (specifically for audiobook authors, uses Audible data)

@@ -167,8 +167,8 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
                     Hero(
                       tag: HeroTags.authorImage + widget.authorName + _heroTagSuffix,
                       child: Container(
-                        width: 120,
-                        height: 120,
+                        width: 200,
+                        height: 200,
                         decoration: BoxDecoration(
                           color: colorScheme.primaryContainer,
                           shape: BoxShape.circle,
@@ -178,22 +178,22 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
                               ? CachedNetworkImage(
                                   imageUrl: _authorImageUrl!,
                                   fit: BoxFit.cover,
-                                  width: 120,
-                                  height: 120,
+                                  width: 200,
+                                  height: 200,
                                   placeholder: (_, __) => Icon(
                                     MdiIcons.accountOutline,
-                                    size: 60,
+                                    size: 100,
                                     color: colorScheme.onPrimaryContainer,
                                   ),
                                   errorWidget: (_, __, ___) => Icon(
                                     MdiIcons.accountOutline,
-                                    size: 60,
+                                    size: 100,
                                     color: colorScheme.onPrimaryContainer,
                                   ),
                                 )
                               : Icon(
                                   MdiIcons.accountOutline,
-                                  size: 60,
+                                  size: 100,
                                   color: colorScheme.onPrimaryContainer,
                                 ),
                         ),

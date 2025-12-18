@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/music_assistant_api.dart';
 import '../services/settings_service.dart';
-import '../services/audiobookshelf_service.dart';
 import '../theme/theme_provider.dart';
 import '../widgets/global_player_overlay.dart';
 import 'debug_log_screen.dart';
@@ -19,13 +18,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _lastFmApiKeyController = TextEditingController();
   final _audioDbApiKeyController = TextEditingController();
-  // Audiobookshelf settings
-  final _absServerUrlController = TextEditingController();
-  final _absUsernameController = TextEditingController();
-  final _absPasswordController = TextEditingController();
-  bool _absEnabled = false;
-  bool _absConnected = false;
-  bool _absConnecting = false;
   // Main rows (default on)
   bool _showRecentAlbums = true;
   bool _showDiscoverArtists = true;
@@ -52,13 +44,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _audioDbApiKeyController.text = audioDbKey;
     }
 
-    // Load Audiobookshelf settings
-    final absServerUrl = await SettingsService.getAbsServerUrl();
-    if (absServerUrl != null) {
-      _absServerUrlController.text = absServerUrl;
-    }
-    final absEnabled = await SettingsService.getAbsEnabled();
-
     // Load home screen settings
     final showRecent = await SettingsService.getShowRecentAlbums();
     final showDiscArtists = await SettingsService.getShowDiscoverArtists();
@@ -68,7 +53,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final showFavTracks = await SettingsService.getShowFavoriteTracks();
     if (mounted) {
       setState(() {
-        _absEnabled = absEnabled;
         _showRecentAlbums = showRecent;
         _showDiscoverArtists = showDiscArtists;
         _showDiscoverAlbums = showDiscAlbums;
@@ -77,99 +61,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _showFavoriteTracks = showFavTracks;
       });
     }
-
-    // Check if ABS is connected
-    if (absEnabled) {
-      final absService = AudiobookshelfService();
-      await absService.initialize();
-      final connected = await absService.testConnection();
-      if (mounted) {
-        setState(() {
-          _absConnected = connected;
-        });
-      }
-    }
   }
 
   @override
   void dispose() {
     _lastFmApiKeyController.dispose();
     _audioDbApiKeyController.dispose();
-    _absServerUrlController.dispose();
-    _absUsernameController.dispose();
-    _absPasswordController.dispose();
     super.dispose();
-  }
-
-  Future<void> _connectToAbs() async {
-    final serverUrl = _absServerUrlController.text.trim();
-    final username = _absUsernameController.text.trim();
-    final password = _absPasswordController.text;
-
-    if (serverUrl.isEmpty || username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all Audiobookshelf fields')),
-      );
-      return;
-    }
-
-    setState(() {
-      _absConnecting = true;
-    });
-
-    try {
-      final absService = AudiobookshelfService();
-      final token = await absService.login(serverUrl, username, password);
-
-      if (token != null) {
-        await absService.configure(serverUrl, token);
-        final connected = await absService.testConnection();
-
-        if (mounted) {
-          setState(() {
-            _absEnabled = true;
-            _absConnected = connected;
-            _absConnecting = false;
-            _absPasswordController.clear();
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Connected to Audiobookshelf!')),
-          );
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _absConnecting = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to connect. Check your credentials.')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _absConnecting = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Connection error: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _disconnectAbs() async {
-    await SettingsService.clearAbsSettings();
-    if (mounted) {
-      setState(() {
-        _absEnabled = false;
-        _absConnected = false;
-        _absServerUrlController.clear();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Disconnected from Audiobookshelf')),
-      );
-    }
   }
 
   Future<void> _disconnect() async {
@@ -684,178 +582,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 setState(() {}); // Update UI to show/hide clear button
               },
             ),
-
-            const SizedBox(height: 32),
-
-            // Audiobookshelf section
-            Text(
-              'Audiobookshelf (Optional)',
-              style: textTheme.titleMedium?.copyWith(
-                color: colorScheme.onBackground,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Connect to your Audiobookshelf server for enhanced audiobook features: author images, chapters, and series data.',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onBackground.withOpacity(0.6),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Connection status
-            if (_absEnabled)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: _absConnected
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _absConnected
-                        ? Colors.green.withOpacity(0.3)
-                        : Colors.orange.withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _absConnected
-                          ? Icons.check_circle_rounded
-                          : Icons.warning_rounded,
-                      color: _absConnected ? Colors.green : Colors.orange,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _absConnected
-                            ? 'Connected to Audiobookshelf'
-                            : 'Configured but not connected',
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: _absConnected ? Colors.green : Colors.orange,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _disconnectAbs,
-                      child: Text(
-                        'Disconnect',
-                        style: TextStyle(color: colorScheme.error),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // Server URL field
-            TextField(
-              controller: _absServerUrlController,
-              style: TextStyle(color: colorScheme.onSurface),
-              enabled: !_absEnabled,
-              decoration: InputDecoration(
-                labelText: 'Server URL',
-                hintText: 'https://audiobooks.example.com',
-                hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
-                filled: true,
-                fillColor: _absEnabled
-                    ? colorScheme.surfaceVariant.withOpacity(0.15)
-                    : colorScheme.surfaceVariant.withOpacity(0.3),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                prefixIcon: Icon(
-                  Icons.dns_rounded,
-                  color: colorScheme.onSurface.withOpacity(0.54),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // Username field
-            TextField(
-              controller: _absUsernameController,
-              style: TextStyle(color: colorScheme.onSurface),
-              enabled: !_absEnabled,
-              decoration: InputDecoration(
-                labelText: 'Username',
-                hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
-                filled: true,
-                fillColor: _absEnabled
-                    ? colorScheme.surfaceVariant.withOpacity(0.15)
-                    : colorScheme.surfaceVariant.withOpacity(0.3),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                prefixIcon: Icon(
-                  Icons.person_rounded,
-                  color: colorScheme.onSurface.withOpacity(0.54),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // Password field
-            TextField(
-              controller: _absPasswordController,
-              style: TextStyle(color: colorScheme.onSurface),
-              enabled: !_absEnabled,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
-                filled: true,
-                fillColor: _absEnabled
-                    ? colorScheme.surfaceVariant.withOpacity(0.15)
-                    : colorScheme.surfaceVariant.withOpacity(0.3),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                prefixIcon: Icon(
-                  Icons.lock_rounded,
-                  color: colorScheme.onSurface.withOpacity(0.54),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Connect button
-            if (!_absEnabled)
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: FilledButton.tonalIcon(
-                  onPressed: _absConnecting ? null : _connectToAbs,
-                  icon: _absConnecting
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.primary,
-                          ),
-                        )
-                      : const Icon(Icons.link_rounded),
-                  label: Text(_absConnecting ? 'Connecting...' : 'Connect to Audiobookshelf'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colorScheme.primaryContainer,
-                    foregroundColor: colorScheme.onPrimaryContainer,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
 
             const SizedBox(height: 32),
 
