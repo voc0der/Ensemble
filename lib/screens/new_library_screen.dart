@@ -1419,7 +1419,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     return RefreshIndicator(
       onRefresh: _loadSeries,
       child: GridView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, BottomSpacing.withMiniPlayer + 16),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           childAspectRatio: 0.75,
