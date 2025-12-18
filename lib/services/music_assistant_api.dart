@@ -904,22 +904,43 @@ class MusicAssistantAPI {
   Future<List<Audiobook>> getSeriesAudiobooks(String seriesPath) async {
     try {
       _logger.log('📚 Getting audiobooks for series: $seriesPath');
+      _logger.log('📚 About to call browse...');
 
       final items = await browse(seriesPath);
+      _logger.log('📚 Browse returned ${items.length} items');
+
       final audiobooks = <Audiobook>[];
 
-      for (final item in items) {
-        final itemMap = item as Map<String, dynamic>;
+      for (var i = 0; i < items.length; i++) {
+        final item = items[i];
+        _logger.log('📚 Processing item $i: ${item.runtimeType}');
+
+        if (item is! Map<String, dynamic>) {
+          _logger.log('📚 Item $i is not a Map, skipping');
+          continue;
+        }
+
+        final itemMap = item;
+        final mediaType = itemMap['media_type'];
+        _logger.log('📚 Item $i: media_type=$mediaType, name=${itemMap['name']}');
+
         // Only include audiobooks (items with media_type)
-        if (itemMap['media_type'] == 'audiobook') {
-          audiobooks.add(Audiobook.fromJson(itemMap));
+        if (mediaType == 'audiobook') {
+          _logger.log('📚 Parsing audiobook $i...');
+          try {
+            audiobooks.add(Audiobook.fromJson(itemMap));
+            _logger.log('📚 Parsed audiobook $i successfully');
+          } catch (e) {
+            _logger.log('📚 Error parsing audiobook $i: $e');
+          }
         }
       }
 
       _logger.log('📚 Found ${audiobooks.length} audiobooks in series');
       return audiobooks;
-    } catch (e) {
+    } catch (e, stack) {
       _logger.log('📚 Error getting series audiobooks: $e');
+      _logger.log('📚 Stack: $stack');
       return [];
     }
   }

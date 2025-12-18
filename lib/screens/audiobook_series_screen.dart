@@ -28,17 +28,22 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
   @override
   void initState() {
     super.initState();
+    _logger.log('📚 SeriesScreen initState for: ${widget.series.name}');
     _loadSeriesBooks();
   }
 
   Future<void> _loadSeriesBooks() async {
+    _logger.log('📚 SeriesScreen _loadSeriesBooks START');
     try {
       setState(() {
         _isLoading = true;
         _error = null;
       });
+      _logger.log('📚 SeriesScreen setState done, getting provider...');
 
       final maProvider = context.read<MusicAssistantProvider>();
+      _logger.log('📚 SeriesScreen got provider, api=${maProvider.api != null}');
+
       if (maProvider.api == null) {
         setState(() {
           _error = 'Not connected to Music Assistant';
@@ -47,17 +52,20 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
         return;
       }
 
-      _logger.log('Loading books for series: ${widget.series.name}, path: ${widget.series.id}');
+      _logger.log('📚 SeriesScreen calling getSeriesAudiobooks: path=${widget.series.id}');
       final books = await maProvider.api!.getSeriesAudiobooks(widget.series.id);
+      _logger.log('📚 SeriesScreen got ${books.length} books');
 
       if (mounted) {
         setState(() {
           _audiobooks = books;
           _isLoading = false;
         });
+        _logger.log('📚 SeriesScreen setState complete');
       }
-    } catch (e) {
-      _logger.log('Error loading series books: $e');
+    } catch (e, stack) {
+      _logger.log('📚 SeriesScreen error: $e');
+      _logger.log('📚 SeriesScreen stack: $stack');
       if (mounted) {
         setState(() {
           _error = 'Failed to load books: $e';
