@@ -86,6 +86,7 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
         body: CustomScrollView(
           slivers: [
             // App bar with series image
+            // DEBUG: Simplified app bar - no image loading
             SliverAppBar(
               expandedHeight: 200,
               pinned: true,
@@ -96,21 +97,14 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
                     shadows: [Shadow(blurRadius: 8, color: Colors.black54)],
                   ),
                 ),
-                background: widget.series.thumbnailUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: widget.series.thumbnailUrl!,
-                        fit: BoxFit.cover,
-                        color: Colors.black.withOpacity(0.3),
-                        colorBlendMode: BlendMode.darken,
-                      )
-                    : Container(
-                        color: colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.library_books,
-                          size: 64,
-                          color: colorScheme.onPrimaryContainer.withOpacity(0.5),
-                        ),
-                      ),
+                background: Container(
+                  color: colorScheme.primaryContainer,
+                  child: Icon(
+                    Icons.library_books,
+                    size: 64,
+                    color: colorScheme.onPrimaryContainer.withOpacity(0.5),
+                  ),
+                ),
               ),
             ),
 
