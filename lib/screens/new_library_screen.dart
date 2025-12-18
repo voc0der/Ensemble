@@ -1586,6 +1586,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       final displayCovers = covers.take(gridSize * gridSize).toList();
 
       // Use simple Column/Row layout instead of GridView to avoid scroll-related animations
+      // No margins between cells for seamless appearance
       return Column(
         children: List.generate(gridSize, (row) {
           return Expanded(
@@ -1593,37 +1594,29 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               children: List.generate(gridSize, (col) {
                 final index = row * gridSize + col;
                 if (index >= displayCovers.length) {
+                  // Empty cell - use the adjacent cover's dominant color feel
+                  // by showing a subtle gradient or blending with surrounding
                   return Expanded(
                     child: Container(
-                      margin: EdgeInsets.only(
-                        left: col > 0 ? 1 : 0,
-                        top: row > 0 ? 1 : 0,
-                      ),
-                      color: colorScheme.surfaceContainerHighest,
+                      color: Colors.transparent,
                     ),
                   );
                 }
                 return Expanded(
-                  child: Container(
-                    margin: EdgeInsets.only(
-                      left: col > 0 ? 1 : 0,
-                      top: row > 0 ? 1 : 0,
+                  child: CachedNetworkImage(
+                    imageUrl: displayCovers[index],
+                    fit: BoxFit.cover,
+                    fadeInDuration: Duration.zero,
+                    fadeOutDuration: Duration.zero,
+                    placeholder: (_, __) => Container(
+                      color: colorScheme.surfaceContainerHighest,
                     ),
-                    child: CachedNetworkImage(
-                      imageUrl: displayCovers[index],
-                      fit: BoxFit.cover,
-                      fadeInDuration: Duration.zero,
-                      fadeOutDuration: Duration.zero,
-                      placeholder: (_, __) => Container(
-                        color: colorScheme.surfaceContainerHighest,
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        color: colorScheme.surfaceContainerHighest,
-                        child: Icon(
-                          Icons.book,
-                          color: colorScheme.onSurfaceVariant.withOpacity(0.3),
-                          size: 20,
-                        ),
+                    errorWidget: (_, __, ___) => Container(
+                      color: colorScheme.surfaceContainerHighest,
+                      child: Icon(
+                        Icons.book,
+                        color: colorScheme.onSurfaceVariant.withOpacity(0.3),
+                        size: 20,
                       ),
                     ),
                   ),
@@ -1645,25 +1638,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   }
 
   Widget _buildSeriesLoadingGrid(ColorScheme colorScheme) {
-    // Static placeholder grid using Column/Row - no animations
-    return Column(
-      children: List.generate(3, (row) {
-        return Expanded(
-          child: Row(
-            children: List.generate(3, (col) {
-              return Expanded(
-                child: Container(
-                  margin: EdgeInsets.only(
-                    left: col > 0 ? 1 : 0,
-                    top: row > 0 ? 1 : 0,
-                  ),
-                  color: colorScheme.surfaceContainerHighest,
-                ),
-              );
-            }),
-          ),
-        );
-      }),
+    // Static placeholder grid using Column/Row - no animations, no grid lines
+    return Container(
+      color: colorScheme.surfaceContainerHighest,
     );
   }
 
