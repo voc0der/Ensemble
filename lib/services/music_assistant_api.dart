@@ -506,6 +506,16 @@ class MusicAssistantAPI {
     String? authorId,
   }) async {
     try {
+      // Check if library filtering is enabled
+      final enabledLibraries = await SettingsService.getEnabledAbsLibraries();
+
+      // If specific libraries are enabled, use browse API for filtering
+      if (enabledLibraries != null && enabledLibraries.isNotEmpty) {
+        _logger.log('📚 Using browse API for library filtering (${enabledLibraries.length} libraries enabled)');
+        return await _getAudiobooksFromBrowse(enabledLibraries, favoriteOnly: favoriteOnly);
+      }
+
+      // Otherwise use the faster MA API (returns all audiobooks)
       final args = <String, dynamic>{
         if (limit != null) 'limit': limit,
         if (offset != null) 'offset': offset,
@@ -565,10 +575,6 @@ class MusicAssistantAPI {
         }
       }
 
-      // NOTE: Library filtering for audiobooks is not possible
-      // The audiobook URI format (library://audiobook/123) doesn't contain library info
-      // Series filtering works because series are loaded per-library via browse API
-
       final audiobooks = <Audiobook>[];
       final parseErrors = <String>[];
 
@@ -592,6 +598,76 @@ class MusicAssistantAPI {
       _logger.log('Stack: $stack');
       return [];
     }
+  }
+
+  /// Get audiobooks using the browse API with library filtering
+  Future<List<Audiobook>> _getAudiobooksFromBrowse(
+    List<String> enabledLibraryPaths, {
+    bool? favoriteOnly,
+  }) async {
+    final allAudiobooks = <Audiobook>[];
+
+    for (final libraryPath in enabledLibraryPaths) {
+      try {
+        _logger.log('📚 Browsing library: $libraryPath');
+
+        // Browse the library to find the Audiobooks folder
+        final libraryContents = await browse(libraryPath);
+
+        // Find the Audiobooks folder (path ends with /b)
+        String? audiobooksPath;
+        for (final item in libraryContents) {
+          final itemMap = item as Map<String, dynamic>;
+          final path = itemMap['path'] as String? ?? '';
+          final name = (itemMap['name'] as String? ?? '').toLowerCase();
+
+          if (path.endsWith('/b') || name == 'audiobooks') {
+            audiobooksPath = path;
+            _logger.log('📚 Found Audiobooks folder: $audiobooksPath');
+            break;
+          }
+        }
+
+        if (audiobooksPath == null) {
+          _logger.log('📚 No Audiobooks folder found in library $libraryPath');
+          continue;
+        }
+
+        // Browse the Audiobooks folder
+        final audiobookItems = await browse(audiobooksPath);
+        _logger.log('📚 Found ${audiobookItems.length} items in Audiobooks folder');
+
+        for (final item in audiobookItems) {
+          final itemMap = item as Map<String, dynamic>;
+          final mediaType = itemMap['media_type'] as String?;
+          final name = itemMap['name'] as String? ?? '';
+
+          // Skip navigation items
+          if (name == '..') continue;
+
+          // Only include audiobooks
+          if (mediaType == 'audiobook') {
+            try {
+              final book = Audiobook.fromJson(itemMap);
+
+              // Apply favorite filter if requested
+              if (favoriteOnly == true && book.favorite != true) {
+                continue;
+              }
+
+              allAudiobooks.add(book);
+            } catch (e) {
+              _logger.log('📚 Error parsing audiobook "$name": $e');
+            }
+          }
+        }
+      } catch (e) {
+        _logger.log('📚 Error browsing library $libraryPath: $e');
+      }
+    }
+
+    _logger.log('📚 Total audiobooks from browse: ${allAudiobooks.length}');
+    return allAudiobooks;
   }
 
   /// Play an audiobook
