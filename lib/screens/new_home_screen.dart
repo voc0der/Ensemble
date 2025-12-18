@@ -10,6 +10,8 @@ import '../widgets/player_selector.dart';
 import '../widgets/album_row.dart';
 import '../widgets/artist_row.dart';
 import '../widgets/track_row.dart';
+import '../widgets/audiobook_row.dart';
+import '../widgets/series_row.dart';
 import '../widgets/common/disconnected_state.dart';
 import 'settings_screen.dart';
 import 'search_screen.dart';
@@ -32,6 +34,10 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
   bool _showFavoriteAlbums = false;
   bool _showFavoriteArtists = false;
   bool _showFavoriteTracks = false;
+  // Audiobook rows (default off)
+  bool _showContinueListeningAudiobooks = false;
+  bool _showDiscoverAudiobooks = false;
+  bool _showDiscoverSeries = false;
   // Random order for favorites (generated once per session)
   late List<int> _favoritesOrder;
 
@@ -68,6 +74,9 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
     final showFavAlbums = await SettingsService.getShowFavoriteAlbums();
     final showFavArtists = await SettingsService.getShowFavoriteArtists();
     final showFavTracks = await SettingsService.getShowFavoriteTracks();
+    final showContAudiobooks = await SettingsService.getShowContinueListeningAudiobooks();
+    final showDiscAudiobooks = await SettingsService.getShowDiscoverAudiobooks();
+    final showDiscSeries = await SettingsService.getShowDiscoverSeries();
     if (mounted) {
       setState(() {
         _showRecentAlbums = showRecent;
@@ -76,6 +85,9 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         _showFavoriteAlbums = showFavAlbums;
         _showFavoriteArtists = showFavArtists;
         _showFavoriteTracks = showFavTracks;
+        _showContinueListeningAudiobooks = showContAudiobooks;
+        _showDiscoverAudiobooks = showDiscAudiobooks;
+        _showDiscoverSeries = showDiscSeries;
       });
     }
   }
@@ -243,6 +255,33 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
                       key: const ValueKey('discover-albums'),
                       title: 'Discover Albums',
                       loadAlbums: () => provider.getDiscoverAlbumsWithCache(),
+                      rowHeight: rowHeight,
+                    ),
+
+                  // Continue Listening Audiobooks (optional)
+                  if (_showContinueListeningAudiobooks)
+                    AudiobookRow(
+                      key: const ValueKey('continue-listening-audiobooks'),
+                      title: 'Continue Listening',
+                      loadAudiobooks: () => provider.getInProgressAudiobooks(),
+                      rowHeight: rowHeight,
+                    ),
+
+                  // Discover Audiobooks (optional)
+                  if (_showDiscoverAudiobooks)
+                    AudiobookRow(
+                      key: const ValueKey('discover-audiobooks'),
+                      title: 'Discover Audiobooks',
+                      loadAudiobooks: () => provider.getDiscoverAudiobooks(),
+                      rowHeight: rowHeight,
+                    ),
+
+                  // Discover Series (optional)
+                  if (_showDiscoverSeries)
+                    SeriesRow(
+                      key: const ValueKey('discover-series'),
+                      title: 'Discover Series',
+                      loadSeries: () => provider.getDiscoverSeries(),
                       rowHeight: rowHeight,
                     ),
 

@@ -1294,6 +1294,64 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   // ============================================================================
+  // AUDIOBOOK HOME SCREEN ROWS
+  // ============================================================================
+
+  /// Get audiobooks that have progress (continue listening)
+  Future<List<Audiobook>> getInProgressAudiobooks() async {
+    if (_api == null) return [];
+
+    try {
+      _logger.log('📚 Fetching in-progress audiobooks...');
+      final allAudiobooks = await _api!.getAudiobooks();
+      // Filter to only those with progress, sorted by most recent/highest progress
+      final inProgress = allAudiobooks
+          .where((a) => a.progress > 0 && a.progress < 1.0) // Has progress but not complete
+          .toList()
+        ..sort((a, b) => b.progress.compareTo(a.progress)); // Sort by progress descending
+      _logger.log('📚 Found ${inProgress.length} in-progress audiobooks');
+      return inProgress.take(20).toList(); // Limit to 20 for home row
+    } catch (e) {
+      _logger.log('❌ Failed to fetch in-progress audiobooks: $e');
+      return [];
+    }
+  }
+
+  /// Get random audiobooks for discovery
+  Future<List<Audiobook>> getDiscoverAudiobooks() async {
+    if (_api == null) return [];
+
+    try {
+      _logger.log('📚 Fetching discover audiobooks...');
+      final allAudiobooks = await _api!.getAudiobooks();
+      // Shuffle and take a subset
+      final shuffled = List<Audiobook>.from(allAudiobooks)..shuffle();
+      _logger.log('📚 Found ${allAudiobooks.length} total audiobooks, returning random selection');
+      return shuffled.take(20).toList();
+    } catch (e) {
+      _logger.log('❌ Failed to fetch discover audiobooks: $e');
+      return [];
+    }
+  }
+
+  /// Get random series for discovery
+  Future<List<AudiobookSeries>> getDiscoverSeries() async {
+    if (_api == null) return [];
+
+    try {
+      _logger.log('📚 Fetching discover series...');
+      final allSeries = await _api!.getAudiobookSeries();
+      // Shuffle and take a subset
+      final shuffled = List<AudiobookSeries>.from(allSeries)..shuffle();
+      _logger.log('📚 Found ${allSeries.length} total series, returning random selection');
+      return shuffled.take(20).toList();
+    } catch (e) {
+      _logger.log('❌ Failed to fetch discover series: $e');
+      return [];
+    }
+  }
+
+  // ============================================================================
   // DETAIL SCREEN CACHING
   // ============================================================================
 
