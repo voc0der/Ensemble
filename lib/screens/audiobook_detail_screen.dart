@@ -519,7 +519,7 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Text(
-                            book.description!,
+                            _stripHtml(book.description!),
                             style: textTheme.bodyLarge?.copyWith(
                               color: colorScheme.onSurface.withOpacity(0.8),
                             ),
@@ -774,5 +774,21 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
       return '${minutes}m ${seconds}s';
     }
     return '${seconds}s';
+  }
+
+  /// Strip HTML tags from text and clean up whitespace
+  String _stripHtml(String htmlText) {
+    // Remove HTML tags
+    final withoutTags = htmlText.replaceAll(RegExp(r'<[^>]*>'), '');
+    // Decode common HTML entities
+    final decoded = withoutTags
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'");
+    // Clean up multiple spaces/newlines
+    return decoded.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 }

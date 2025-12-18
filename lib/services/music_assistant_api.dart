@@ -782,18 +782,45 @@ class MusicAssistantAPI {
     try {
       _logger.log('📚 Getting audiobook series...');
 
-      // First, get the audiobookshelf provider ID
-      final providerId = await getAudiobookshelfProviderId();
-      if (providerId == null) {
-        _logger.log('📚 No audiobookshelf provider found');
+      // First, browse the root to discover available providers
+      final rootItems = await browse(null);
+      _logger.log('📚 Browse root has ${rootItems.length} items');
+
+      // Log all root items to understand structure
+      for (final item in rootItems) {
+        final itemMap = item as Map<String, dynamic>;
+        _logger.log('📚 Root item: path=${itemMap['path']}, name=${itemMap['name']}, label=${itemMap['label']}');
+      }
+
+      // Find audiobookshelf provider in browse results
+      String? providerPath;
+      for (final item in rootItems) {
+        final itemMap = item as Map<String, dynamic>;
+        final path = itemMap['path'] as String? ?? '';
+        final name = (itemMap['name'] as String? ?? '').toLowerCase();
+        final label = (itemMap['label'] as String? ?? '').toLowerCase();
+
+        if (path.contains('audiobookshelf') || name.contains('audiobookshelf') || label.contains('audiobookshelf')) {
+          providerPath = path;
+          _logger.log('📚 Found audiobookshelf provider at: $providerPath');
+          break;
+        }
+      }
+
+      if (providerPath == null) {
+        _logger.log('📚 No audiobookshelf provider found in browse root');
         return [];
       }
 
-      _logger.log('📚 Found provider: $providerId');
-
-      // Browse the provider root to find available categories
-      final providerRoot = await browse(providerId);
+      // Browse the provider to find categories
+      final providerRoot = await browse(providerPath);
       _logger.log('📚 Provider root has ${providerRoot.length} items');
+
+      // Log provider contents
+      for (final item in providerRoot) {
+        final itemMap = item as Map<String, dynamic>;
+        _logger.log('📚 Provider item: path=${itemMap['path']}, name=${itemMap['name']}, label=${itemMap['label']}');
+      }
 
       // Look for "Series" folder in the provider structure
       String? seriesPath;
@@ -802,8 +829,6 @@ class MusicAssistantAPI {
         final name = (itemMap['name'] as String? ?? '').toLowerCase();
         final label = (itemMap['label'] as String? ?? '').toLowerCase();
         final path = itemMap['path'] as String? ?? '';
-
-        _logger.log('📚 Checking: name=$name, label=$label, path=$path');
 
         if (name.contains('series') || label.contains('series') || path.contains('series')) {
           seriesPath = path;
@@ -819,11 +844,12 @@ class MusicAssistantAPI {
 
       // Browse the series folder
       final seriesItems = await browse(seriesPath);
-      _logger.log('📚 Found ${seriesItems.length} series');
+      _logger.log('📚 Found ${seriesItems.length} series items');
 
       final series = <AudiobookSeries>[];
       for (final item in seriesItems) {
         final itemMap = item as Map<String, dynamic>;
+        _logger.log('📚 Series item: ${itemMap.keys.toList()}');
         // Skip if this is a media item (has media_type)
         if (itemMap.containsKey('media_type')) continue;
 
