@@ -22,6 +22,7 @@ import 'playlist_details_screen.dart';
 import 'settings_screen.dart';
 import 'audiobook_author_screen.dart';
 import 'audiobook_detail_screen.dart';
+import 'audiobook_series_screen.dart';
 
 /// Media type for the library
 enum LibraryMediaType { music, books, podcasts }
@@ -1443,10 +1444,12 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       elevation: 2,
       child: InkWell(
         onTap: () {
-          // TODO: Navigate to series detail screen
           _logger.log('📚 Tapped series: ${series.name}, path: ${series.id}');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Series: ${series.name}')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AudiobookSeriesScreen(series: series),
+            ),
           );
         },
         child: Column(
