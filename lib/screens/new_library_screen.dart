@@ -1585,6 +1585,21 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       gridSize = gridSize.clamp(1, maxGridSize);
       final displayCovers = covers.take(gridSize * gridSize).toList();
 
+      // Dark pastel colors for empty cells - muted and book-like
+      const emptyColors = [
+        Color(0xFF2D3436), // Dark slate
+        Color(0xFF34495E), // Dark blue-grey
+        Color(0xFF4A3728), // Dark brown
+        Color(0xFF2C3E50), // Midnight blue
+        Color(0xFF3D3D3D), // Charcoal
+        Color(0xFF4A4458), // Dark purple-grey
+        Color(0xFF3E4A47), // Dark teal-grey
+        Color(0xFF4A3F35), // Dark warm grey
+      ];
+
+      // Use series ID to pick consistent colors for this series
+      final colorSeed = series.id.hashCode;
+
       // Use simple Column/Row layout instead of GridView to avoid scroll-related animations
       // No margins between cells for seamless appearance
       return Column(
@@ -1594,11 +1609,11 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               children: List.generate(gridSize, (col) {
                 final index = row * gridSize + col;
                 if (index >= displayCovers.length) {
-                  // Empty cell - use the adjacent cover's dominant color feel
-                  // by showing a subtle gradient or blending with surrounding
+                  // Empty cell - use dark pastel color
+                  final colorIndex = (colorSeed + index) % emptyColors.length;
                   return Expanded(
                     child: Container(
-                      color: Colors.transparent,
+                      color: emptyColors[colorIndex],
                     ),
                   );
                 }
