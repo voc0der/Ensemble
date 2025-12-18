@@ -1003,6 +1003,8 @@ class MusicAssistantAPI {
         // Only include audiobooks (items with media_type)
         if (mediaType == 'audiobook') {
           _logger.log('📚 Parsing audiobook $i...');
+          // Debug: Log key fields for sequence detection
+          _logger.log('📚 Raw data $i: position=${itemMap['position']}, sort_name=${itemMap['sort_name']}, metadata.series=${(itemMap['metadata'] as Map?)?['series']}');
           try {
             audiobooks.add(Audiobook.fromJson(itemMap));
             _logger.log('📚 Parsed audiobook $i successfully');

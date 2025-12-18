@@ -126,13 +126,22 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
       final books = await maProvider.api!.getSeriesAudiobooks(widget.series.id);
       _logger.log('📚 SeriesScreen got ${books.length} books');
 
+      // Debug: Log sequence data for each book
+      for (final book in books) {
+        _logger.log('📚 Book: "${book.name}" | position=${book.position} | sortName=${book.sortName} | seq=${book.seriesSequence} | metadata.series=${book.metadata?['series']}');
+      }
+
       if (mounted) {
         setState(() {
           _audiobooks = books;
           _sortAudiobooks(); // Sort inside setState so UI updates
           _isLoading = false;
         });
-        _logger.log('📚 SeriesScreen setState complete, sorted by $_sortOrder');
+        // Debug: Log sorted order
+        _logger.log('📚 Sorted order ($_sortOrder):');
+        for (final book in _audiobooks) {
+          _logger.log('  - ${book.seriesSequence ?? "null"}: ${book.name}');
+        }
       }
     } catch (e, stack) {
       _logger.log('📚 SeriesScreen error: $e');
