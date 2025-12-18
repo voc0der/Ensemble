@@ -786,21 +786,13 @@ class MusicAssistantAPI {
       final rootItems = await browse(null);
       _logger.log('📚 Browse root has ${rootItems.length} items');
 
-      // Log all root items to understand structure
-      for (final item in rootItems) {
-        final itemMap = item as Map<String, dynamic>;
-        _logger.log('📚 Root item: path=${itemMap['path']}, name=${itemMap['name']}, label=${itemMap['label']}');
-      }
-
       // Find audiobookshelf provider in browse results
       String? providerPath;
       for (final item in rootItems) {
         final itemMap = item as Map<String, dynamic>;
         final path = itemMap['path'] as String? ?? '';
-        final name = (itemMap['name'] as String? ?? '').toLowerCase();
-        final label = (itemMap['label'] as String? ?? '').toLowerCase();
 
-        if (path.contains('audiobookshelf') || name.contains('audiobookshelf') || label.contains('audiobookshelf')) {
+        if (path.contains('audiobookshelf')) {
           providerPath = path;
           _logger.log('📚 Found audiobookshelf provider at: $providerPath');
           break;
@@ -812,52 +804,64 @@ class MusicAssistantAPI {
         return [];
       }
 
-      // Browse the provider to find categories
+      // Browse the provider to find libraries
       final providerRoot = await browse(providerPath);
-      _logger.log('📚 Provider root has ${providerRoot.length} items');
+      _logger.log('📚 Provider has ${providerRoot.length} items (libraries)');
 
-      // Log provider contents
-      for (final item in providerRoot) {
-        final itemMap = item as Map<String, dynamic>;
-        _logger.log('📚 Provider item: path=${itemMap['path']}, name=${itemMap['name']}, label=${itemMap['label']}');
-      }
+      // Collect series from all libraries
+      final allSeries = <AudiobookSeries>[];
 
-      // Look for "Series" folder in the provider structure
-      String? seriesPath;
-      for (final item in providerRoot) {
-        final itemMap = item as Map<String, dynamic>;
-        final name = (itemMap['name'] as String? ?? '').toLowerCase();
-        final label = (itemMap['label'] as String? ?? '').toLowerCase();
-        final path = itemMap['path'] as String? ?? '';
+      for (final libraryItem in providerRoot) {
+        final libraryMap = libraryItem as Map<String, dynamic>;
+        final libraryPath = libraryMap['path'] as String? ?? '';
+        final libraryName = libraryMap['name'] as String? ?? '';
 
-        if (name.contains('series') || label.contains('series') || path.contains('series')) {
-          seriesPath = path;
-          _logger.log('📚 Found series path: $seriesPath');
-          break;
+        // Skip "root" (parent navigation) item
+        if (libraryPath == 'root' || libraryName == '..') continue;
+
+        _logger.log('📚 Checking library: $libraryName at $libraryPath');
+
+        // Browse into the library to find categories
+        final libraryContents = await browse(libraryPath);
+        _logger.log('📚 Library "$libraryName" has ${libraryContents.length} items');
+
+        // Log library contents to find series
+        for (final item in libraryContents) {
+          final itemMap = item as Map<String, dynamic>;
+          final name = itemMap['name'] as String? ?? '';
+          final path = itemMap['path'] as String? ?? '';
+          _logger.log('📚   Library item: name=$name, path=$path');
+        }
+
+        // Look for "Series" folder in the library
+        for (final item in libraryContents) {
+          final itemMap = item as Map<String, dynamic>;
+          final name = (itemMap['name'] as String? ?? '').toLowerCase();
+          final path = itemMap['path'] as String? ?? '';
+
+          if (name.contains('series') || path.contains('series')) {
+            _logger.log('📚 Found series folder: $path');
+
+            // Browse the series folder
+            final seriesItems = await browse(path);
+            _logger.log('📚 Found ${seriesItems.length} series in library "$libraryName"');
+
+            for (final seriesItem in seriesItems) {
+              final seriesMap = seriesItem as Map<String, dynamic>;
+              // Skip parent navigation and media items
+              if (seriesMap['path'] == 'root' || seriesMap['name'] == '..') continue;
+              if (seriesMap.containsKey('media_type') && seriesMap['media_type'] != null) continue;
+
+              _logger.log('📚 Series: name=${seriesMap['name']}, path=${seriesMap['path']}');
+              allSeries.add(AudiobookSeries.fromJson(seriesMap));
+            }
+            break; // Found series in this library, move to next library
+          }
         }
       }
 
-      if (seriesPath == null) {
-        _logger.log('📚 No series folder found in provider');
-        return [];
-      }
-
-      // Browse the series folder
-      final seriesItems = await browse(seriesPath);
-      _logger.log('📚 Found ${seriesItems.length} series items');
-
-      final series = <AudiobookSeries>[];
-      for (final item in seriesItems) {
-        final itemMap = item as Map<String, dynamic>;
-        _logger.log('📚 Series item: ${itemMap.keys.toList()}');
-        // Skip if this is a media item (has media_type)
-        if (itemMap.containsKey('media_type')) continue;
-
-        series.add(AudiobookSeries.fromJson(itemMap));
-      }
-
-      _logger.log('📚 Parsed ${series.length} series');
-      return series;
+      _logger.log('📚 Total series found: ${allSeries.length}');
+      return allSeries;
     } catch (e, stack) {
       _logger.log('📚 Error getting series: $e');
       _logger.log('📚 Stack: $stack');
