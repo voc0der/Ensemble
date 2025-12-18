@@ -58,9 +58,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   // Author image cache
   final Map<String, String?> _authorImages = {};
 
-  // Series discovery state
-  bool _isExploringSeries = false;
-  bool _seriesExplorationDone = false;
+  // Series state
+  List<AudiobookSeries> _series = [];
+  bool _isLoadingSeries = false;
+  bool _seriesLoaded = false;
 
   // Restoration: Remember selected tab across app restarts
   final RestorableInt _selectedTabIndex = RestorableInt(0);
@@ -341,9 +342,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       if (_audiobooks.isEmpty) {
         _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null);
       }
-      // Explore series from Music Assistant
-      if (!_seriesExplorationDone) {
-        _exploreSeries();
+      // Load series from Music Assistant
+      if (!_seriesLoaded) {
+        _loadSeries();
       }
     }
   }
@@ -479,32 +480,39 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     }
   }
 
-  /// Explore series data from Music Assistant (discovery mode)
-  Future<void> _exploreSeries() async {
-    if (_isExploringSeries) return;
+  /// Load audiobook series from Music Assistant
+  Future<void> _loadSeries() async {
+    if (_isLoadingSeries) return;
 
     setState(() {
-      _isExploringSeries = true;
+      _isLoadingSeries = true;
     });
 
     try {
       final maProvider = context.read<MusicAssistantProvider>();
       if (maProvider.api != null) {
-        await maProvider.api!.exploreSeries();
-        _logger.log('📚 Series exploration complete - check debug logs');
-      }
+        final series = await maProvider.api!.getAudiobookSeries();
+        _logger.log('📚 Loaded ${series.length} series');
 
-      if (mounted) {
-        setState(() {
-          _isExploringSeries = false;
-          _seriesExplorationDone = true;
-        });
+        if (mounted) {
+          setState(() {
+            _series = series;
+            _isLoadingSeries = false;
+            _seriesLoaded = true;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoadingSeries = false;
+          });
+        }
       }
     } catch (e) {
-      _logger.log('📚 Error exploring series: $e');
+      _logger.log('📚 Error loading series: $e');
       if (mounted) {
         setState(() {
-          _isExploringSeries = false;
+          _isLoadingSeries = false;
         });
       }
     }
@@ -1329,9 +1337,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildSeriesTab(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final maProvider = context.read<MusicAssistantProvider>();
 
-    // Exploring state
-    if (_isExploringSeries) {
+    // Loading state
+    if (_isLoadingSeries) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1339,18 +1348,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             CircularProgressIndicator(color: colorScheme.primary),
             const SizedBox(height: 16),
             Text(
-              'Discovering series...',
+              'Loading series...',
               style: TextStyle(
                 color: colorScheme.onSurface.withOpacity(0.6),
                 fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Check debug logs for API responses',
-              style: TextStyle(
-                color: colorScheme.onSurface.withOpacity(0.4),
-                fontSize: 12,
               ),
             ),
           ],
@@ -1358,73 +1359,150 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       );
     }
 
-    // Discovery complete or not started
-    return RefreshIndicator(
-      onRefresh: _exploreSeries,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.collections_bookmark_rounded,
-                      size: 64,
-                      color: colorScheme.primary.withOpacity(0.3),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Series',
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
+    // Empty state
+    if (_series.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadSeries,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.collections_bookmark_rounded,
+                        size: 64,
+                        color: colorScheme.primary.withOpacity(0.3),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _seriesExplorationDone
-                          ? 'Discovery complete!\nCheck debug logs to see what MA returns.\nPull to re-discover.'
-                          : 'Pull down to discover series\nfrom Music Assistant',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: colorScheme.onSurface.withOpacity(0.6),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton.tonal(
-                      onPressed: _exploreSeries,
-                      child: Text(_seriesExplorationDone ? 'Re-discover' : 'Discover Now'),
-                    ),
-                    if (_seriesExplorationDone) ...[
                       const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(8),
+                      Text(
+                        'No Series Found',
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
                         ),
-                        child: Text(
-                          '💡 Open an audiobook detail screen\nto see chapter data in logs',
-                          textAlign: TextAlign.center,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _seriesLoaded
+                            ? 'No series available from your audiobook library.\nPull to refresh.'
+                            : 'Pull down to load series\nfrom Music Assistant',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: colorScheme.onSurface.withOpacity(0.6),
+                          fontSize: 14,
                         ),
+                      ),
+                      const SizedBox(height: 24),
+                      FilledButton.tonal(
+                        onPressed: _loadSeries,
+                        child: const Text('Load Series'),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+      );
+    }
+
+    // Series grid
+    return RefreshIndicator(
+      onRefresh: _loadSeries,
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.75,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+        ),
+        itemCount: _series.length,
+        itemBuilder: (context, index) {
+          final series = _series[index];
+          return _buildSeriesCard(context, series, maProvider);
+        },
+      ),
+    );
+  }
+
+  Widget _buildSeriesCard(BuildContext context, AudiobookSeries series, MusicAssistantProvider maProvider) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      elevation: 2,
+      child: InkWell(
+        onTap: () {
+          // TODO: Navigate to series detail screen
+          _logger.log('📚 Tapped series: ${series.name}, path: ${series.id}');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Series: ${series.name}')),
+          );
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Container(
+                color: colorScheme.surfaceContainerHighest,
+                child: series.thumbnailUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: series.thumbnailUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => _buildSeriesPlaceholder(colorScheme),
+                        errorWidget: (_, __, ___) => _buildSeriesPlaceholder(colorScheme),
+                      )
+                    : _buildSeriesPlaceholder(colorScheme),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    series.name,
+                    style: textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (series.bookCount != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '${series.bookCount} book${series.bookCount == 1 ? '' : 's'}',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeriesPlaceholder(ColorScheme colorScheme) {
+    return Center(
+      child: Icon(
+        Icons.collections_bookmark_rounded,
+        size: 48,
+        color: colorScheme.onSurfaceVariant.withOpacity(0.5),
       ),
     );
   }

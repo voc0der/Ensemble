@@ -524,3 +524,82 @@ class Audiobook extends MediaItem {
     return json;
   }
 }
+
+/// Represents a browseable folder in Music Assistant (providers, series, authors, etc.)
+class BrowseFolder {
+  final String path;
+  final String name;
+  final String? label;
+  final String? thumbnailUrl;
+  final bool canExpand;
+  final List<MediaItem>? items;
+
+  BrowseFolder({
+    required this.path,
+    required this.name,
+    this.label,
+    this.thumbnailUrl,
+    this.canExpand = true,
+    this.items,
+  });
+
+  factory BrowseFolder.fromJson(Map<String, dynamic> json) {
+    // MA returns either a BrowseFolder or a MediaItem
+    // BrowseFolder has 'path' and 'name', MediaItem has 'item_id' and 'media_type'
+    return BrowseFolder(
+      path: json['path'] as String? ?? json['uri'] as String? ?? '',
+      name: json['name'] as String? ?? json['label'] as String? ?? 'Unknown',
+      label: json['label'] as String?,
+      thumbnailUrl: _extractThumbnail(json),
+      canExpand: json['can_expand'] as bool? ?? true,
+    );
+  }
+
+  static String? _extractThumbnail(Map<String, dynamic> json) {
+    // Check for image in metadata
+    final metadata = json['metadata'] as Map<String, dynamic>?;
+    if (metadata != null) {
+      final images = metadata['images'] as List<dynamic>?;
+      if (images != null && images.isNotEmpty) {
+        final first = images.first as Map<String, dynamic>;
+        return first['path'] as String?;
+      }
+    }
+    // Check for direct thumbnail
+    return json['thumbnail'] as String? ?? json['image'] as String?;
+  }
+}
+
+/// Represents an audiobook series
+class AudiobookSeries {
+  final String id;
+  final String name;
+  final String? thumbnailUrl;
+  final List<Audiobook>? books;
+  final int? bookCount;
+
+  AudiobookSeries({
+    required this.id,
+    required this.name,
+    this.thumbnailUrl,
+    this.books,
+    this.bookCount,
+  });
+
+  factory AudiobookSeries.fromBrowseFolder(BrowseFolder folder) {
+    return AudiobookSeries(
+      id: folder.path,
+      name: folder.name,
+      thumbnailUrl: folder.thumbnailUrl,
+    );
+  }
+
+  factory AudiobookSeries.fromJson(Map<String, dynamic> json) {
+    return AudiobookSeries(
+      id: json['path'] as String? ?? json['id'] as String? ?? '',
+      name: json['name'] as String? ?? json['label'] as String? ?? 'Unknown Series',
+      thumbnailUrl: BrowseFolder._extractThumbnail(json),
+      bookCount: json['book_count'] as int?,
+    );
+  }
+}

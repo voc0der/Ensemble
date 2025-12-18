@@ -719,66 +719,156 @@ class MusicAssistantAPI {
     }
   }
 
-  /// Explore available MA endpoints for series (discovery/debugging)
-  Future<void> exploreSeries() async {
-    _logger.log('📚 ============ EXPLORING SERIES ENDPOINTS ============');
-
-    // Try various possible endpoints
-    final endpoints = [
-      'music/audiobooks/series',
-      'music/series',
-      'music/audiobooks/library_items',  // Check if audiobooks have series info
-    ];
-
-    for (final endpoint in endpoints) {
-      try {
-        _logger.log('📚 Trying endpoint: $endpoint');
-        final response = await _sendCommand(endpoint, args: {'limit': 5});
-
-        if (response.containsKey('error_code')) {
-          _logger.log('📚 [$endpoint] ERROR: ${response['error_code']}');
-        } else {
-          final result = response['result'];
-          if (result is List) {
-            _logger.log('📚 [$endpoint] SUCCESS! Got ${result.length} items');
-            if (result.isNotEmpty) {
-              final first = result.first as Map<String, dynamic>;
-              _logger.log('📚 [$endpoint] First item keys: ${first.keys.toList()}');
-              // Look for series-related fields
-              for (final key in first.keys) {
-                if (key.toLowerCase().contains('series')) {
-                  _logger.log('📚 [$endpoint] SERIES FIELD: $key = ${first[key]}');
-                }
-              }
-            }
-          } else {
-            _logger.log('📚 [$endpoint] Result type: ${result.runtimeType}');
-          }
-        }
-      } catch (e) {
-        _logger.log('📚 [$endpoint] Exception: $e');
-      }
-    }
-
-    // Also check a single audiobook for series info
-    _logger.log('📚 Checking audiobook details for series info...');
+  /// Browse Music Assistant content by path
+  /// Returns a list of browse items (folders or media items)
+  Future<List<dynamic>> browse(String? path) async {
     try {
-      final audiobooks = await getAudiobooks(limit: 1);
-      if (audiobooks.isNotEmpty) {
-        final book = audiobooks.first;
-        _logger.log('📚 Checking audiobook: ${book.name}');
+      _logger.log('📚 Browse: path=$path');
 
-        // Get full details
-        final details = await getAudiobookDetails(book.provider, book.itemId);
-        if (details != null) {
-          _logger.log('📚 Full details retrieved - check logs above for metadata');
+      final response = await _sendCommand(
+        'music/browse',
+        args: path != null ? {'path': path} : <String, dynamic>{},
+      );
+
+      if (response.containsKey('error_code')) {
+        _logger.log('📚 Browse error: ${response['error_code']}');
+        return [];
+      }
+
+      final result = response['result'] as List<dynamic>?;
+      if (result == null) {
+        _logger.log('📚 Browse: result is null');
+        return [];
+      }
+
+      _logger.log('📚 Browse: found ${result.length} items');
+
+      // Log first few items for debugging
+      for (var i = 0; i < result.length && i < 3; i++) {
+        final item = result[i] as Map<String, dynamic>;
+        _logger.log('📚 Browse[$i]: ${item.keys.toList()}');
+        _logger.log('📚 Browse[$i]: path=${item['path']}, name=${item['name']}, label=${item['label']}');
+      }
+
+      return result;
+    } catch (e) {
+      _logger.log('📚 Browse error: $e');
+      return [];
+    }
+  }
+
+  /// Get the audiobookshelf provider instance ID
+  Future<String?> getAudiobookshelfProviderId() async {
+    try {
+      // Get an audiobook and extract the provider instance from it
+      final audiobooks = await getAudiobooks(limit: 1);
+      if (audiobooks.isEmpty) return null;
+
+      final book = audiobooks.first;
+      final mapping = book.providerMappings?.firstWhere(
+        (m) => m.providerDomain == 'audiobookshelf',
+        orElse: () => book.providerMappings!.first,
+      );
+
+      return mapping?.providerInstance;
+    } catch (e) {
+      _logger.log('📚 Error getting ABS provider ID: $e');
+      return null;
+    }
+  }
+
+  /// Get audiobook series from the browse API
+  Future<List<AudiobookSeries>> getAudiobookSeries() async {
+    try {
+      _logger.log('📚 Getting audiobook series...');
+
+      // First, get the audiobookshelf provider ID
+      final providerId = await getAudiobookshelfProviderId();
+      if (providerId == null) {
+        _logger.log('📚 No audiobookshelf provider found');
+        return [];
+      }
+
+      _logger.log('📚 Found provider: $providerId');
+
+      // Browse the provider root to find available categories
+      final providerRoot = await browse(providerId);
+      _logger.log('📚 Provider root has ${providerRoot.length} items');
+
+      // Look for "Series" folder in the provider structure
+      String? seriesPath;
+      for (final item in providerRoot) {
+        final itemMap = item as Map<String, dynamic>;
+        final name = (itemMap['name'] as String? ?? '').toLowerCase();
+        final label = (itemMap['label'] as String? ?? '').toLowerCase();
+        final path = itemMap['path'] as String? ?? '';
+
+        _logger.log('📚 Checking: name=$name, label=$label, path=$path');
+
+        if (name.contains('series') || label.contains('series') || path.contains('series')) {
+          seriesPath = path;
+          _logger.log('📚 Found series path: $seriesPath');
+          break;
         }
       }
-    } catch (e) {
-      _logger.log('📚 Error checking audiobook: $e');
-    }
 
-    _logger.log('📚 ============ END SERIES EXPLORATION ============');
+      if (seriesPath == null) {
+        _logger.log('📚 No series folder found in provider');
+        return [];
+      }
+
+      // Browse the series folder
+      final seriesItems = await browse(seriesPath);
+      _logger.log('📚 Found ${seriesItems.length} series');
+
+      final series = <AudiobookSeries>[];
+      for (final item in seriesItems) {
+        final itemMap = item as Map<String, dynamic>;
+        // Skip if this is a media item (has media_type)
+        if (itemMap.containsKey('media_type')) continue;
+
+        series.add(AudiobookSeries.fromJson(itemMap));
+      }
+
+      _logger.log('📚 Parsed ${series.length} series');
+      return series;
+    } catch (e, stack) {
+      _logger.log('📚 Error getting series: $e');
+      _logger.log('📚 Stack: $stack');
+      return [];
+    }
+  }
+
+  /// Get audiobooks in a specific series
+  Future<List<Audiobook>> getSeriesAudiobooks(String seriesPath) async {
+    try {
+      _logger.log('📚 Getting audiobooks for series: $seriesPath');
+
+      final items = await browse(seriesPath);
+      final audiobooks = <Audiobook>[];
+
+      for (final item in items) {
+        final itemMap = item as Map<String, dynamic>;
+        // Only include audiobooks (items with media_type)
+        if (itemMap['media_type'] == 'audiobook') {
+          audiobooks.add(Audiobook.fromJson(itemMap));
+        }
+      }
+
+      _logger.log('📚 Found ${audiobooks.length} audiobooks in series');
+      return audiobooks;
+    } catch (e) {
+      _logger.log('📚 Error getting series audiobooks: $e');
+      return [];
+    }
+  }
+
+  /// Legacy method - now uses browse API
+  @Deprecated('Use getAudiobookSeries instead')
+  Future<void> exploreSeries() async {
+    _logger.log('📚 exploreSeries is deprecated, use getAudiobookSeries instead');
+    final series = await getAudiobookSeries();
+    _logger.log('📚 Found ${series.length} series via browse API');
   }
 
   /// Get recently played albums
