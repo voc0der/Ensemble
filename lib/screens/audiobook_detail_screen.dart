@@ -215,7 +215,7 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
       );
 
       setState(() {
-        _audiobook = updatedAudiobook;
+        _fullAudiobook = updatedAudiobook;
       });
 
       // TODO: Call MA/ABS API to update server-side progress when available
@@ -266,7 +266,7 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
       );
 
       setState(() {
-        _audiobook = updatedAudiobook;
+        _fullAudiobook = updatedAudiobook;
       });
 
       // TODO: Call MA/ABS API to update server-side progress when available
