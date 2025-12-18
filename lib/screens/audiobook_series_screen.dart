@@ -29,7 +29,12 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
   void initState() {
     super.initState();
     _logger.log('📚 SeriesScreen initState for: ${widget.series.name}');
-    _loadSeriesBooks();
+    // Defer loading until after first frame to allow UI to render first
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadSeriesBooks();
+      }
+    });
   }
 
   Future<void> _loadSeriesBooks() async {
