@@ -68,6 +68,7 @@ class PcmAudioPlayer {
   final List<Uint8List> _audioBuffer = [];
   bool _isFeeding = false;
   bool _isStarted = false;
+  bool _isAutoRecovering = false;  // Tracks auto-recovery from setup errors
   Completer<void>? _feedCompleter;  // Tracks when current feed operation completes
 
   // Error callback for operation failures
@@ -202,11 +203,32 @@ class PcmAudioPlayer {
 
   /// Handle incoming audio data from the stream
   void _onAudioData(Uint8List audioData) {
-    // Ignore data if in error state or if in transitional/paused state
+    // Ignore data if in error state
     if (_state == PcmPlayerState.error) return;
+
+    // Handle audio arriving during paused/transitional states
+    // This can happen when audio frames arrive before stream/start message (race condition)
+    // We need to auto-recover in this case
     if (_shouldBlockFeeding) {
-      // Silently ignore audio data when paused or transitioning
-      // This prevents buffer accumulation during pause and any race conditions
+      // If we're paused and audio is arriving, this is likely a new stream
+      // starting before the stream/start message. Queue for auto-recovery.
+      if (_state == PcmPlayerState.paused && !_isAutoRecovering) {
+        _logger.log('PcmAudioPlayer: Audio arriving while paused - initiating auto-recovery');
+        _isAutoRecovering = true;
+        _audioBuffer.add(audioData);
+
+        // Trigger async recovery
+        _autoRecoverFromPause();
+        return;
+      }
+
+      // If already recovering or in transitional state, buffer the data
+      if (_isAutoRecovering) {
+        _audioBuffer.add(audioData);
+        return;
+      }
+
+      // For other blocking states (pausing, stopping, resuming), ignore
       return;
     }
 
@@ -218,12 +240,41 @@ class PcmAudioPlayer {
       _startPlayback();
     }
 
-    // NOTE: Auto-resume from paused state has been removed to prevent race conditions.
-    // The provider should explicitly call play() when ready to resume.
-
     // Feed data if not currently feeding
     if (!_isFeeding && _isStarted) {
       _feedNextChunk();
+    }
+  }
+
+  /// Auto-recover from paused state when audio arrives unexpectedly
+  Future<void> _autoRecoverFromPause() async {
+    _logger.log('PcmAudioPlayer: Auto-recovering from pause');
+
+    try {
+      // Re-initialize the native player
+      await pcm.FlutterPcmSound.setup(
+        sampleRate: _format.sampleRate,
+        channelCount: _format.channels,
+      );
+      await pcm.FlutterPcmSound.setFeedThreshold(_feedThreshold);
+      pcm.FlutterPcmSound.setFeedCallback(_onFeedRequested);
+      await pcm.FlutterPcmSound.start();
+
+      _isStarted = true;
+      _state = PcmPlayerState.playing;
+      _startElapsedTimeTimer();
+      _logger.log('PcmAudioPlayer: Auto-recovery from pause successful');
+
+      // Start feeding buffered data
+      _isAutoRecovering = false;
+      if (_audioBuffer.isNotEmpty && !_isFeeding) {
+        _feedNextChunk();
+      }
+    } catch (e) {
+      _logger.log('PcmAudioPlayer: Auto-recovery from pause failed: $e');
+      _isAutoRecovering = false;
+      _state = PcmPlayerState.error;
+      _emitError(PcmPlayerError.resumeFailed, e.toString());
     }
   }
 
@@ -298,7 +349,41 @@ class PcmAudioPlayer {
 
         // Check state again before the async feed call
         if (samples.isNotEmpty && !_shouldBlockFeeding) {
-          await pcm.FlutterPcmSound.feed(pcm.PcmArrayInt16.fromList(samples));
+          try {
+            await pcm.FlutterPcmSound.feed(pcm.PcmArrayInt16.fromList(samples));
+          } catch (feedError) {
+            // Auto-recover from "must call setup first" error
+            // This happens when audio frames arrive before stream/start message
+            if (feedError.toString().contains('must call setup first') && !_isAutoRecovering) {
+              _logger.log('PcmAudioPlayer: Auto-recovering from setup error');
+              _isAutoRecovering = true;
+
+              try {
+                // Re-initialize the native player
+                await pcm.FlutterPcmSound.setup(
+                  sampleRate: _format.sampleRate,
+                  channelCount: _format.channels,
+                );
+                await pcm.FlutterPcmSound.setFeedThreshold(_feedThreshold);
+                pcm.FlutterPcmSound.setFeedCallback(_onFeedRequested);
+                await pcm.FlutterPcmSound.start();
+                _isStarted = true;
+                _state = PcmPlayerState.playing;
+                _startElapsedTimeTimer();
+                _logger.log('PcmAudioPlayer: Auto-recovery successful');
+
+                // Retry the feed with the current chunk
+                await pcm.FlutterPcmSound.feed(pcm.PcmArrayInt16.fromList(samples));
+              } catch (recoveryError) {
+                _logger.log('PcmAudioPlayer: Auto-recovery failed: $recoveryError');
+                _isAutoRecovering = false;
+                rethrow;
+              }
+              _isAutoRecovering = false;
+            } else {
+              rethrow;
+            }
+          }
 
           // Don't update stats if we got paused during the feed
           if (!_shouldBlockFeeding) {
