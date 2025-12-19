@@ -496,23 +496,29 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
   /// The pattern is deterministic based on series ID and cell index
   Widget _buildEmptyCell(int colorSeed, int cellIndex) {
     // Use extracted colors if available, otherwise fall back to static palette
-    final colors = _extractedColors.isNotEmpty ? _extractedColors : _emptyColors;
+    final baseColors = _extractedColors.isNotEmpty ? _extractedColors : _emptyColors;
+    // Tone down colors - reduce saturation and darken
+    final colors = baseColors.map((c) {
+      final hsl = HSLColor.fromColor(c);
+      return hsl
+          .withSaturation((hsl.saturation * 0.5).clamp(0.05, 0.25))
+          .withLightness((hsl.lightness * 0.7).clamp(0.08, 0.20))
+          .toColor();
+    }).toList();
 
     // Use combined seed for deterministic but varied patterns
     final seed = colorSeed + cellIndex * 17; // Prime multiplier for better distribution
 
-    // Determine nested grid size: 1 (solid), 2 (2x2), 3 (3x3), or 4 (4x4)
-    // Distribution: ~40% solid, ~25% 2x2, ~20% 3x3, ~15% 4x4
+    // Determine nested grid size: 1 (solid), 2 (2x2), or 3 (3x3)
+    // Distribution: ~50% solid, ~30% 2x2, ~20% 3x3
     final sizeRoll = seed.abs() % 100;
     int nestedSize;
-    if (sizeRoll < 40) {
+    if (sizeRoll < 50) {
       nestedSize = 1; // Solid color
-    } else if (sizeRoll < 65) {
+    } else if (sizeRoll < 80) {
       nestedSize = 2; // 2x2 grid
-    } else if (sizeRoll < 85) {
-      nestedSize = 3; // 3x3 grid
     } else {
-      nestedSize = 4; // 4x4 grid
+      nestedSize = 3; // 3x3 grid
     }
 
     if (nestedSize == 1) {
@@ -521,7 +527,7 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
       return Container(color: colors[colorIndex]);
     }
 
-    // Build nested grid
+    // Build nested grid (no margins - seamless)
     return Column(
       children: List.generate(nestedSize, (row) {
         return Expanded(
@@ -532,13 +538,7 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
               final nestedSeed = seed + nestedIndex * 7;
               final colorIndex = nestedSeed.abs() % colors.length;
               return Expanded(
-                child: Container(
-                  margin: EdgeInsets.only(
-                    right: col < nestedSize - 1 ? 0.5 : 0,
-                    bottom: row < nestedSize - 1 ? 0.5 : 0,
-                  ),
-                  color: colors[colorIndex],
-                ),
+                child: Container(color: colors[colorIndex]),
               );
             }),
           ),
