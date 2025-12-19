@@ -248,13 +248,16 @@ class _SeriesCard extends StatelessWidget {
   Widget _buildCoverGrid() {
     if (covers == null || covers!.isEmpty) {
       // Static placeholder - no animation
-      return Container(
-        color: colorScheme.surfaceContainerHighest,
-        child: Center(
-          child: Icon(
-            Icons.collections_bookmark_rounded,
-            size: 48,
-            color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+      return AspectRatio(
+        aspectRatio: 1,
+        child: Container(
+          color: colorScheme.surfaceContainerHighest,
+          child: Center(
+            child: Icon(
+              Icons.collections_bookmark_rounded,
+              size: 48,
+              color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+            ),
           ),
         ),
       );
@@ -272,27 +275,35 @@ class _SeriesCard extends StatelessWidget {
 
     final displayCovers = covers!.take(gridSize * gridSize).toList();
 
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: gridSize,
-        childAspectRatio: 1,
-        crossAxisSpacing: 1,
-        mainAxisSpacing: 1,
+    // Use Column/Row for proper square aspect ratio (no scroll issues)
+    return AspectRatio(
+      aspectRatio: 1,
+      child: Column(
+        children: List.generate(gridSize, (row) {
+          return Expanded(
+            child: Row(
+              children: List.generate(gridSize, (col) {
+                final index = row * gridSize + col;
+                if (index >= displayCovers.length) {
+                  return Expanded(child: Container(color: colorScheme.surfaceContainerHighest));
+                }
+                return Expanded(
+                  child: CachedNetworkImage(
+                    imageUrl: displayCovers[index],
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(
+                      color: colorScheme.surfaceContainerHighest,
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      color: colorScheme.surfaceContainerHighest,
+                    ),
+                  ),
+                );
+              }),
+            ),
+          );
+        }),
       ),
-      itemCount: displayCovers.length,
-      itemBuilder: (context, index) {
-        return CachedNetworkImage(
-          imageUrl: displayCovers[index],
-          fit: BoxFit.cover,
-          placeholder: (_, __) => Container(
-            color: colorScheme.surfaceContainerHighest,
-          ),
-          errorWidget: (_, __, ___) => Container(
-            color: colorScheme.surfaceContainerHighest,
-          ),
-        );
-      },
     );
   }
 }
