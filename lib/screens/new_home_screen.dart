@@ -38,8 +38,8 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
   bool _showContinueListeningAudiobooks = false;
   bool _showDiscoverAudiobooks = false;
   bool _showDiscoverSeries = false;
-  // Random order for favorites (generated once per session)
-  late List<int> _favoritesOrder;
+  // Row order (loaded from settings)
+  List<String> _homeRowOrder = List.from(SettingsService.defaultHomeRowOrder);
 
   @override
   bool get wantKeepAlive => true;
@@ -48,8 +48,6 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Generate random order for favorites rows (0, 1, 2 shuffled)
-    _favoritesOrder = [0, 1, 2]..shuffle();
     _loadSettings();
   }
 
@@ -77,6 +75,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
     final showContAudiobooks = await SettingsService.getShowContinueListeningAudiobooks();
     final showDiscAudiobooks = await SettingsService.getShowDiscoverAudiobooks();
     final showDiscSeries = await SettingsService.getShowDiscoverSeries();
+    final rowOrder = await SettingsService.getHomeRowOrder();
     if (mounted) {
       setState(() {
         _showRecentAlbums = showRecent;
@@ -88,6 +87,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         _showContinueListeningAudiobooks = showContAudiobooks;
         _showDiscoverAudiobooks = showDiscAudiobooks;
         _showDiscoverSeries = showDiscSeries;
+        _homeRowOrder = rowOrder;
       });
     }
   }
@@ -242,9 +242,6 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         final availableHeight = constraints.maxHeight - BottomSpacing.withMiniPlayer;
         final rowHeight = availableHeight / 3;
 
-        // Build favorites rows in random order
-        final favoritesWidgets = _buildFavoritesRows(provider, rowHeight);
-
         // Use Android 12+ stretch overscroll effect
         return NotificationListener<ScrollNotification>(
           onNotification: (notification) {
@@ -269,64 +266,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
               child: Column(
                 key: _refreshKey,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Recently played albums (optional)
-                  if (_showRecentAlbums)
-                    AlbumRow(
-                      key: const ValueKey('recent-albums'),
-                      title: 'Recently Played',
-                      loadAlbums: () => provider.getRecentAlbumsWithCache(),
-                      rowHeight: rowHeight,
-                    ),
-
-                  // Discover Artists (optional)
-                  if (_showDiscoverArtists)
-                    ArtistRow(
-                      key: const ValueKey('discover-artists'),
-                      title: 'Discover Artists',
-                      loadArtists: () => provider.getDiscoverArtistsWithCache(),
-                      rowHeight: rowHeight,
-                    ),
-
-                  // Discover Albums (optional)
-                  if (_showDiscoverAlbums)
-                    AlbumRow(
-                      key: const ValueKey('discover-albums'),
-                      title: 'Discover Albums',
-                      loadAlbums: () => provider.getDiscoverAlbumsWithCache(),
-                      rowHeight: rowHeight,
-                    ),
-
-                  // Continue Listening Audiobooks (optional)
-                  if (_showContinueListeningAudiobooks)
-                    AudiobookRow(
-                      key: const ValueKey('continue-listening-audiobooks'),
-                      title: 'Continue Listening',
-                      loadAudiobooks: () => provider.getInProgressAudiobooks(),
-                      rowHeight: rowHeight,
-                    ),
-
-                  // Discover Audiobooks (optional)
-                  if (_showDiscoverAudiobooks)
-                    AudiobookRow(
-                      key: const ValueKey('discover-audiobooks'),
-                      title: 'Discover Audiobooks',
-                      loadAudiobooks: () => provider.getDiscoverAudiobooks(),
-                      rowHeight: rowHeight,
-                    ),
-
-                  // Discover Series (optional)
-                  if (_showDiscoverSeries)
-                    SeriesRow(
-                      key: const ValueKey('discover-series'),
-                      title: 'Discover Series',
-                      loadSeries: () => provider.getDiscoverSeries(),
-                      rowHeight: rowHeight,
-                    ),
-
-                  // Favorites rows in random order
-                  ...favoritesWidgets,
-                ],
+                children: _buildOrderedRows(provider, rowHeight),
               ),
             ),
           ),
@@ -335,51 +275,98 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
     );
   }
 
-  /// Build favorites rows in random order (order set once per session)
-  List<Widget> _buildFavoritesRows(MusicAssistantProvider provider, double rowHeight) {
-    // Create list of enabled favorites with their order index
-    final enabledFavorites = <MapEntry<int, Widget>>[];
+  /// Build rows in the user's configured order
+  List<Widget> _buildOrderedRows(MusicAssistantProvider provider, double rowHeight) {
+    final rows = <Widget>[];
 
-    if (_showFavoriteAlbums) {
-      enabledFavorites.add(MapEntry(
-        _favoritesOrder[0],
-        AlbumRow(
+    for (final rowId in _homeRowOrder) {
+      final widget = _buildRowWidget(rowId, provider, rowHeight);
+      if (widget != null) {
+        rows.add(widget);
+      }
+    }
+
+    return rows;
+  }
+
+  /// Build a single row widget by ID, returns null if row is disabled
+  Widget? _buildRowWidget(String rowId, MusicAssistantProvider provider, double rowHeight) {
+    switch (rowId) {
+      case 'recent-albums':
+        if (!_showRecentAlbums) return null;
+        return AlbumRow(
+          key: const ValueKey('recent-albums'),
+          title: 'Recently Played',
+          loadAlbums: () => provider.getRecentAlbumsWithCache(),
+          rowHeight: rowHeight,
+        );
+      case 'discover-artists':
+        if (!_showDiscoverArtists) return null;
+        return ArtistRow(
+          key: const ValueKey('discover-artists'),
+          title: 'Discover Artists',
+          loadArtists: () => provider.getDiscoverArtistsWithCache(),
+          rowHeight: rowHeight,
+        );
+      case 'discover-albums':
+        if (!_showDiscoverAlbums) return null;
+        return AlbumRow(
+          key: const ValueKey('discover-albums'),
+          title: 'Discover Albums',
+          loadAlbums: () => provider.getDiscoverAlbumsWithCache(),
+          rowHeight: rowHeight,
+        );
+      case 'continue-listening':
+        if (!_showContinueListeningAudiobooks) return null;
+        return AudiobookRow(
+          key: const ValueKey('continue-listening'),
+          title: 'Continue Listening',
+          loadAudiobooks: () => provider.getInProgressAudiobooks(),
+          rowHeight: rowHeight,
+        );
+      case 'discover-audiobooks':
+        if (!_showDiscoverAudiobooks) return null;
+        return AudiobookRow(
+          key: const ValueKey('discover-audiobooks'),
+          title: 'Discover Audiobooks',
+          loadAudiobooks: () => provider.getDiscoverAudiobooks(),
+          rowHeight: rowHeight,
+        );
+      case 'discover-series':
+        if (!_showDiscoverSeries) return null;
+        return SeriesRow(
+          key: const ValueKey('discover-series'),
+          title: 'Discover Series',
+          loadSeries: () => provider.getDiscoverSeries(),
+          rowHeight: rowHeight,
+        );
+      case 'favorite-albums':
+        if (!_showFavoriteAlbums) return null;
+        return AlbumRow(
           key: const ValueKey('favorite-albums'),
           title: 'Favorite Albums',
           loadAlbums: () => provider.getFavoriteAlbums(),
           rowHeight: rowHeight,
-        ),
-      ));
-    }
-
-    if (_showFavoriteArtists) {
-      enabledFavorites.add(MapEntry(
-        _favoritesOrder[1],
-        ArtistRow(
+        );
+      case 'favorite-artists':
+        if (!_showFavoriteArtists) return null;
+        return ArtistRow(
           key: const ValueKey('favorite-artists'),
           title: 'Favorite Artists',
           loadArtists: () => provider.getFavoriteArtists(),
           rowHeight: rowHeight,
-        ),
-      ));
-    }
-
-    if (_showFavoriteTracks) {
-      enabledFavorites.add(MapEntry(
-        _favoritesOrder[2],
-        TrackRow(
+        );
+      case 'favorite-tracks':
+        if (!_showFavoriteTracks) return null;
+        return TrackRow(
           key: const ValueKey('favorite-tracks'),
           title: 'Favorite Tracks',
           loadTracks: () => provider.getFavoriteTracks(),
           rowHeight: rowHeight,
-        ),
-      ));
+        );
+      default:
+        return null;
     }
-
-    // Sort by the random order index
-    enabledFavorites.sort((a, b) => a.key.compareTo(b.key));
-
-    return enabledFavorites.map((e) => e.value).toList();
   }
 }
 

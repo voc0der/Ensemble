@@ -30,6 +30,20 @@ class SettingsService {
   static const String _keyShowFavoriteAlbums = 'show_favorite_albums';
   static const String _keyShowFavoriteArtists = 'show_favorite_artists';
   static const String _keyShowFavoriteTracks = 'show_favorite_tracks';
+  static const String _keyHomeRowOrder = 'home_row_order'; // JSON list of row IDs
+
+  // Default row order
+  static const List<String> defaultHomeRowOrder = [
+    'recent-albums',
+    'discover-artists',
+    'discover-albums',
+    'continue-listening',
+    'discover-audiobooks',
+    'discover-series',
+    'favorite-albums',
+    'favorite-artists',
+    'favorite-tracks',
+  ];
 
   // View Mode Settings
   static const String _keyArtistAlbumsSortOrder = 'artist_albums_sort_order'; // 'alpha' or 'year'
@@ -440,6 +454,26 @@ class SettingsService {
   static Future<void> setShowFavoriteTracks(bool show) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyShowFavoriteTracks, show);
+  }
+
+  // Home Row Order
+  static Future<List<String>> getHomeRowOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString(_keyHomeRowOrder);
+    if (json != null) {
+      try {
+        final List<dynamic> decoded = jsonDecode(json);
+        return decoded.cast<String>();
+      } catch (_) {
+        return List.from(defaultHomeRowOrder);
+      }
+    }
+    return List.from(defaultHomeRowOrder);
+  }
+
+  static Future<void> setHomeRowOrder(List<String> order) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyHomeRowOrder, jsonEncode(order));
   }
 
   // View Mode Settings - Artist Albums

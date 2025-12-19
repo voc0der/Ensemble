@@ -30,6 +30,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _showContinueListeningAudiobooks = false;
   bool _showDiscoverAudiobooks = false;
   bool _showDiscoverSeries = false;
+  // Home row order
+  List<String> _homeRowOrder = List.from(SettingsService.defaultHomeRowOrder);
   // Audiobook libraries
   List<Map<String, String>> _discoveredLibraries = [];
   Map<String, bool> _libraryEnabled = {};
@@ -64,6 +66,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final showDiscAudiobooks = await SettingsService.getShowDiscoverAudiobooks();
     final showDiscSeries = await SettingsService.getShowDiscoverSeries();
 
+    // Load home row order
+    final rowOrder = await SettingsService.getHomeRowOrder();
+
     // Load audiobook library settings
     final discovered = await SettingsService.getDiscoveredAbsLibraries() ?? [];
     final enabled = await SettingsService.getEnabledAbsLibraries();
@@ -85,6 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _showContinueListeningAudiobooks = showContinueAudiobooks;
         _showDiscoverAudiobooks = showDiscAudiobooks;
         _showDiscoverSeries = showDiscSeries;
+        _homeRowOrder = rowOrder;
         _discoveredLibraries = discovered;
         _libraryEnabled = libraryEnabled;
       });
@@ -96,6 +102,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _lastFmApiKeyController.dispose();
     _audioDbApiKeyController.dispose();
     super.dispose();
+  }
+
+  // Helper to get row display info
+  Map<String, String> _getRowInfo(String rowId) {
+    switch (rowId) {
+      case 'recent-albums':
+        return {'title': 'Recently Played', 'subtitle': 'Show recently played albums'};
+      case 'discover-artists':
+        return {'title': 'Discover Artists', 'subtitle': 'Show random artists to discover'};
+      case 'discover-albums':
+        return {'title': 'Discover Albums', 'subtitle': 'Show random albums to discover'};
+      case 'continue-listening':
+        return {'title': 'Continue Listening', 'subtitle': 'Show audiobooks in progress'};
+      case 'discover-audiobooks':
+        return {'title': 'Discover Audiobooks', 'subtitle': 'Show random audiobooks to discover'};
+      case 'discover-series':
+        return {'title': 'Discover Series', 'subtitle': 'Show random audiobook series to discover'};
+      case 'favorite-albums':
+        return {'title': 'Favorite Albums', 'subtitle': 'Show a row of your favorite albums'};
+      case 'favorite-artists':
+        return {'title': 'Favorite Artists', 'subtitle': 'Show a row of your favorite artists'};
+      case 'favorite-tracks':
+        return {'title': 'Favorite Tracks', 'subtitle': 'Show a row of your favorite tracks'};
+      default:
+        return {'title': rowId, 'subtitle': ''};
+    }
+  }
+
+  // Helper to get row enabled state
+  bool _getRowEnabled(String rowId) {
+    switch (rowId) {
+      case 'recent-albums':
+        return _showRecentAlbums;
+      case 'discover-artists':
+        return _showDiscoverArtists;
+      case 'discover-albums':
+        return _showDiscoverAlbums;
+      case 'continue-listening':
+        return _showContinueListeningAudiobooks;
+      case 'discover-audiobooks':
+        return _showDiscoverAudiobooks;
+      case 'discover-series':
+        return _showDiscoverSeries;
+      case 'favorite-albums':
+        return _showFavoriteAlbums;
+      case 'favorite-artists':
+        return _showFavoriteArtists;
+      case 'favorite-tracks':
+        return _showFavoriteTracks;
+      default:
+        return false;
+    }
+  }
+
+  // Helper to set row enabled state
+  void _setRowEnabled(String rowId, bool value) {
+    setState(() {
+      switch (rowId) {
+        case 'recent-albums':
+          _showRecentAlbums = value;
+          SettingsService.setShowRecentAlbums(value);
+          break;
+        case 'discover-artists':
+          _showDiscoverArtists = value;
+          SettingsService.setShowDiscoverArtists(value);
+          break;
+        case 'discover-albums':
+          _showDiscoverAlbums = value;
+          SettingsService.setShowDiscoverAlbums(value);
+          break;
+        case 'continue-listening':
+          _showContinueListeningAudiobooks = value;
+          SettingsService.setShowContinueListeningAudiobooks(value);
+          break;
+        case 'discover-audiobooks':
+          _showDiscoverAudiobooks = value;
+          SettingsService.setShowDiscoverAudiobooks(value);
+          break;
+        case 'discover-series':
+          _showDiscoverSeries = value;
+          SettingsService.setShowDiscoverSeries(value);
+          break;
+        case 'favorite-albums':
+          _showFavoriteAlbums = value;
+          SettingsService.setShowFavoriteAlbums(value);
+          break;
+        case 'favorite-artists':
+          _showFavoriteArtists = value;
+          SettingsService.setShowFavoriteArtists(value);
+          break;
+        case 'favorite-tracks':
+          _showFavoriteTracks = value;
+          SettingsService.setShowFavoriteTracks(value);
+          break;
+      }
+    });
   }
 
   Future<void> _disconnect() async {
@@ -379,221 +481,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Main rows section
+            // Reorderable home rows list
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceVariant.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: Text(
-                      'Recently Played',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    subtitle: Text(
-                      'Show recently played albums',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-                    ),
-                    value: _showRecentAlbums,
-                    onChanged: (value) {
-                      setState(() => _showRecentAlbums = value);
-                      SettingsService.setShowRecentAlbums(value);
-                    },
-                    activeColor: colorScheme.primary,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  Divider(color: colorScheme.outline.withOpacity(0.2), height: 1),
-                  SwitchListTile(
-                    title: Text(
-                      'Discover Artists',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    subtitle: Text(
-                      'Show random artists to discover',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-                    ),
-                    value: _showDiscoverArtists,
-                    onChanged: (value) {
-                      setState(() => _showDiscoverArtists = value);
-                      SettingsService.setShowDiscoverArtists(value);
-                    },
-                    activeColor: colorScheme.primary,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  Divider(color: colorScheme.outline.withOpacity(0.2), height: 1),
-                  SwitchListTile(
-                    title: Text(
-                      'Discover Albums',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    subtitle: Text(
-                      'Show random albums to discover',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-                    ),
-                    value: _showDiscoverAlbums,
-                    onChanged: (value) {
-                      setState(() => _showDiscoverAlbums = value);
-                      SettingsService.setShowDiscoverAlbums(value);
-                    },
-                    activeColor: colorScheme.primary,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
-            ),
+              clipBehavior: Clip.antiAlias,
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                itemCount: _homeRowOrder.length,
+                onReorder: (oldIndex, newIndex) {
+                  setState(() {
+                    if (newIndex > oldIndex) newIndex--;
+                    final item = _homeRowOrder.removeAt(oldIndex);
+                    _homeRowOrder.insert(newIndex, item);
+                  });
+                  SettingsService.setHomeRowOrder(_homeRowOrder);
+                },
+                itemBuilder: (context, index) {
+                  final rowId = _homeRowOrder[index];
+                  final rowInfo = _getRowInfo(rowId);
+                  final isEnabled = _getRowEnabled(rowId);
 
-            const SizedBox(height: 16),
-
-            Text(
-              'Favorites',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onBackground.withOpacity(0.6),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Favorites rows section
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: Text(
-                      'Favorite Albums',
-                      style: TextStyle(color: colorScheme.onSurface),
+                  return Container(
+                    key: ValueKey(rowId),
+                    decoration: BoxDecoration(
+                      border: index < _homeRowOrder.length - 1
+                          ? Border(bottom: BorderSide(color: colorScheme.outline.withOpacity(0.2)))
+                          : null,
                     ),
-                    subtitle: Text(
-                      'Show a row of your favorite albums',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                    child: Row(
+                      children: [
+                        ReorderableDragStartListener(
+                          index: index,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                            child: Icon(
+                              Icons.drag_handle,
+                              color: colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: SwitchListTile(
+                            title: Text(
+                              rowInfo['title']!,
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
+                            subtitle: Text(
+                              rowInfo['subtitle']!,
+                              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                            ),
+                            value: isEnabled,
+                            onChanged: (value) => _setRowEnabled(rowId, value),
+                            activeColor: colorScheme.primary,
+                            contentPadding: const EdgeInsets.only(right: 8),
+                          ),
+                        ),
+                      ],
                     ),
-                    value: _showFavoriteAlbums,
-                    onChanged: (value) {
-                      setState(() => _showFavoriteAlbums = value);
-                      SettingsService.setShowFavoriteAlbums(value);
-                    },
-                    activeColor: colorScheme.primary,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  Divider(color: colorScheme.outline.withOpacity(0.2), height: 1),
-                  SwitchListTile(
-                    title: Text(
-                      'Favorite Artists',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    subtitle: Text(
-                      'Show a row of your favorite artists',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-                    ),
-                    value: _showFavoriteArtists,
-                    onChanged: (value) {
-                      setState(() => _showFavoriteArtists = value);
-                      SettingsService.setShowFavoriteArtists(value);
-                    },
-                    activeColor: colorScheme.primary,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  Divider(color: colorScheme.outline.withOpacity(0.2), height: 1),
-                  SwitchListTile(
-                    title: Text(
-                      'Favorite Tracks',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    subtitle: Text(
-                      'Show a row of your favorite tracks',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-                    ),
-                    value: _showFavoriteTracks,
-                    onChanged: (value) {
-                      setState(() => _showFavoriteTracks = value);
-                      SettingsService.setShowFavoriteTracks(value);
-                    },
-                    activeColor: colorScheme.primary,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            Text(
-              'Audiobooks',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onBackground.withOpacity(0.6),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Audiobook home rows section
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: Text(
-                      'Continue Listening',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    subtitle: Text(
-                      'Show audiobooks in progress',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-                    ),
-                    value: _showContinueListeningAudiobooks,
-                    onChanged: (value) {
-                      setState(() => _showContinueListeningAudiobooks = value);
-                      SettingsService.setShowContinueListeningAudiobooks(value);
-                    },
-                    activeColor: colorScheme.primary,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  Divider(color: colorScheme.outline.withOpacity(0.2), height: 1),
-                  SwitchListTile(
-                    title: Text(
-                      'Discover Audiobooks',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    subtitle: Text(
-                      'Show random audiobooks to discover',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-                    ),
-                    value: _showDiscoverAudiobooks,
-                    onChanged: (value) {
-                      setState(() => _showDiscoverAudiobooks = value);
-                      SettingsService.setShowDiscoverAudiobooks(value);
-                    },
-                    activeColor: colorScheme.primary,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  Divider(color: colorScheme.outline.withOpacity(0.2), height: 1),
-                  SwitchListTile(
-                    title: Text(
-                      'Discover Series',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    subtitle: Text(
-                      'Show random audiobook series to discover',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-                    ),
-                    value: _showDiscoverSeries,
-                    onChanged: (value) {
-                      setState(() => _showDiscoverSeries = value);
-                      SettingsService.setShowDiscoverSeries(value);
-                    },
-                    activeColor: colorScheme.primary,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ],
+                  );
+                },
               ),
             ),
 
