@@ -1650,12 +1650,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               children: List.generate(gridSize, (col) {
                 final index = row * gridSize + col;
                 if (index >= displayCovers.length) {
-                  // Empty cell - use dark pastel color
-                  final colorIndex = (colorSeed + index) % emptyColors.length;
+                  // Empty cell - use nested grid pattern
                   return Expanded(
-                    child: Container(
-                      color: emptyColors[colorIndex],
-                    ),
+                    child: _buildEmptyCell(colorSeed, index, emptyColors),
                   );
                 }
                 return Expanded(
@@ -1707,6 +1704,58 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         size: 48,
         color: colorScheme.onSurfaceVariant.withOpacity(0.5),
       ),
+    );
+  }
+
+  /// Builds an empty cell with either a solid color or a nested grid
+  /// The pattern is deterministic based on series ID and cell index
+  Widget _buildEmptyCell(int colorSeed, int cellIndex, List<Color> emptyColors) {
+    // Use combined seed for deterministic but varied patterns
+    final seed = colorSeed + cellIndex * 17; // Prime multiplier for better distribution
+
+    // Determine nested grid size: 1 (solid), 2 (2x2), 3 (3x3), or 4 (4x4)
+    // Distribution: ~40% solid, ~25% 2x2, ~20% 3x3, ~15% 4x4
+    final sizeRoll = seed.abs() % 100;
+    int nestedSize;
+    if (sizeRoll < 40) {
+      nestedSize = 1; // Solid color
+    } else if (sizeRoll < 65) {
+      nestedSize = 2; // 2x2 grid
+    } else if (sizeRoll < 85) {
+      nestedSize = 3; // 3x3 grid
+    } else {
+      nestedSize = 4; // 4x4 grid
+    }
+
+    if (nestedSize == 1) {
+      // Solid color
+      final colorIndex = seed.abs() % emptyColors.length;
+      return Container(color: emptyColors[colorIndex]);
+    }
+
+    // Build nested grid
+    return Column(
+      children: List.generate(nestedSize, (row) {
+        return Expanded(
+          child: Row(
+            children: List.generate(nestedSize, (col) {
+              final nestedIndex = row * nestedSize + col;
+              // Use different seed for each nested cell
+              final nestedSeed = seed + nestedIndex * 7;
+              final colorIndex = nestedSeed.abs() % emptyColors.length;
+              return Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(
+                    right: col < nestedSize - 1 ? 0.5 : 0,
+                    bottom: row < nestedSize - 1 ? 0.5 : 0,
+                  ),
+                  color: emptyColors[colorIndex],
+                ),
+              );
+            }),
+          ),
+        );
+      }),
     );
   }
 

@@ -341,6 +341,18 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
     );
   }
 
+  // Dark pastel colors for empty cells - muted and book-like
+  static const _emptyColors = [
+    Color(0xFF2D3436), // Dark slate
+    Color(0xFF34495E), // Dark blue-grey
+    Color(0xFF4A3728), // Dark brown
+    Color(0xFF2C3E50), // Midnight blue
+    Color(0xFF3D3D3D), // Charcoal
+    Color(0xFF4A4458), // Dark purple-grey
+    Color(0xFF3E4A47), // Dark teal-grey
+    Color(0xFF4A3F35), // Dark warm grey
+  ];
+
   Widget _buildSeriesCover(ColorScheme colorScheme, MusicAssistantProvider maProvider) {
     // If still loading or no books, show placeholder
     if (_isLoading || _audiobooks.isEmpty) {
@@ -381,6 +393,9 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
     // Always use 3x3 grid for series detail
     const int gridSize = 3;
 
+    // Use series ID to pick consistent colors and nested grid patterns
+    final colorSeed = widget.series.id.hashCode;
+
     // Pad covers to fill grid, using empty strings for missing slots
     final displayCovers = List<String?>.filled(gridSize * gridSize, null);
     for (var i = 0; i < covers.length && i < displayCovers.length; i++) {
@@ -418,9 +433,59 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
                             ),
                           ),
                         )
-                      : Container(
-                          color: colorScheme.surfaceContainerHighest,
-                        ),
+                      : _buildEmptyCell(colorSeed, index),
+                ),
+              );
+            }),
+          ),
+        );
+      }),
+    );
+  }
+
+  /// Builds an empty cell with either a solid color or a nested grid
+  /// The pattern is deterministic based on series ID and cell index
+  Widget _buildEmptyCell(int colorSeed, int cellIndex) {
+    // Use combined seed for deterministic but varied patterns
+    final seed = colorSeed + cellIndex * 17; // Prime multiplier for better distribution
+
+    // Determine nested grid size: 1 (solid), 2 (2x2), 3 (3x3), or 4 (4x4)
+    // Distribution: ~40% solid, ~25% 2x2, ~20% 3x3, ~15% 4x4
+    final sizeRoll = seed.abs() % 100;
+    int nestedSize;
+    if (sizeRoll < 40) {
+      nestedSize = 1; // Solid color
+    } else if (sizeRoll < 65) {
+      nestedSize = 2; // 2x2 grid
+    } else if (sizeRoll < 85) {
+      nestedSize = 3; // 3x3 grid
+    } else {
+      nestedSize = 4; // 4x4 grid
+    }
+
+    if (nestedSize == 1) {
+      // Solid color
+      final colorIndex = seed.abs() % _emptyColors.length;
+      return Container(color: _emptyColors[colorIndex]);
+    }
+
+    // Build nested grid
+    return Column(
+      children: List.generate(nestedSize, (row) {
+        return Expanded(
+          child: Row(
+            children: List.generate(nestedSize, (col) {
+              final nestedIndex = row * nestedSize + col;
+              // Use different seed for each nested cell
+              final nestedSeed = seed + nestedIndex * 7;
+              final colorIndex = nestedSeed.abs() % _emptyColors.length;
+              return Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(
+                    right: col < nestedSize - 1 ? 0.5 : 0,
+                    bottom: row < nestedSize - 1 ? 0.5 : 0,
+                  ),
+                  color: _emptyColors[colorIndex],
                 ),
               );
             }),
