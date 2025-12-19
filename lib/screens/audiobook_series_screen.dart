@@ -15,11 +15,14 @@ import 'audiobook_detail_screen.dart';
 class AudiobookSeriesScreen extends StatefulWidget {
   final AudiobookSeries series;
   final String? heroTag;
+  /// Pre-loaded cover URLs from the library screen for smooth Hero animation
+  final List<String>? initialCovers;
 
   const AudiobookSeriesScreen({
     super.key,
     required this.series,
     this.heroTag,
+    this.initialCovers,
   });
 
   @override
@@ -39,9 +42,18 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
   // Extracted colors from book covers
   List<Color> _extractedColors = [];
 
+  // Cover URLs - start with initial covers, update when books load
+  List<String> _coverUrls = [];
+
   @override
   void initState() {
     super.initState();
+    // Use initial covers immediately for smooth Hero animation
+    if (widget.initialCovers != null && widget.initialCovers!.isNotEmpty) {
+      _coverUrls = List.from(widget.initialCovers!);
+      // Start color extraction from initial covers
+      _extractColorsFromUrls(widget.initialCovers!);
+    }
     _loadViewPreferences();
     // Defer loading until after first frame to ensure UI renders first
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -49,6 +61,42 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
         _loadSeriesBooks();
       }
     });
+  }
+
+  /// Extract colors from cover URLs (used for initial covers)
+  Future<void> _extractColorsFromUrls(List<String> coverUrls) async {
+    final extractedColors = <Color>[];
+
+    for (final url in coverUrls.take(4)) {
+      try {
+        final palette = await PaletteGenerator.fromImageProvider(
+          CachedNetworkImageProvider(url),
+          maximumColorCount: 8,
+        );
+
+        if (palette.darkMutedColor != null) {
+          extractedColors.add(palette.darkMutedColor!.color);
+        }
+        if (palette.mutedColor != null) {
+          extractedColors.add(palette.mutedColor!.color);
+        }
+        if (palette.darkVibrantColor != null) {
+          extractedColors.add(palette.darkVibrantColor!.color);
+        }
+        if (palette.dominantColor != null) {
+          final hsl = HSLColor.fromColor(palette.dominantColor!.color);
+          extractedColors.add(hsl.withLightness((hsl.lightness * 0.4).clamp(0.1, 0.3)).toColor());
+        }
+      } catch (e) {
+        _logger.log('📚 Error extracting colors: $e');
+      }
+    }
+
+    if (extractedColors.isNotEmpty && mounted) {
+      setState(() {
+        _extractedColors = extractedColors;
+      });
+    }
   }
 
   Future<void> _loadViewPreferences() async {
@@ -136,9 +184,22 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
       }
 
       if (mounted) {
+        // Update cover URLs from loaded books
+        final newCovers = <String>[];
+        for (final book in books.take(9)) {
+          final imageUrl = maProvider.getImageUrl(book);
+          if (imageUrl != null) {
+            newCovers.add(imageUrl);
+          }
+        }
+
         setState(() {
           _audiobooks = books;
           _sortAudiobooks(); // Sort inside setState so UI updates
+          // Update covers if we got new ones (may have more than initial)
+          if (newCovers.isNotEmpty) {
+            _coverUrls = newCovers;
+          }
           _isLoading = false;
         });
         // Debug: Log sorted order
@@ -403,8 +464,9 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
   ];
 
   Widget _buildSeriesCover(ColorScheme colorScheme, MusicAssistantProvider maProvider) {
-    // If still loading or no books, show placeholder
-    if (_isLoading || _audiobooks.isEmpty) {
+    // Use _coverUrls which may have initial covers or loaded covers
+    // Only show placeholder if we truly have no covers
+    if (_coverUrls.isEmpty) {
       return Container(
         color: colorScheme.surfaceContainerHighest,
         child: Center(
@@ -417,27 +479,7 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
       );
     }
 
-    // Get cover URLs from loaded books
-    final covers = <String>[];
-    for (final book in _audiobooks.take(9)) {
-      final imageUrl = maProvider.getImageUrl(book);
-      if (imageUrl != null) {
-        covers.add(imageUrl);
-      }
-    }
-
-    if (covers.isEmpty) {
-      return Container(
-        color: colorScheme.surfaceContainerHighest,
-        child: Center(
-          child: Icon(
-            Icons.collections_bookmark_rounded,
-            size: 64,
-            color: colorScheme.onSurfaceVariant.withOpacity(0.5),
-          ),
-        ),
-      );
-    }
+    final covers = _coverUrls;
 
     // Always use 3x3 grid for series detail
     const int gridSize = 3;

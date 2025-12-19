@@ -1600,6 +1600,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
     // Matches books tab style - square artwork with text below
     final heroTag = 'series_cover_${series.id}';
+    final cachedCovers = _seriesBookCovers[series.id];
     return GestureDetector(
       onTap: () {
         _logger.log('📚 Tapped series: ${series.name}, path: ${series.id}');
@@ -1609,6 +1610,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             builder: (context) => AudiobookSeriesScreen(
               series: series,
               heroTag: heroTag,
+              initialCovers: cachedCovers,
             ),
           ),
         );
