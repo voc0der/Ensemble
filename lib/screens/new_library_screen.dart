@@ -71,6 +71,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   final Set<String> _seriesCoversLoading = {};
   // Series extracted colors cache: seriesId -> list of colors from book covers
   final Map<String, List<Color>> _seriesExtractedColors = {};
+  // Series book counts cache: seriesId -> number of books
+  final Map<String, int> _seriesBookCounts = {};
   bool _seriesLoaded = false;
 
   // Restoration: Remember selected tab across app restarts
@@ -580,6 +582,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         if (mounted) {
           setState(() {
             _seriesBookCovers[seriesId] = covers;
+            _seriesBookCounts[seriesId] = books.length;
             _seriesCoversLoading.remove(seriesId);
           });
 
@@ -1568,14 +1571,18 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: series.bookCount != null
-          ? Text(
-              '${series.bookCount} ${series.bookCount == 1 ? 'book' : 'books'}',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.6),
-              ),
-            )
-          : null,
+      subtitle: Builder(
+        builder: (context) {
+          final count = series.bookCount ?? _seriesBookCounts[series.id];
+          if (count == null) return const SizedBox.shrink();
+          return Text(
+            '$count ${count == 1 ? 'book' : 'books'}',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withOpacity(0.6),
+            ),
+          );
+        },
+      ),
       onTap: () {
         _logger.log('📚 Tapped series: ${series.name}, path: ${series.id}');
         Navigator.push(
@@ -1647,15 +1654,21 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          if (series.bookCount != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              '${series.bookCount} book${series.bookCount == 1 ? '' : 's'}',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.6),
-              ),
-            ),
-          ],
+          Builder(
+            builder: (context) {
+              final count = series.bookCount ?? _seriesBookCounts[series.id];
+              if (count == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '$count ${count == 1 ? 'book' : 'books'}',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );

@@ -30,6 +30,8 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
   // Cache for series cover images
   final Map<String, List<String>> _seriesCovers = {};
   final Set<String> _loadingCovers = {};
+  // Cache for series book counts
+  final Map<String, int> _seriesBookCounts = {};
 
   @override
   bool get wantKeepAlive => true;
@@ -70,6 +72,7 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
         if (mounted) {
           setState(() {
             _seriesCovers[seriesId] = covers;
+            _seriesBookCounts[seriesId] = books.length;
           });
         }
       }
@@ -165,6 +168,7 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
                           child: _SeriesCard(
                             series: s,
                             covers: _seriesCovers[s.id],
+                            cachedBookCount: _seriesBookCounts[s.id],
                             colorScheme: colorScheme,
                             textTheme: textTheme,
                           ),
@@ -187,12 +191,14 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
 class _SeriesCard extends StatelessWidget {
   final AudiobookSeries series;
   final List<String>? covers;
+  final int? cachedBookCount;
   final ColorScheme colorScheme;
   final TextTheme textTheme;
 
   const _SeriesCard({
     required this.series,
     required this.covers,
+    this.cachedBookCount,
     required this.colorScheme,
     required this.textTheme,
   });
@@ -231,15 +237,20 @@ class _SeriesCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          if (series.bookCount != null)
-            Text(
-              '${series.bookCount} ${series.bookCount == 1 ? 'book' : 'books'}',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.6),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+          Builder(
+            builder: (context) {
+              final count = series.bookCount ?? cachedBookCount;
+              if (count == null) return const SizedBox.shrink();
+              return Text(
+                '$count ${count == 1 ? 'book' : 'books'}',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withOpacity(0.6),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              );
+            },
+          ),
         ],
       ),
     );

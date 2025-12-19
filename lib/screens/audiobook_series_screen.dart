@@ -511,12 +511,7 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
               final coverUrl = displayCovers[index];
 
               return Expanded(
-                child: Container(
-                  margin: EdgeInsets.only(
-                    right: col < gridSize - 1 ? 1 : 0,
-                    bottom: row < gridSize - 1 ? 1 : 0,
-                  ),
-                  child: coverUrl != null
+                child: coverUrl != null
                       ? CachedNetworkImage(
                           imageUrl: coverUrl,
                           fit: BoxFit.cover,
@@ -533,7 +528,6 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
                           ),
                         )
                       : _buildEmptyCell(colorSeed, index),
-                ),
               );
             }),
           ),
