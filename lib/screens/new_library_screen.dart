@@ -1528,32 +1528,36 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
     final covers = _seriesBookCovers[series.id];
     final firstCover = covers != null && covers.isNotEmpty ? covers.first : null;
+    final heroTag = 'series_cover_${series.id}';
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: Container(
-          width: 56,
-          height: 56,
-          color: colorScheme.surfaceContainerHighest,
-          child: firstCover != null
-              ? CachedNetworkImage(
-                  imageUrl: firstCover,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Icon(
+      leading: Hero(
+        tag: heroTag,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            width: 56,
+            height: 56,
+            color: colorScheme.surfaceContainerHighest,
+            child: firstCover != null
+                ? CachedNetworkImage(
+                    imageUrl: firstCover,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Icon(
+                      Icons.collections_bookmark_rounded,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    errorWidget: (_, __, ___) => Icon(
+                      Icons.collections_bookmark_rounded,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                : Icon(
                     Icons.collections_bookmark_rounded,
                     color: colorScheme.onSurfaceVariant,
                   ),
-                  errorWidget: (_, __, ___) => Icon(
-                    Icons.collections_bookmark_rounded,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                )
-              : Icon(
-                  Icons.collections_bookmark_rounded,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+          ),
         ),
       ),
       title: Text(
@@ -1579,6 +1583,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           MaterialPageRoute(
             builder: (context) => AudiobookSeriesScreen(
               series: series,
+              heroTag: heroTag,
+              initialCovers: covers,
             ),
           ),
         );
