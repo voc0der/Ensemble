@@ -67,14 +67,14 @@ This application was built with AI-assisted development using **Claude Code** an
 ## Screenshots
 
 <div align="center">
-  <img src="assets/screenshots/1.png" alt="Connection Screen" width="150">
-  <img src="assets/screenshots/2.png" alt="Home Screen" width="150">
-  <img src="assets/screenshots/3.png" alt="Album Details" width="150">
-  <img src="assets/screenshots/4.png" alt="Now Playing" width="150">
-  <img src="assets/screenshots/5.png" alt="Queue" width="150">
-  <img src="assets/screenshots/6.png" alt="Settings" width="150">
-  <img src="assets/screenshots/7.png" alt="Audiobooks" width="150">
-  <img src="assets/screenshots/8.png" alt="Audiobook Player" width="150">
+  <img src="assets/screenshots/1.png?v=2" alt="Connection Screen" width="150">
+  <img src="assets/screenshots/2.png?v=2" alt="Home Screen" width="150">
+  <img src="assets/screenshots/3.png?v=2" alt="Album Details" width="150">
+  <img src="assets/screenshots/4.png?v=2" alt="Now Playing" width="150">
+  <img src="assets/screenshots/5.png?v=2" alt="Queue" width="150">
+  <img src="assets/screenshots/6.png?v=2" alt="Settings" width="150">
+  <img src="assets/screenshots/7.png?v=2" alt="Audiobooks" width="150">
+  <img src="assets/screenshots/8.png?v=2" alt="Audiobook Player" width="150">
 </div>
 
 ## Download
