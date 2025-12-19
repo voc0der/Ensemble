@@ -416,6 +416,8 @@ class MusicAssistantProvider with ChangeNotifier {
       try {
         await refreshPlayers();
         await _updatePlayerState();
+        // Preload all player tracks to ensure fresh data after app resume
+        await _preloadAdjacentPlayers(preloadAll: true);
         _logger.log('🔄 Connection verified, players and state refreshed');
       } catch (e) {
         _logger.log('🔄 Connection verification failed, reconnecting: $e');
@@ -1111,12 +1113,17 @@ class MusicAssistantProvider with ChangeNotifier {
           final existingHasProperArtist = existingTrack != null &&
               existingTrack.artistsString != 'Unknown Artist' &&
               !existingTrack.name.contains(' - ');
+          final existingHasImage = existingTrack?.metadata?['images'] != null;
+          final newHasImage = metadata != null;
 
-          if (!existingHasProperArtist) {
+          // Keep existing if it has proper artist OR has image that new one lacks
+          final keepExisting = existingHasProperArtist || (existingHasImage && !newHasImage);
+
+          if (!keepExisting) {
             _cacheService.setCachedTrackForPlayer(playerId, trackFromEvent);
             _logger.log('📋 Cached track for $playerName from player_updated: ${trackFromEvent.name}');
           } else {
-            _logger.log('📋 Skipped caching for $playerName - already have better data');
+            _logger.log('📋 Skipped caching for $playerName - already have better data (artist: $existingHasProperArtist, image: $existingHasImage)');
           }
 
           // For selected player, _updatePlayerState() is already called above which fetches queue data
