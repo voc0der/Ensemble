@@ -186,43 +186,46 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
               );
             }
 
-            return Column(
+            return Stack(
               children: [
-                // Connecting banner when showing cached data
+                // Main content
+                RefreshIndicator(
+                  onRefresh: _onRefresh,
+                  color: colorScheme.primary,
+                  backgroundColor: colorScheme.surface,
+                  child: _buildConnectedView(context, maProvider),
+                ),
+                // Connecting banner overlay (doesn't affect layout)
                 if (!isConnected && syncService.hasCache)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    color: colorScheme.primaryContainer.withOpacity(0.5),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.primary,
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      color: colorScheme.primaryContainer.withOpacity(0.9),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.primary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Connecting...',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
+                          const SizedBox(width: 8),
+                          Text(
+                            'Connecting...',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onPrimaryContainer,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _onRefresh,
-                    color: colorScheme.primary,
-                    backgroundColor: colorScheme.surface,
-                    child: _buildConnectedView(context, maProvider),
-                  ),
-                ),
               ],
             );
           },
