@@ -672,7 +672,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               backgroundColor: Colors.transparent,
               elevation: 0,
               title: Text(
-                'Library',
+                l10n.library,
                 style: textTheme.titleLarge?.copyWith(
                   color: colorScheme.onBackground,
                   fontWeight: FontWeight.w300,
@@ -742,7 +742,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                           size: 20,
                         ),
                         onPressed: () => _toggleFavoritesMode(!_showFavoritesOnly),
-                        tooltip: _showFavoritesOnly ? 'Show all' : 'Show favorites only',
+                        tooltip: _showFavoritesOnly ? l10n.showAll : l10n.showFavoritesOnly,
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -754,7 +754,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                           size: 20,
                         ),
                         onPressed: _cycleCurrentViewMode,
-                        tooltip: 'Change view',
+                        tooltip: l10n.changeView,
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -874,13 +874,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         ];
       case LibraryMediaType.books:
         return [
-          const Tab(text: 'Authors'),
+          Tab(text: l10n.authors),
           Tab(text: l10n.books),
-          const Tab(text: 'Series'),
+          Tab(text: l10n.series),
         ];
       case LibraryMediaType.podcasts:
-        return const [
-          Tab(text: 'Shows'),
+        return [
+          Tab(text: l10n.shows),
         ];
     }
   }
@@ -1854,7 +1854,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            'Podcasts',
+            l10n.podcasts,
             style: TextStyle(
               color: colorScheme.onSurface,
               fontSize: 20,
@@ -1863,7 +1863,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Podcast support coming soon',
+            l10n.podcastSupportComingSoon,
             style: TextStyle(
               color: colorScheme.onSurface.withOpacity(0.6),
               fontSize: 14,

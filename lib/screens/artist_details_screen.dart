@@ -212,7 +212,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isFavorite ? 'Added to favorites' : 'Removed from favorites',
+              _isFavorite ? S.of(context)!.addedToFavorites : S.of(context)!.removedFromFavorites,
             ),
             duration: const Duration(seconds: 1),
           ),
@@ -701,7 +701,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                           color: colorScheme.primary,
                           size: 20,
                         ),
-                        tooltip: _sortOrder == 'alpha' ? 'Sort by year' : 'Sort alphabetically',
+                        tooltip: _sortOrder == 'alpha' ? S.of(context)!.sortByYear : S.of(context)!.sortAlphabetically,
                         onPressed: _toggleSortOrder,
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
@@ -719,10 +719,10 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                           size: 20,
                         ),
                         tooltip: _viewMode == 'grid2'
-                            ? '3-column grid'
+                            ? S.of(context)!.threeColumnGrid
                             : _viewMode == 'grid3'
-                                ? 'List view'
-                                : '2-column grid',
+                                ? S.of(context)!.listView
+                                : S.of(context)!.twoColumnGrid,
                         onPressed: _cycleViewMode,
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
@@ -743,7 +743,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                   child: Row(
                     children: [
                       Text(
-                        'From Providers',
+                        S.of(context)!.fromProviders,
                         style: textTheme.titleLarge?.copyWith(
                           color: colorScheme.onBackground,
                           fontWeight: FontWeight.bold,
@@ -758,7 +758,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                             color: colorScheme.primary,
                             size: 20,
                           ),
-                          tooltip: _sortOrder == 'alpha' ? 'Sort by year' : 'Sort alphabetically',
+                          tooltip: _sortOrder == 'alpha' ? S.of(context)!.sortByYear : S.of(context)!.sortAlphabetically,
                           onPressed: _toggleSortOrder,
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
@@ -775,10 +775,10 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                             size: 20,
                           ),
                           tooltip: _viewMode == 'grid2'
-                              ? '3-column grid'
+                              ? S.of(context)!.threeColumnGrid
                               : _viewMode == 'grid3'
-                                  ? 'List view'
-                                  : '2-column grid',
+                                  ? S.of(context)!.listView
+                                  : S.of(context)!.twoColumnGrid,
                           onPressed: _cycleViewMode,
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,

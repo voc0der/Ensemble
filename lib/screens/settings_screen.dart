@@ -108,25 +108,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Helper to get row display info
   Map<String, String> _getRowInfo(String rowId) {
+    final s = S.of(context)!;
     switch (rowId) {
       case 'recent-albums':
-        return {'title': S.of(context)!.recentlyPlayed, 'subtitle': 'Show recently played albums'};
+        return {'title': s.recentlyPlayed, 'subtitle': s.showRecentlyPlayedAlbums};
       case 'discover-artists':
-        return {'title': S.of(context)!.discoverArtists, 'subtitle': 'Show random artists to discover'};
+        return {'title': s.discoverArtists, 'subtitle': s.showRandomArtists};
       case 'discover-albums':
-        return {'title': S.of(context)!.discoverAlbums, 'subtitle': 'Show random albums to discover'};
+        return {'title': s.discoverAlbums, 'subtitle': s.showRandomAlbums};
       case 'continue-listening':
-        return {'title': S.of(context)!.continueListening, 'subtitle': 'Show audiobooks in progress'};
+        return {'title': s.continueListening, 'subtitle': s.showAudiobooksInProgress};
       case 'discover-audiobooks':
-        return {'title': S.of(context)!.discoverAudiobooks, 'subtitle': 'Show random audiobooks to discover'};
+        return {'title': s.discoverAudiobooks, 'subtitle': s.showRandomAudiobooks};
       case 'discover-series':
-        return {'title': S.of(context)!.discoverSeries, 'subtitle': 'Show random audiobook series to discover'};
+        return {'title': s.discoverSeries, 'subtitle': s.showRandomSeries};
       case 'favorite-albums':
-        return {'title': S.of(context)!.favoriteAlbums, 'subtitle': 'Show a row of your favorite albums'};
+        return {'title': s.favoriteAlbums, 'subtitle': s.showFavoriteAlbums};
       case 'favorite-artists':
-        return {'title': S.of(context)!.favoriteArtists, 'subtitle': 'Show a row of your favorite artists'};
+        return {'title': s.favoriteArtists, 'subtitle': s.showFavoriteArtists};
       case 'favorite-tracks':
-        return {'title': S.of(context)!.favoriteTracks, 'subtitle': 'Show a row of your favorite tracks'};
+        return {'title': s.favoriteTracks, 'subtitle': s.showFavoriteTracks};
       default:
         return {'title': rowId, 'subtitle': ''};
     }
@@ -342,8 +343,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
+                color: colorScheme.surfaceVariant.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -386,7 +387,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               if (states.contains(WidgetState.selected)) {
                                 return colorScheme.primaryContainer;
                               }
-                              return colorScheme.surfaceVariant.withOpacity(0.3);
+                              return colorScheme.surfaceVariant.withOpacity(0.5);
                             }),
                             foregroundColor: WidgetStateProperty.resolveWith((states) {
                               if (states.contains(WidgetState.selected)) {
@@ -395,6 +396,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               return colorScheme.onSurfaceVariant;
                             }),
                             side: WidgetStateProperty.all(BorderSide.none),
+                            shape: WidgetStateProperty.all(
+                              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
                           ),
                         ),
                       );
@@ -410,8 +414,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
+                color: colorScheme.surfaceVariant.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -455,7 +459,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               if (states.contains(WidgetState.selected)) {
                                 return colorScheme.primaryContainer;
                               }
-                              return colorScheme.surfaceVariant.withOpacity(0.3);
+                              return colorScheme.surfaceVariant.withOpacity(0.5);
                             }),
                             foregroundColor: WidgetStateProperty.resolveWith((states) {
                               if (states.contains(WidgetState.selected)) {
@@ -464,6 +468,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               return colorScheme.onSurfaceVariant;
                             }),
                             side: WidgetStateProperty.all(BorderSide.none),
+                            shape: WidgetStateProperty.all(
+                              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
                           ),
                         ),
                       );
@@ -519,7 +526,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     subtitle: Text(
-                      'Extract colors from album and artist artwork',
+                      S.of(context)!.extractColorsFromArtwork,
                       style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
                     ),
                     value: themeProvider.adaptiveTheme,
@@ -545,7 +552,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Choose which rows to display on the home screen',
+              S.of(context)!.chooseHomeScreenRows,
               style: textTheme.bodySmall?.copyWith(
                 color: colorScheme.onBackground.withOpacity(0.6),
               ),
@@ -843,17 +850,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   String _getStatusText(MAConnectionState state) {
+    final s = S.of(context)!;
     switch (state) {
       case MAConnectionState.connected:
       case MAConnectionState.authenticated:
-        return 'Connected';
+        return s.connected;
       case MAConnectionState.connecting:
       case MAConnectionState.authenticating:
-        return 'Connecting...';
+        return s.connecting;
       case MAConnectionState.error:
-        return 'Connection Error';
+        return s.connectionError;
       case MAConnectionState.disconnected:
-        return 'Disconnected';
+        return s.disconnected;
     }
   }
 

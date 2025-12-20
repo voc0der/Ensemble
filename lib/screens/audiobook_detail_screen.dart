@@ -173,7 +173,7 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isFavorite ? 'Added to favorites' : 'Removed from favorites',
+              _isFavorite ? S.of(context)!.addedToFavorites : S.of(context)!.removedFromFavorites,
             ),
             duration: const Duration(seconds: 1),
           ),

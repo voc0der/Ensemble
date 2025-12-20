@@ -172,7 +172,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isFavorite ? 'Added to favorites' : 'Removed from favorites',
+              _isFavorite ? S.of(context)!.addedToFavorites : S.of(context)!.removedFromFavorites,
             ),
             duration: const Duration(seconds: 1),
           ),
@@ -258,7 +258,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              !currentFavorite ? 'Added to favorites' : 'Removed from favorites',
+              !currentFavorite ? S.of(context)!.addedToFavorites : S.of(context)!.removedFromFavorites,
             ),
             duration: const Duration(seconds: 1),
           ),

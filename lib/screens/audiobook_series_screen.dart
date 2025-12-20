@@ -369,7 +369,7 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
                       color: colorScheme.primary,
                       size: 20,
                     ),
-                    tooltip: _sortOrder == 'series' ? 'Sort alphabetically' : 'Sort by series order',
+                    tooltip: _sortOrder == 'series' ? S.of(context)!.sortAlphabetically : S.of(context)!.sortBySeriesOrder,
                     onPressed: _toggleSortOrder,
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
@@ -387,10 +387,10 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
                       size: 20,
                     ),
                     tooltip: _viewMode == 'grid2'
-                        ? '3-column grid'
+                        ? S.of(context)!.threeColumnGrid
                         : _viewMode == 'grid3'
-                            ? 'List view'
-                            : '2-column grid',
+                            ? S.of(context)!.listView
+                            : S.of(context)!.twoColumnGrid,
                     onPressed: _cycleViewMode,
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
