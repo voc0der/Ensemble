@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
+import '../providers/locale_provider.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/music_assistant_api.dart';
 import '../services/settings_service.dart';
@@ -108,23 +110,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, String> _getRowInfo(String rowId) {
     switch (rowId) {
       case 'recent-albums':
-        return {'title': 'Recently Played', 'subtitle': 'Show recently played albums'};
+        return {'title': S.of(context)!.recentlyPlayed, 'subtitle': 'Show recently played albums'};
       case 'discover-artists':
-        return {'title': 'Discover Artists', 'subtitle': 'Show random artists to discover'};
+        return {'title': S.of(context)!.discoverArtists, 'subtitle': 'Show random artists to discover'};
       case 'discover-albums':
-        return {'title': 'Discover Albums', 'subtitle': 'Show random albums to discover'};
+        return {'title': S.of(context)!.discoverAlbums, 'subtitle': 'Show random albums to discover'};
       case 'continue-listening':
-        return {'title': 'Continue Listening', 'subtitle': 'Show audiobooks in progress'};
+        return {'title': S.of(context)!.continueListening, 'subtitle': 'Show audiobooks in progress'};
       case 'discover-audiobooks':
-        return {'title': 'Discover Audiobooks', 'subtitle': 'Show random audiobooks to discover'};
+        return {'title': S.of(context)!.discoverAudiobooks, 'subtitle': 'Show random audiobooks to discover'};
       case 'discover-series':
-        return {'title': 'Discover Series', 'subtitle': 'Show random audiobook series to discover'};
+        return {'title': S.of(context)!.discoverSeries, 'subtitle': 'Show random audiobook series to discover'};
       case 'favorite-albums':
-        return {'title': 'Favorite Albums', 'subtitle': 'Show a row of your favorite albums'};
+        return {'title': S.of(context)!.favoriteAlbums, 'subtitle': 'Show a row of your favorite albums'};
       case 'favorite-artists':
-        return {'title': 'Favorite Artists', 'subtitle': 'Show a row of your favorite artists'};
+        return {'title': S.of(context)!.favoriteArtists, 'subtitle': 'Show a row of your favorite artists'};
       case 'favorite-tracks':
-        return {'title': 'Favorite Tracks', 'subtitle': 'Show a row of your favorite tracks'};
+        return {'title': S.of(context)!.favoriteTracks, 'subtitle': 'Show a row of your favorite tracks'};
       default:
         return {'title': rowId, 'subtitle': ''};
     }
@@ -233,7 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: colorScheme.onBackground,
         ),
         title: Text(
-          'Settings',
+          S.of(context)!.settings,
           style: textTheme.titleLarge?.copyWith(
             color: colorScheme.onBackground,
             fontWeight: FontWeight.w300,
@@ -252,7 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
             color: colorScheme.onBackground,
-            tooltip: 'Debug Logs',
+            tooltip: S.of(context)!.debugLogs,
           ),
         ],
       ),
@@ -308,9 +310,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: FilledButton.tonalIcon(
                 onPressed: _disconnect,
                 icon: const Icon(Icons.logout_rounded),
-                label: const Text(
-                  'Disconnect',
-                  style: TextStyle(
+                label: Text(
+                  S.of(context)!.disconnect,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
@@ -329,7 +331,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             // Theme section
             Text(
-              'Theme',
+              S.of(context)!.theme,
               style: textTheme.titleMedium?.copyWith(
                 color: colorScheme.onBackground,
                 fontWeight: FontWeight.bold,
@@ -347,7 +349,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Theme Mode',
+                    S.of(context)!.themeMode,
                     style: textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -355,45 +357,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 12),
                   Consumer<ThemeProvider>(
                     builder: (context, themeProvider, _) {
-                      return SizedBox(
-                        width: double.infinity,
-                        child: SegmentedButton<ThemeMode>(
-                          segments: const [
-                            ButtonSegment<ThemeMode>(
-                              value: ThemeMode.light,
-                              label: Text('Light'),
-                              icon: Icon(Icons.light_mode_rounded),
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildThemeSegment(
+                              mode: ThemeMode.light,
+                              icon: Icons.light_mode_rounded,
+                              isSelected: themeProvider.themeMode == ThemeMode.light,
+                              colorScheme: colorScheme,
+                              onTap: () => themeProvider.setThemeMode(ThemeMode.light),
                             ),
-                            ButtonSegment<ThemeMode>(
-                              value: ThemeMode.dark,
-                              label: Text('Dark'),
-                              icon: Icon(Icons.dark_mode_rounded),
+                            _buildThemeSegment(
+                              mode: ThemeMode.dark,
+                              icon: Icons.dark_mode_rounded,
+                              isSelected: themeProvider.themeMode == ThemeMode.dark,
+                              colorScheme: colorScheme,
+                              onTap: () => themeProvider.setThemeMode(ThemeMode.dark),
                             ),
-                            ButtonSegment<ThemeMode>(
-                              value: ThemeMode.system,
-                              label: Text('System'),
-                              icon: Icon(Icons.auto_mode_rounded),
+                            _buildThemeSegment(
+                              mode: ThemeMode.system,
+                              icon: Icons.auto_mode_rounded,
+                              isSelected: themeProvider.themeMode == ThemeMode.system,
+                              colorScheme: colorScheme,
+                              onTap: () => themeProvider.setThemeMode(ThemeMode.system),
                             ),
                           ],
-                          selected: {themeProvider.themeMode},
-                          onSelectionChanged: (Set<ThemeMode> newSelection) {
-                            themeProvider.setThemeMode(newSelection.first);
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: WidgetStateProperty.resolveWith((states) {
-                              if (states.contains(WidgetState.selected)) {
-                                return colorScheme.primaryContainer;
-                              }
-                              return colorScheme.surfaceVariant.withOpacity(0.3);
-                            }),
-                            foregroundColor: WidgetStateProperty.resolveWith((states) {
-                              if (states.contains(WidgetState.selected)) {
-                                return colorScheme.onPrimaryContainer;
-                              }
-                              return colorScheme.onSurfaceVariant;
-                            }),
-                            side: WidgetStateProperty.all(BorderSide.none),
-                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Language picker
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    S.of(context)!.language,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Consumer<LocaleProvider>(
+                    builder: (context, localeProvider, _) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildLocaleSegment(
+                              code: null,
+                              icon: Icons.auto_mode_rounded,
+                              isSelected: localeProvider.locale == null,
+                              colorScheme: colorScheme,
+                              onTap: () => localeProvider.setLocale(null),
+                            ),
+                            _buildLocaleSegment(
+                              code: 'en',
+                              label: 'EN',
+                              isSelected: localeProvider.locale?.languageCode == 'en',
+                              colorScheme: colorScheme,
+                              onTap: () => localeProvider.setLocale(const Locale('en')),
+                            ),
+                            _buildLocaleSegment(
+                              code: 'de',
+                              label: 'DE',
+                              isSelected: localeProvider.locale?.languageCode == 'de',
+                              colorScheme: colorScheme,
+                              onTap: () => localeProvider.setLocale(const Locale('de')),
+                            ),
+                          ],
                         ),
                       );
                     },
@@ -414,7 +460,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   child: SwitchListTile(
                     title: Text(
-                      'Material You',
+                      S.of(context)!.materialYou,
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     subtitle: Text(
@@ -444,7 +490,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   child: SwitchListTile(
                     title: Text(
-                      'Adaptive Theme',
+                      S.of(context)!.adaptiveTheme,
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     subtitle: Text(
@@ -466,7 +512,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             // Home Screen section
             Text(
-              'Home Screen',
+              S.of(context)!.homeScreen,
               style: textTheme.titleMedium?.copyWith(
                 color: colorScheme.onBackground,
                 fontWeight: FontWeight.bold,
@@ -551,7 +597,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 32),
 
             Text(
-              'Metadata APIs (Optional)',
+              S.of(context)!.metadataApis,
               style: textTheme.titleMedium?.copyWith(
                 color: colorScheme.onBackground,
                 fontWeight: FontWeight.bold,
@@ -686,9 +732,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             await SettingsService.toggleAbsLibrary(path, value);
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Pull to refresh the library to apply changes'),
-                                  duration: Duration(seconds: 2),
+                                SnackBar(
+                                  content: Text(S.of(context)!.pullToRefresh),
+                                  duration: const Duration(seconds: 2),
                                 ),
                               );
                             }
@@ -723,7 +769,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 },
                 icon: const Icon(Icons.bug_report_rounded),
-                label: const Text('View Debug Logs'),
+                label: Text(S.of(context)!.viewDebugLogs),
                 style: FilledButton.styleFrom(
                   backgroundColor: colorScheme.surfaceVariant.withOpacity(0.5),
                   foregroundColor: colorScheme.onSurfaceVariant,
@@ -784,5 +830,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case MAConnectionState.disconnected:
         return 'Disconnected';
     }
+  }
+
+  Widget _buildThemeSegment({
+    required ThemeMode mode,
+    required IconData icon,
+    required bool isSelected,
+    required ColorScheme colorScheme,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: isSelected
+          ? colorScheme.primaryContainer
+          : colorScheme.surfaceVariant.withOpacity(0.5),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Icon(
+            icon,
+            color: isSelected
+                ? colorScheme.onPrimaryContainer
+                : colorScheme.onSurfaceVariant.withOpacity(0.7),
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocaleSegment({
+    required String? code,
+    String? label,
+    IconData? icon,
+    required bool isSelected,
+    required ColorScheme colorScheme,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: isSelected
+          ? colorScheme.primaryContainer
+          : colorScheme.surfaceVariant.withOpacity(0.5),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: icon != null
+              ? Icon(
+                  icon,
+                  color: isSelected
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurfaceVariant.withOpacity(0.7),
+                  size: 20,
+                )
+              : Text(
+                  label ?? code ?? '',
+                  style: TextStyle(
+                    color: isSelected
+                        ? colorScheme.onPrimaryContainer
+                        : colorScheme.onSurfaceVariant.withOpacity(0.7),
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontSize: 14,
+                  ),
+                ),
+        ),
+      ),
+    );
   }
 }

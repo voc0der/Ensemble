@@ -15,6 +15,7 @@ class SettingsService {
   static const String _keyUseMaterialTheme = 'use_material_theme';
   static const String _keyAdaptiveTheme = 'adaptive_theme';
   static const String _keyCustomColor = 'custom_color';
+  static const String _keyLocale = 'locale';
   static const String _keyLastFmApiKey = 'lastfm_api_key';
   static const String _keyTheAudioDbApiKey = 'theaudiodb_api_key';
   static const String _keyEnableLocalPlayback = 'enable_local_playback';
@@ -263,6 +264,21 @@ class SettingsService {
   static Future<void> saveCustomColor(String color) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyCustomColor, color);
+  }
+
+  // Locale (null = system default)
+  static Future<String?> getLocale() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLocale);
+  }
+
+  static Future<void> saveLocale(String? locale) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (locale == null) {
+      await prefs.remove(_keyLocale);
+    } else {
+      await prefs.setString(_keyLocale, locale);
+    }
   }
 
   // Metadata API Keys

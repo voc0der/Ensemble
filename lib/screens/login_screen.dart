@@ -7,6 +7,7 @@ import '../services/profile_service.dart';
 import '../services/auth/auth_strategy.dart';
 import '../services/debug_logger.dart';
 import '../widgets/debug/debug_console.dart';
+import '../l10n/app_localizations.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -158,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _detectAuthRequirements() async {
     if (_serverUrlController.text.trim().isEmpty) {
       setState(() {
-        _error = 'Please enter your Music Assistant server address';
+        _error = S.of(context)!.pleaseEnterServerAddress;
       });
       return;
     }
@@ -194,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (strategy == null) {
         setState(() {
-          _error = 'Cannot determine authentication requirements. Please check server URL.';
+          _error = S.of(context)!.cannotDetermineAuth;
           _isDetectingAuth = false;
         });
         return;
@@ -230,13 +231,13 @@ class _LoginScreenState extends State<LoginScreen> {
   String _getAuthTypeName(String strategyName) {
     switch (strategyName) {
       case 'none':
-        return 'No Authentication';
+        return S.of(context)!.noAuthentication;
       case 'basic':
-        return 'HTTP Basic Auth';
+        return S.of(context)!.httpBasicAuth;
       case 'authelia':
-        return 'Authelia';
+        return S.of(context)!.authelia;
       case 'music_assistant':
-        return 'Music Assistant Login';
+        return S.of(context)!.musicAssistantLogin;
       default:
         return 'Unknown';
     }
@@ -260,7 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _connect() async {
     if (_serverUrlController.text.trim().isEmpty) {
       setState(() {
-        _error = 'Please enter your Music Assistant server address';
+        _error = S.of(context)!.pleaseEnterServerAddress;
       });
       return;
     }
@@ -270,7 +271,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final isMaAuth = _detectedAuthStrategy?.name == 'music_assistant';
     if (!isMaAuth && _ownerNameController.text.trim().isEmpty) {
       setState(() {
-        _error = 'Please enter your name';
+        _error = S.of(context)!.pleaseEnterName;
       });
       return;
     }
@@ -292,7 +293,7 @@ class _LoginScreenState extends State<LoginScreen> {
         portNum = int.tryParse(port);
         if (portNum == null || portNum < 1 || portNum > 65535) {
           setState(() {
-            _error = 'Please enter a valid port number (1-65535)';
+            _error = S.of(context)!.pleaseEnterValidPort;
             _isConnecting = false;
           });
           return;
@@ -324,7 +325,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (username.isEmpty || password.isEmpty) {
           setState(() {
-            _error = 'Please enter username and password';
+            _error = S.of(context)!.pleaseEnterCredentials;
             _isConnecting = false;
           });
           return;
@@ -350,7 +351,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (!success) {
           setState(() {
-            _error = 'Authentication failed. Please check your credentials.';
+            _error = S.of(context)!.authFailed;
             _isConnecting = false;
           });
           return;
@@ -384,7 +385,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (username.isEmpty || password.isEmpty) {
           setState(() {
-            _error = 'Please enter username and password';
+            _error = S.of(context)!.pleaseEnterCredentials;
             _isConnecting = false;
           });
           return;
@@ -408,7 +409,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
           if (accessToken == null) {
             setState(() {
-              _error = 'Music Assistant login failed. Please check your credentials.';
+              _error = S.of(context)!.maLoginFailed;
               _isConnecting = false;
             });
             return;
@@ -452,7 +453,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         setState(() {
-          _error = 'Could not connect to server. Please check the address and try again.';
+          _error = S.of(context)!.connectionFailed;
           _isConnecting = false;
         });
       }
@@ -500,7 +501,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // Server URL
               Text(
-                'Server Address',
+                S.of(context)!.serverAddress,
                 style: textTheme.titleMedium?.copyWith(
                   color: colorScheme.onBackground,
                   fontWeight: FontWeight.w500,
@@ -512,7 +513,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _serverUrlController,
                 style: TextStyle(color: colorScheme.onSurface),
                 decoration: InputDecoration(
-                  hintText: 'e.g., music.example.com or 192.168.1.100',
+                  hintText: S.of(context)!.serverAddressHint,
                   hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                   filled: true,
                   fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
@@ -539,7 +540,7 @@ class _LoginScreenState extends State<LoginScreen> {
               if (_detectedAuthStrategy != null &&
                   _detectedAuthStrategy!.name != 'music_assistant') ...[
                 Text(
-                  'Your Name',
+                  S.of(context)!.yourName,
                   style: textTheme.titleMedium?.copyWith(
                     color: colorScheme.onBackground,
                     fontWeight: FontWeight.w500,
@@ -551,7 +552,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _ownerNameController,
                   style: TextStyle(color: colorScheme.onSurface),
                   decoration: InputDecoration(
-                    hintText: 'Your first name',
+                    hintText: S.of(context)!.yourFirstName,
                     hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                     filled: true,
                     fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
@@ -574,7 +575,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // Port
               Text(
-                'Port (Optional)',
+                S.of(context)!.portOptional,
                 style: textTheme.titleMedium?.copyWith(
                   color: colorScheme.onBackground,
                   fontWeight: FontWeight.w500,
@@ -582,7 +583,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Leave blank for reverse proxy or standard ports. Enter 8095 for direct connection.',
+                S.of(context)!.portDescription,
                 style: TextStyle(
                   color: colorScheme.onBackground.withOpacity(0.6),
                   fontSize: 12,
@@ -594,7 +595,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _portController,
                 style: TextStyle(color: colorScheme.onSurface),
                 decoration: InputDecoration(
-                  hintText: 'e.g., 8095 or leave blank',
+                  hintText: S.of(context)!.portHint,
                   hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                   filled: true,
                   fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
@@ -639,7 +640,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Detected: $_detectedAuthType',
+                              S.of(context)!.detectedAuthType(_detectedAuthType!),
                               style: TextStyle(
                                 color: needsAuth
                                     ? colorScheme.onPrimaryContainer
@@ -652,7 +653,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
-                                  'This server requires authentication',
+                                  S.of(context)!.serverRequiresAuth,
                                   style: TextStyle(
                                     color: colorScheme.onPrimaryContainer.withOpacity(0.7),
                                     fontSize: 12,
@@ -698,8 +699,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Text(
                               _isTailscaleUrl(_serverUrlController.text)
-                                  ? 'Tailscale VPN Connection'
-                                  : 'Unencrypted Connection',
+                                  ? S.of(context)!.tailscaleVpnConnection
+                                  : S.of(context)!.unencryptedConnection,
                               style: TextStyle(
                                 color: _isTailscaleUrl(_serverUrlController.text)
                                     ? colorScheme.onSecondaryContainer
@@ -712,10 +713,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                 _isTailscaleUrl(_serverUrlController.text)
-                                    ? 'Using HTTP over Tailscale (encrypted tunnel)'
+                                    ? S.of(context)!.usingHttpOverTailscale
                                     : _usedHttpFallback
-                                        ? 'HTTPS failed, using HTTP fallback'
-                                        : 'HTTP connection - data is not encrypted',
+                                        ? S.of(context)!.httpsFailedUsingHttp
+                                        : S.of(context)!.httpNotEncrypted,
                                 style: TextStyle(
                                   color: (_isTailscaleUrl(_serverUrlController.text)
                                       ? colorScheme.onSecondaryContainer
@@ -736,7 +737,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Auth Server URL (only for Authelia)
                 if (_detectedAuthStrategy?.name == 'authelia') ...[
                   Text(
-                    'Auth Server URL (Optional)',
+                    S.of(context)!.authServerUrlOptional,
                     style: textTheme.titleMedium?.copyWith(
                       color: colorScheme.onBackground,
                       fontWeight: FontWeight.w500,
@@ -744,7 +745,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Leave empty if authentication is on the same server',
+                    S.of(context)!.authServerUrlDescription,
                     style: TextStyle(
                       color: colorScheme.onBackground.withOpacity(0.6),
                       fontSize: 12,
@@ -756,7 +757,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _authServerUrlController,
                     style: TextStyle(color: colorScheme.onSurface),
                     decoration: InputDecoration(
-                      hintText: 'e.g., auth.example.com (if different from server)',
+                      hintText: S.of(context)!.authServerUrlHint,
                       hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                       filled: true,
                       fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
@@ -777,7 +778,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
 
                 Text(
-                  'Username',
+                  S.of(context)!.username,
                   style: textTheme.titleMedium?.copyWith(
                     color: colorScheme.onBackground,
                     fontWeight: FontWeight.w500,
@@ -790,7 +791,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   focusNode: _usernameFocusNode,
                   style: TextStyle(color: colorScheme.onSurface),
                   decoration: InputDecoration(
-                    hintText: 'Username',
+                    hintText: S.of(context)!.username,
                     hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                     filled: true,
                     fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
@@ -810,7 +811,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
 
                 Text(
-                  'Password',
+                  S.of(context)!.password,
                   style: textTheme.titleMedium?.copyWith(
                     color: colorScheme.onBackground,
                     fontWeight: FontWeight.w500,
@@ -822,7 +823,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _passwordController,
                   style: TextStyle(color: colorScheme.onSurface),
                   decoration: InputDecoration(
-                    hintText: 'Password',
+                    hintText: S.of(context)!.password,
                     hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.38)),
                     filled: true,
                     fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
@@ -912,9 +913,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Text(
-                            'Detecting authentication...',
-                            style: TextStyle(
+                          Text(
+                            S.of(context)!.detectingAuth,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -931,7 +932,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           )
                         : Text(
-                            _detectedAuthStrategy == null ? 'Detect & Connect' : 'Connect',
+                            _detectedAuthStrategy == null ? S.of(context)!.detectAndConnect : S.of(context)!.connect,
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,

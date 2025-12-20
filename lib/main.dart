@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
+import 'providers/locale_provider.dart';
 import 'providers/music_assistant_provider.dart';
 import 'providers/navigation_provider.dart';
 import 'screens/home_screen.dart';
@@ -89,6 +90,7 @@ class MusicAssistantApp extends StatefulWidget {
 class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindingObserver {
   late MusicAssistantProvider _musicProvider;
   late ThemeProvider _themeProvider;
+  late LocaleProvider _localeProvider;
   final _hardwareVolumeService = HardwareVolumeService();
   StreamSubscription? _volumeUpSub;
   StreamSubscription? _volumeDownSub;
@@ -103,6 +105,7 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
     super.initState();
     _musicProvider = MusicAssistantProvider();
     _themeProvider = ThemeProvider();
+    _localeProvider = LocaleProvider();
     WidgetsBinding.instance.addObserver(this);
     _initHardwareVolumeControl();
     // Listen to player selection changes to toggle volume interception
@@ -199,9 +202,10 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
       providers: [
         ChangeNotifierProvider.value(value: _musicProvider),
         ChangeNotifierProvider.value(value: _themeProvider),
+        ChangeNotifierProvider.value(value: _localeProvider),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, _) {
+      child: Consumer2<ThemeProvider, LocaleProvider>(
+        builder: (context, themeProvider, localeProvider, _) {
           return FutureBuilder<(ColorScheme, ColorScheme)?>(
             future: themeProvider.useMaterialTheme
                 ? SystemThemeHelper.getSystemColorSchemes()
@@ -238,6 +242,7 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
                     GlobalCupertinoLocalizations.delegate,
                   ],
                   supportedLocales: S.supportedLocales,
+                  locale: localeProvider.locale,
                   themeMode: themeProvider.themeMode,
                   theme: AppTheme.lightTheme(colorScheme: lightColorScheme),
                   darkTheme: AppTheme.darkTheme(colorScheme: darkColorScheme),

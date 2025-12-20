@@ -12,6 +12,7 @@ import '../widgets/common/disconnected_state.dart';
 import '../widgets/artist_avatar.dart';
 import 'album_details_screen.dart';
 import 'artist_details_screen.dart';
+import '../l10n/app_localizations.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -140,7 +141,7 @@ class SearchScreenState extends State<SearchScreen> {
         setState(() {
           _isSearching = false;
           _hasSearched = true;
-          _searchError = 'Search failed. Please check your connection.';
+          _searchError = S.of(context)!.searchFailed;
         });
         if (keepFocus && _focusNode.hasFocus) {
           _focusNode.requestFocus();
@@ -166,7 +167,7 @@ class SearchScreenState extends State<SearchScreen> {
           cursorColor: colorScheme.primary,
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
-            hintText: 'Search music...',
+            hintText: S.of(context)!.searchMusic,
             hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
             border: InputBorder.none,
             suffixIcon: _searchController.text.isNotEmpty
@@ -217,7 +218,7 @@ class SearchScreenState extends State<SearchScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Search for artists, albums, or tracks',
+              S.of(context)!.searchForContent,
               style: TextStyle(
                 color: colorScheme.onBackground.withOpacity(0.5),
                 fontSize: 16,
@@ -250,7 +251,7 @@ class SearchScreenState extends State<SearchScreen> {
             const SizedBox(height: 16),
             FilledButton.tonal(
               onPressed: () => _performSearch(_searchController.text),
-              child: const Text('Retry'),
+              child: Text(S.of(context)!.retry),
             ),
           ],
         ),
@@ -275,23 +276,23 @@ class SearchScreenState extends State<SearchScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              _buildFilterChip('All', 'all'),
+              _buildFilterChip(S.of(context)!.all, 'all'),
               const SizedBox(width: 8),
               if (artists.isNotEmpty) ...[
-                _buildFilterChip('Artists', 'artists'),
+                _buildFilterChip(S.of(context)!.artists, 'artists'),
                 const SizedBox(width: 8),
               ],
               if (albums.isNotEmpty) ...[
-                _buildFilterChip('Albums', 'albums'),
+                _buildFilterChip(S.of(context)!.albums, 'albums'),
                 const SizedBox(width: 8),
               ],
               if (tracks.isNotEmpty) ...[
-                _buildFilterChip('Tracks', 'tracks'),
+                _buildFilterChip(S.of(context)!.tracks, 'tracks'),
               ],
             ],
           ),
         ),
-        
+
         // Results
         Expanded(
           child: Builder(
@@ -336,7 +337,7 @@ class SearchScreenState extends State<SearchScreen> {
     // Add artists section
     if ((_activeFilter == 'all' || _activeFilter == 'artists') && artists.isNotEmpty) {
       if (_activeFilter == 'all') {
-        items.add(_ListItem.header('Artists', artists.length));
+        items.add(_ListItem.header(S.of(context)!.artists, artists.length));
       }
       for (final artist in artists) {
         items.add(_ListItem.artist(artist));
@@ -347,7 +348,7 @@ class SearchScreenState extends State<SearchScreen> {
     // Add albums section
     if ((_activeFilter == 'all' || _activeFilter == 'albums') && albums.isNotEmpty) {
       if (_activeFilter == 'all') {
-        items.add(_ListItem.header('Albums', albums.length));
+        items.add(_ListItem.header(S.of(context)!.albums, albums.length));
       }
       for (final album in albums) {
         items.add(_ListItem.album(album));
@@ -358,7 +359,7 @@ class SearchScreenState extends State<SearchScreen> {
     // Add tracks section
     if ((_activeFilter == 'all' || _activeFilter == 'tracks') && tracks.isNotEmpty) {
       if (_activeFilter == 'all') {
-        items.add(_ListItem.header('Tracks', tracks.length));
+        items.add(_ListItem.header(S.of(context)!.tracks, tracks.length));
       }
       for (final track in tracks) {
         items.add(_ListItem.track(track));

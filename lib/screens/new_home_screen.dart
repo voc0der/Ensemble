@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/settings_service.dart';
 import '../services/debug_logger.dart';
@@ -218,7 +219,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Connecting...',
+                            S.of(context)!.connecting,
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: colorScheme.onPrimaryContainer,
                             ),
@@ -300,7 +301,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         if (!_showRecentAlbums) return null;
         return AlbumRow(
           key: const ValueKey('recent-albums'),
-          title: 'Recently Played',
+          title: S.of(context)!.recentlyPlayed,
           loadAlbums: () => provider.getRecentAlbumsWithCache(),
           rowHeight: rowHeight,
         );
@@ -308,7 +309,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         if (!_showDiscoverArtists) return null;
         return ArtistRow(
           key: const ValueKey('discover-artists'),
-          title: 'Discover Artists',
+          title: S.of(context)!.discoverArtists,
           loadArtists: () => provider.getDiscoverArtistsWithCache(),
           rowHeight: rowHeight,
         );
@@ -316,7 +317,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         if (!_showDiscoverAlbums) return null;
         return AlbumRow(
           key: const ValueKey('discover-albums'),
-          title: 'Discover Albums',
+          title: S.of(context)!.discoverAlbums,
           loadAlbums: () => provider.getDiscoverAlbumsWithCache(),
           rowHeight: rowHeight,
         );
@@ -324,7 +325,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         if (!_showContinueListeningAudiobooks) return null;
         return AudiobookRow(
           key: const ValueKey('continue-listening'),
-          title: 'Continue Listening',
+          title: S.of(context)!.continueListening,
           loadAudiobooks: () => provider.getInProgressAudiobooks(),
           rowHeight: rowHeight,
         );
@@ -332,7 +333,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         if (!_showDiscoverAudiobooks) return null;
         return AudiobookRow(
           key: const ValueKey('discover-audiobooks'),
-          title: 'Discover Audiobooks',
+          title: S.of(context)!.discoverAudiobooks,
           loadAudiobooks: () => provider.getDiscoverAudiobooks(),
           rowHeight: rowHeight,
         );
@@ -340,7 +341,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         if (!_showDiscoverSeries) return null;
         return SeriesRow(
           key: const ValueKey('discover-series'),
-          title: 'Discover Series',
+          title: S.of(context)!.discoverSeries,
           loadSeries: () => provider.getDiscoverSeries(),
           rowHeight: rowHeight,
         );
@@ -348,7 +349,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         if (!_showFavoriteAlbums) return null;
         return AlbumRow(
           key: const ValueKey('favorite-albums'),
-          title: 'Favorite Albums',
+          title: S.of(context)!.favoriteAlbums,
           loadAlbums: () => provider.getFavoriteAlbums(),
           rowHeight: rowHeight,
         );
@@ -356,7 +357,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         if (!_showFavoriteArtists) return null;
         return ArtistRow(
           key: const ValueKey('favorite-artists'),
-          title: 'Favorite Artists',
+          title: S.of(context)!.favoriteArtists,
           loadArtists: () => provider.getFavoriteArtists(),
           rowHeight: rowHeight,
         );
@@ -364,7 +365,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         if (!_showFavoriteTracks) return null;
         return TrackRow(
           key: const ValueKey('favorite-tracks'),
-          title: 'Favorite Tracks',
+          title: S.of(context)!.favoriteTracks,
           loadTracks: () => provider.getFavoriteTracks(),
           rowHeight: rowHeight,
         );
