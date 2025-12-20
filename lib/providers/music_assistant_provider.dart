@@ -487,6 +487,39 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
+  /// Check if server version is >= 2.7.0b20 (uses Sendspin instead of builtin_player)
+  bool _serverUsesSendspin() {
+    final serverInfo = _api?.serverInfo;
+    if (serverInfo == null) return false;
+
+    final versionStr = serverInfo['server_version'] as String?;
+    if (versionStr == null) return false;
+
+    // Parse version like "2.8.0b2" or "2.7.0b20" or "2.7.1"
+    // Format: MAJOR.MINOR.PATCH[bBETA]
+    final versionRegex = RegExp(r'^(\d+)\.(\d+)\.(\d+)(?:b(\d+))?');
+    final match = versionRegex.firstMatch(versionStr);
+    if (match == null) return false;
+
+    final major = int.parse(match.group(1)!);
+    final minor = int.parse(match.group(2)!);
+    final patch = int.parse(match.group(3)!);
+    final beta = match.group(4) != null ? int.parse(match.group(4)!) : null;
+
+    // Compare with 2.7.0b20
+    if (major > 2) return true;
+    if (major < 2) return false;
+    // major == 2
+    if (minor > 7) return true;
+    if (minor < 7) return false;
+    // minor == 7
+    if (patch > 0) return true;
+    if (patch < 0) return false;
+    // patch == 0, so version is 2.7.0 - need beta >= 20
+    if (beta == null) return true; // 2.7.0 release is newer than 2.7.0b20
+    return beta >= 20;
+  }
+
   Future<void> _registerLocalPlayer() async {
     if (_api == null) return;
 
@@ -504,6 +537,26 @@ class MusicAssistantProvider with ChangeNotifier {
       await SettingsService.setBuiltinPlayerId(playerId);
 
       final name = await SettingsService.getLocalPlayerName();
+
+      // Check if server uses Sendspin (MA 2.7.0b20+) - skip builtin_player entirely
+      if (_serverUsesSendspin()) {
+        _logger.log('📡 Server uses Sendspin (MA 2.7.0b20+), skipping builtin_player');
+        _builtinPlayerAvailable = false;
+
+        final sendspinSuccess = await _connectViaSendspin();
+        if (sendspinSuccess) {
+          _logger.log('✅ Connected via Sendspin - local player available');
+          _startReportingLocalPlayerState();
+        } else {
+          _logger.log('⚠️ Sendspin connection failed - local player unavailable');
+        }
+
+        if (_registrationInProgress != null && !_registrationInProgress!.isCompleted) {
+          _registrationInProgress!.complete();
+        }
+        _registrationInProgress = null;
+        return;
+      }
 
       final existingPlayers = await _api!.getPlayers();
       final existingPlayer = existingPlayers.where((p) => p.playerId == playerId).firstOrNull;
