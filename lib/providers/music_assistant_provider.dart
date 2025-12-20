@@ -109,9 +109,27 @@ class MusicAssistantProvider with ChangeNotifier {
   /// Current sync status
   SyncStatus get syncStatus => SyncService.instance.status;
 
-  Player? get selectedPlayer => _selectedPlayer;
-  List<Player> get availablePlayers => _availablePlayers;
+  /// Selected player - loads from cache if not yet set
+  Player? get selectedPlayer {
+    if (_selectedPlayer == null && _cacheService.getCachedSelectedPlayer() != null) {
+      _selectedPlayer = _cacheService.getCachedSelectedPlayer();
+    }
+    return _selectedPlayer;
+  }
+
+  /// Available players - loads from cache for instant UI display
+  List<Player> get availablePlayers {
+    if (_availablePlayers.isEmpty && _cacheService.hasCachedPlayers) {
+      _availablePlayers = _cacheService.getCachedPlayers()!;
+      _logger.log('⚡ Loaded ${_availablePlayers.length} players from cache (lazy)');
+    }
+    return _availablePlayers;
+  }
+
   Track? get currentTrack => _currentTrack;
+
+  /// Whether we have cached players available (for instant UI display on app resume)
+  bool get hasCachedPlayers => _cacheService.hasCachedPlayers;
 
   /// Currently playing audiobook context (with chapters) - set when playing an audiobook
   Audiobook? get currentAudiobook => _currentAudiobook;

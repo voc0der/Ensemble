@@ -197,7 +197,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
                 ),
                 // Connecting banner overlay (doesn't affect layout)
                 // Hide when we have cached players - UI is functional during background reconnect
-                if (!isConnected && syncService.hasCache && maProvider.availablePlayers.isEmpty)
+                if (!isConnected && syncService.hasCache && !maProvider.hasCachedPlayers)
                   Positioned(
                     top: 0,
                     left: 0,

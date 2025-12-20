@@ -766,7 +766,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             children: [
               // Connecting banner when showing cached data
               // Hide when we have cached players - UI is functional during background reconnect
-              if (!isConnected && syncService.hasCache && context.read<MusicAssistantProvider>().availablePlayers.isEmpty)
+              if (!isConnected && syncService.hasCache && !context.read<MusicAssistantProvider>().hasCachedPlayers)
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
