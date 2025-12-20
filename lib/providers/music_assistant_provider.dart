@@ -416,8 +416,7 @@ class MusicAssistantProvider with ChangeNotifier {
       try {
         await refreshPlayers();
         await _updatePlayerState();
-        // Preload all player tracks to ensure fresh data after app resume
-        await _preloadAdjacentPlayers(preloadAll: true);
+        // Note: _preloadAdjacentPlayers is already called in refreshPlayers() -> _loadAndSelectPlayers()
         _logger.log('🔄 Connection verified, players and state refreshed');
       } catch (e) {
         _logger.log('🔄 Connection verification failed, reconnecting: $e');
@@ -1670,8 +1669,9 @@ class MusicAssistantProvider with ChangeNotifier {
         selectPlayer(playerToSelect);
       }
 
-      // Await preload so track data and images are ready for swipe gestures
-      await _preloadAdjacentPlayers(preloadAll: true);
+      // Preload track data and images in background for swipe gestures
+      // Don't await - UI should show immediately with cached data
+      unawaited(_preloadAdjacentPlayers(preloadAll: true));
     } catch (e) {
       ErrorHandler.logError('Load and select players', e);
     }
