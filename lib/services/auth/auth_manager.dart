@@ -210,9 +210,10 @@ class AuthManager {
 
       if (isLocalIp) {
         // For local IPs, don't follow redirects - handle them explicitly
-        final client = HttpClient()..followRedirects = false;
+        final client = HttpClient();
         try {
           final request = await client.postUrl(apiUrl);
+          request.followRedirects = false;
           request.headers.set('Content-Type', 'application/json');
           request.write(jsonEncode({'command': 'info'}));
           final ioResponse = await request.close().timeout(const Duration(seconds: 5));
@@ -314,9 +315,10 @@ class AuthManager {
 
       if (isLocalIp) {
         // For local IPs, don't follow redirects to avoid HTTPS cert issues
-        final client = HttpClient()..followRedirects = false;
+        final client = HttpClient();
         try {
           final request = await client.getUrl(uri);
+          request.followRedirects = false;
           final response = await request.close().timeout(const Duration(seconds: 10));
           statusCode = response.statusCode;
 
