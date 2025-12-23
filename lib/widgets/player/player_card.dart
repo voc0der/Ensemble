@@ -16,8 +16,8 @@ class PlayerCard extends StatelessWidget {
   final Color textColor;
   final VoidCallback onTap;
   final VoidCallback? onPlayPause;
-  final VoidCallback? onSkipPrevious;
   final VoidCallback? onSkipNext;
+  final VoidCallback? onPower;
 
   const PlayerCard({
     super.key,
@@ -30,8 +30,8 @@ class PlayerCard extends StatelessWidget {
     required this.textColor,
     required this.onTap,
     this.onPlayPause,
-    this.onSkipPrevious,
     this.onSkipNext,
+    this.onPower,
   });
 
   @override
@@ -132,44 +132,46 @@ class PlayerCard extends StatelessWidget {
               ),
             ),
 
-            // Transport controls (only if has content)
+            // Transport controls - match mini player button sizes
+            // Play/Pause and Next only shown when powered with content
             if (player.available && player.powered && trackInfo != null) ...[
-              // Skip previous
-              IconButton(
-                icon: Icon(
-                  Icons.skip_previous_rounded,
-                  color: textColor,
-                  size: 24,
-                ),
-                onPressed: onSkipPrevious,
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
               // Play/Pause
               IconButton(
                 icon: Icon(
                   isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                   color: textColor,
-                  size: 28,
+                  size: 34,
                 ),
                 onPressed: onPlayPause,
                 padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                constraints: const BoxConstraints(),
               ),
               // Skip next
               IconButton(
                 icon: Icon(
                   Icons.skip_next_rounded,
                   color: textColor,
-                  size: 24,
+                  size: 28,
                 ),
                 onPressed: onSkipNext,
                 padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                constraints: const BoxConstraints(),
               ),
             ],
+            // Power button - always shown when available
+            if (player.available)
+              IconButton(
+                icon: Icon(
+                  Icons.power_settings_new_rounded,
+                  color: player.powered ? textColor : textColor.withOpacity(0.5),
+                  size: 28,
+                ),
+                onPressed: onPower,
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(),
+              ),
 
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
           ],
         ),
       ),

@@ -281,11 +281,11 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
                                     maProvider.resumePlayer(player.playerId);
                                   }
                                 },
-                                onSkipPrevious: () {
-                                  maProvider.previousTrack(player.playerId);
-                                },
                                 onSkipNext: () {
                                   maProvider.nextTrack(player.playerId);
+                                },
+                                onPower: () {
+                                  maProvider.togglePower(player.playerId);
                                 },
                               ),
                             ),
