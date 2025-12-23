@@ -135,46 +135,49 @@ class PlayerCard extends StatelessWidget {
             // Transport controls - compact sizing to align with mini player
             // Play/Pause and Next only shown when powered with content
             if (player.available && player.powered && trackInfo != null) ...[
-              // Play/Pause - smaller to reduce total width
-              SizedBox(
-                width: 28,
-                height: 28,
+              // Play/Pause - nudged right to close gap with power
+              Transform.translate(
+                offset: const Offset(6, 0),
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: IconButton(
+                    icon: Icon(
+                      isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      color: textColor,
+                      size: 28,
+                    ),
+                    onPressed: onPlayPause,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              // Skip next - nudged right to close gap with power
+              Transform.translate(
+                offset: const Offset(6, 0),
                 child: IconButton(
                   icon: Icon(
-                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    Icons.skip_next_rounded,
                     color: textColor,
                     size: 28,
                   ),
-                  onPressed: onPlayPause,
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-              // Skip next
-              IconButton(
-                icon: Icon(
-                  Icons.skip_next_rounded,
-                  color: textColor,
-                  size: 28,
-                ),
-                onPressed: onSkipNext,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-            // Power button - smallest, nudged left to reduce gap
-            if (player.available)
-              Transform.translate(
-                offset: const Offset(-6, 0),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.power_settings_new_rounded,
-                    color: player.powered ? textColor : textColor.withOpacity(0.5),
-                    size: 20,
-                  ),
-                  onPressed: onPower,
+                  onPressed: onSkipNext,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
+              ),
+            ],
+            // Power button - smallest
+            if (player.available)
+              IconButton(
+                icon: Icon(
+                  Icons.power_settings_new_rounded,
+                  color: player.powered ? textColor : textColor.withOpacity(0.5),
+                  size: 20,
+                ),
+                onPressed: onPower,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
 
             const SizedBox(width: 4),
