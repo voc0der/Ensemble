@@ -939,9 +939,10 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         : null;
 
     // Color transitions - mini player uses adaptive primaryContainer (darker tinted color)
-    final collapsedBg = themeProvider.adaptiveTheme && adaptiveScheme != null
-        ? adaptiveScheme.primaryContainer
-        : colorScheme.primaryContainer;
+    // TEST: Bright red background to verify build is fresh - REMOVE AFTER TESTING
+    final collapsedBg = Colors.red; // themeProvider.adaptiveTheme && adaptiveScheme != null
+        // ? adaptiveScheme.primaryContainer
+        // : colorScheme.primaryContainer;
     // Create a darker shade for the "unplayed" portion of progress bar
     final collapsedBgUnplayed = Color.lerp(collapsedBg, Colors.black, 0.3)!;
     final expandedBg = adaptiveScheme?.surface ?? const Color(0xFF121212);
