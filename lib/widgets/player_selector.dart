@@ -68,7 +68,7 @@ class PlayerSelector extends StatelessWidget {
               top: -6,
               right: -6,
               child: Container(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.fromLTRB(4, 2, 4, 4),
                 constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                 decoration: BoxDecoration(
                   color: colorScheme.tertiary,
@@ -80,7 +80,8 @@ class PlayerSelector extends StatelessWidget {
                     style: TextStyle(
                       color: colorScheme.onTertiary,
                       fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w800,
+                      height: 1.0,
                     ),
                   ),
                 ),
