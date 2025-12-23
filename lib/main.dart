@@ -172,11 +172,20 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
   @override
   Future<bool> didPopRoute() async {
     // Intercept back button at app level - runs BEFORE Navigator processes it
-    // If player is expanded, collapse it and consume the back gesture
+    // Priority order: device list > expanded player > normal navigation
+
+    // Device list has highest priority - dismiss it first
+    if (GlobalPlayerOverlay.isPlayerRevealVisible) {
+      GlobalPlayerOverlay.dismissPlayerReveal();
+      return true; // We handled it, don't let Navigator process it
+    }
+
+    // Then check expanded player
     if (GlobalPlayerOverlay.isPlayerExpanded) {
       GlobalPlayerOverlay.collapsePlayer();
       return true; // We handled it, don't let Navigator process it
     }
+
     // Let Navigator handle the back gesture normally
     return super.didPopRoute();
   }
