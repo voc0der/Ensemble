@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import '../../providers/music_assistant_provider.dart';
 import '../../theme/design_tokens.dart';
 import '../../l10n/app_localizations.dart';
@@ -141,7 +142,7 @@ class PlayerCard extends StatelessWidget {
                 height: 28,
                 child: IconButton(
                   icon: Icon(
-                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    isPlaying ? MdiIcons.pause : MdiIcons.play,
                     color: textColor,
                     size: 28,
                   ),
@@ -152,7 +153,7 @@ class PlayerCard extends StatelessWidget {
               // Skip next
               IconButton(
                 icon: Icon(
-                  Icons.skip_next_rounded,
+                  MdiIcons.skipNext,
                   color: textColor,
                   size: 28,
                 ),
@@ -165,7 +166,7 @@ class PlayerCard extends StatelessWidget {
             if (player.available)
               IconButton(
                 icon: Icon(
-                  Icons.power_settings_new_rounded,
+                  MdiIcons.power,
                   color: player.powered ? textColor : textColor.withOpacity(0.5),
                   size: 20,
                 ),
