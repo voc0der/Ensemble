@@ -65,11 +65,11 @@ class PlayerSelector extends StatelessWidget {
           // Active player count badge
           if (playingCount > 0)
             Positioned(
-              top: -6,
-              right: -6,
+              top: -8,
+              right: -8,
               child: Container(
-                padding: const EdgeInsets.fromLTRB(4, 2, 4, 4),
-                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                padding: const EdgeInsets.fromLTRB(5, 3, 5, 4),
+                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
                 decoration: BoxDecoration(
                   color: colorScheme.tertiary,
                   shape: BoxShape.circle,
@@ -79,8 +79,8 @@ class PlayerSelector extends StatelessWidget {
                     playingCount.toString(),
                     style: TextStyle(
                       color: colorScheme.onTertiary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
                       height: 1.0,
                     ),
                   ),

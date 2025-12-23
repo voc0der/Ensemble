@@ -1108,11 +1108,11 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final titleFontSize = _lerpDouble(16.0, 24.0, t);
     final artistFontSize = _lerpDouble(14.0, 18.0, t); // 14px collapsed, 18px expanded
 
-    final collapsedTitleLeft = _collapsedArtSize + 8; // Reduced from 12 to 8 (4px less)
+    final collapsedTitleLeft = _collapsedArtSize + 12; // Match device selector bar padding
     final expandedTitleLeft = contentPadding;
     final titleLeft = _lerpDouble(collapsedTitleLeft, expandedTitleLeft, t);
 
-    final collapsedTitleTop = (_collapsedHeight - 36) / 2; // Centered vertically (adjusted for increased track/artist gap)
+    final collapsedTitleTop = (_collapsedHeight - 34) / 2; // Centered vertically to match device selector bar
 
     // Controls: 36 (prev) + 34 (play) + 36 (next) + 8 (right margin) = 114px from widget right
     // For 8px gap: text ends at widgetWidth - 114 - 8 = widgetWidth - 122
@@ -1174,7 +1174,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final titleTop = _lerpDouble(collapsedTitleTop, expandedTitleTop, t);
 
     // Artist positioned dynamically based on actual title height
-    final collapsedArtistTop = collapsedTitleTop + 22; // Increased gap from 18 to 22
+    final collapsedArtistTop = collapsedTitleTop + 18; // Match device selector bar spacing
     final expandedArtistTop = expandedTitleTop + expandedTitleHeight + titleToArtistGap;
     final artistTop = _lerpDouble(collapsedArtistTop, expandedArtistTop, t);
 
@@ -1444,7 +1444,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                           fontSize: titleFontSize,
                           fontWeight: t > 0.5 ? FontWeight.w600 : FontWeight.w500,
                           letterSpacing: t > 0.5 ? -0.5 : 0,
-                          height: 1.2,
+                          height: t > 0.5 ? 1.2 : null, // Match non-playing mini player
                         ),
                         textAlign: t > 0.5 ? TextAlign.center : TextAlign.left,
                         maxLines: t > 0.5 ? 2 : 1,
