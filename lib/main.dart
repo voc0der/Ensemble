@@ -230,9 +230,9 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
                 lightColorScheme = light;
                 darkColorScheme = dark;
               } else {
-                // Use brand color schemes
-                lightColorScheme = brandLightColorScheme;
-                darkColorScheme = brandDarkColorScheme;
+                // Use custom color from theme provider
+                lightColorScheme = generateLightColorScheme(themeProvider.customColor);
+                darkColorScheme = generateDarkColorScheme(themeProvider.customColor);
               }
 
               return SystemUIWrapper(

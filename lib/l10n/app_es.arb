@@ -465,6 +465,7 @@
     }
   },
   "materialYouDescription": "Usar colores del sistema (Android 12+)",
+  "accentColor": "Color de acento",
   "playerStateUnavailable": "No disponible",
   "playerStateOff": "Apagado",
   "playerStateIdle": "Inactivo",

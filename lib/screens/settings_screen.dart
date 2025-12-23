@@ -6,6 +6,7 @@ import '../providers/music_assistant_provider.dart';
 import '../services/music_assistant_api.dart';
 import '../services/settings_service.dart';
 import '../theme/theme_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/global_player_overlay.dart';
 import 'debug_log_screen.dart';
 import 'login_screen.dart';
@@ -489,6 +490,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       },
                     );
                   },
+                );
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // Accent color picker
+            Consumer<ThemeProvider>(
+              builder: (context, themeProvider, _) {
+                final isDisabled = themeProvider.useMaterialTheme;
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceVariant.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        S.of(context)!.accentColor,
+                        style: TextStyle(
+                          color: isDisabled
+                              ? colorScheme.onSurface.withOpacity(0.4)
+                              : colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: accentColorOptions.map((color) {
+                          final isSelected = themeProvider.customColor.value == color.value;
+                          return GestureDetector(
+                            onTap: isDisabled ? null : () {
+                              themeProvider.setCustomColor(color);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: isDisabled ? color.withOpacity(0.3) : color,
+                                shape: BoxShape.circle,
+                                border: isSelected && !isDisabled
+                                    ? Border.all(color: colorScheme.onSurface, width: 3)
+                                    : null,
+                                boxShadow: isSelected && !isDisabled
+                                    ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 8, spreadRadius: 2)]
+                                    : null,
+                              ),
+                              child: isSelected && !isDisabled
+                                  ? Icon(Icons.check, color: Colors.white, size: 20)
+                                  : null,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),

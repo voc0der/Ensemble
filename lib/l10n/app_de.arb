@@ -269,6 +269,7 @@
   "audiobookSingular": "Hörbuch",
   "trackCount": "{count} {count, plural, =1{Song} other{Songs}}",
   "materialYouDescription": "Systemfarben verwenden (Android 12+)",
+  "accentColor": "Akzentfarbe",
   "playerStateUnavailable": "Nicht verfügbar",
   "playerStateOff": "Aus",
   "playerStateIdle": "Inaktiv",

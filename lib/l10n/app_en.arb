@@ -1143,6 +1143,11 @@
     "description": "Description for Material You theme option"
   },
 
+  "accentColor": "Accent Color",
+  "@accentColor": {
+    "description": "Accent color selection label"
+  },
+
   "playerStateUnavailable": "Unavailable",
   "@playerStateUnavailable": {
     "description": "Player state when unavailable"
