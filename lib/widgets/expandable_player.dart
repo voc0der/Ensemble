@@ -99,18 +99,47 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   String? _lastMeasuredTrackName;
   double? _lastMeasuredTitleWidth;
 
+  // Gesture-driven expansion state
+  bool _isVerticalDragging = false;
+  double _dragStartY = 0;
+  double _dragStartValue = 0;
+
+  // Maximum drag distance for full expand/collapse
+  static const double _maxDragDistance = 300.0;
+
+  // Thresholds for committing expand/collapse
+  static const double _commitPositionThreshold = 0.3; // 30% progress
+  static const double _commitVelocityThreshold = 800.0; // px/s
+
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 350),
       vsync: this,
     );
-    _expandAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
+
+    // TweenSequence for phased expand animation with settle bounce
+    _expandAnimation = TweenSequence<double>([
+      // Phase 1 (0-40%): Quick acceleration
+      TweenSequenceItem<double>(
+        tween: Tween<double>(begin: 0.0, end: 0.5)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 40,
+      ),
+      // Phase 2 (40-75%): Consistent cruise
+      TweenSequenceItem<double>(
+        tween: Tween<double>(begin: 0.5, end: 0.92)
+            .chain(CurveTween(curve: Curves.linear)),
+        weight: 35,
+      ),
+      // Phase 3 (75-100%): Settle with slight overshoot
+      TweenSequenceItem<double>(
+        tween: Tween<double>(begin: 0.92, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOutBack)),
+        weight: 25,
+      ),
+    ]).animate(_controller);
 
     // Notify listeners of expansion progress changes
     _controller.addListener(_notifyExpansionProgress);
@@ -191,6 +220,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   }
 
   void expand() {
+    if (_isVerticalDragging) return;
     AnimationDebugger.startSession('playerExpand');
     _controller.forward().then((_) {
       AnimationDebugger.endSession();
@@ -198,6 +228,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   }
 
   void collapse() {
+    if (_isVerticalDragging) return;
     AnimationDebugger.startSession('playerCollapse');
     // Instantly hide queue panel when collapsing to avoid visual glitches
     // during Android's predictive back gesture
@@ -205,6 +236,67 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     _controller.reverse().then((_) {
       AnimationDebugger.endSession();
     });
+  }
+
+  /// Handle vertical drag start - begin gesture-driven expansion
+  void _handleVerticalDragStart(DragStartDetails details) {
+    _isVerticalDragging = true;
+    _dragStartY = details.globalPosition.dy;
+    _dragStartValue = _controller.value;
+    _controller.stop(); // Stop any running animation
+  }
+
+  /// Handle vertical drag update - finger tracking
+  void _handleVerticalDragUpdate(DragUpdateDetails details) {
+    if (!_isVerticalDragging) return;
+
+    final dragDelta = _dragStartY - details.globalPosition.dy;
+    // Swipe up = positive delta = expand (increase value)
+    // Swipe down = negative delta = collapse (decrease value)
+    final normalizedDelta = dragDelta / _maxDragDistance;
+    final newValue = (_dragStartValue + normalizedDelta).clamp(0.0, 1.0);
+
+    _controller.value = newValue;
+  }
+
+  /// Handle vertical drag end - decide to commit or snap back
+  void _handleVerticalDragEnd(DragEndDetails details) {
+    if (!_isVerticalDragging) return;
+    _isVerticalDragging = false;
+
+    final velocity = details.primaryVelocity ?? 0;
+    final currentValue = _controller.value;
+
+    // Determine direction based on velocity first, then position
+    bool shouldExpand;
+    if (velocity.abs() > _commitVelocityThreshold) {
+      // High velocity: use velocity direction (negative = swipe up = expand)
+      shouldExpand = velocity < 0;
+    } else if (currentValue > _commitPositionThreshold && currentValue < (1 - _commitPositionThreshold)) {
+      // In the middle zone: use velocity direction if any, otherwise snap to nearest
+      shouldExpand = velocity < 0 || (velocity == 0 && currentValue > 0.5);
+    } else {
+      // Near edges: commit to nearest endpoint
+      shouldExpand = currentValue > 0.5;
+    }
+
+    // Animate to target
+    if (shouldExpand) {
+      if (currentValue < 1.0) {
+        AnimationDebugger.startSession('playerExpand');
+        _controller.forward().then((_) {
+          AnimationDebugger.endSession();
+        });
+      }
+    } else {
+      if (currentValue > 0.0) {
+        AnimationDebugger.startSession('playerCollapse');
+        _queuePanelController.value = 0;
+        _controller.reverse().then((_) {
+          AnimationDebugger.endSession();
+        });
+      }
+    }
   }
 
   bool get isExpanded => _controller.value > 0.5;
@@ -971,12 +1063,13 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
     // Apply slide offset to hide mini player (slides down off-screen)
     // Apply bounce offset for reveal animation (small downward movement)
-    // Only apply when collapsed (t == 0), don't affect expanded state
+    // Smoothly fade out offsets as animation progresses (continuous, no discontinuity)
     final slideDownAmount = widget.slideOffset * (_collapsedHeight + collapsedBottomOffset + 20);
     final bounceDownAmount = widget.bounceOffset;
-    final slideAdjustedBottomOffset = t < 0.1
-        ? collapsedBottomOffset - slideDownAmount - bounceDownAmount
-        : _lerpDouble(collapsedBottomOffset, expandedBottomOffset, t);
+    // Fade out slide/bounce effects smoothly over first 15% of animation
+    final offsetFade = (1.0 - (t / 0.15)).clamp(0.0, 1.0);
+    final baseBottomOffset = _lerpDouble(collapsedBottomOffset, expandedBottomOffset, t);
+    final slideAdjustedBottomOffset = baseBottomOffset - (slideDownAmount + bounceDownAmount) * offsetFade;
 
     final collapsedWidth = screenSize.width - (_collapsedMargin * 2);
     final width = _lerpDouble(collapsedWidth, screenSize.width, t);
@@ -1120,7 +1213,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final selectedPlayerId = selectedPlayer.playerId;
 
     // Calculate slide offset for mini player content (only when collapsed)
-    final miniPlayerSlideOffset = t < 0.1 ? _slideOffset * collapsedWidth : 0.0;
+    // Smoothly fade out horizontal slide offset (for device switching) as animation progresses
+    final miniPlayerSlideOffset = _slideOffset * collapsedWidth * offsetFade;
 
     return Positioned(
       left: horizontalMargin,
@@ -1131,15 +1225,34 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         behavior: HitTestBehavior.translucent,
         // Only handle tap when collapsed - when expanded, let children handle their own taps
         onTap: isExpanded ? null : expand,
-        onVerticalDragUpdate: (details) {
-          if (details.primaryDelta! < -5 && !isExpanded) {
-            expand();
-          } else if (details.primaryDelta! > 5 && isExpanded && !isQueuePanelOpen) {
-            collapse();
-          } else if (details.primaryDelta! > 5 && !isExpanded && widget.onRevealPlayers != null) {
-            // Swipe down on collapsed player - show player reveal
-            widget.onRevealPlayers!();
+        onVerticalDragStart: (details) {
+          // Start gesture-driven expansion tracking
+          // (unless queue panel is open, then swipe should close it)
+          if (!isQueuePanelOpen) {
+            _handleVerticalDragStart(details);
           }
+        },
+        onVerticalDragUpdate: (details) {
+          final delta = details.primaryDelta ?? 0;
+
+          // Handle queue panel close
+          if (isQueuePanelOpen && delta > 0) {
+            _toggleQueuePanel();
+            return;
+          }
+
+          // Collapsed + swipe down → show player reveal (not gesture-driven)
+          if (!isExpanded && delta > 5 && widget.onRevealPlayers != null && !_isVerticalDragging) {
+            widget.onRevealPlayers!();
+            return;
+          }
+
+          // Gesture-driven expand/collapse
+          _handleVerticalDragUpdate(details);
+        },
+        onVerticalDragEnd: (details) {
+          // Finish gesture-driven expansion
+          _handleVerticalDragEnd(details);
         },
         onHorizontalDragStart: (details) {
           _horizontalDragStartX = details.globalPosition.dx;

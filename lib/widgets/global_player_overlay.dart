@@ -168,22 +168,40 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
       reverseCurve: Curves.easeInCubic,
     );
 
-    // Bounce animation - quick dip down then back up
+    // Bounce animation - settle effect with overshoot
     _bounceController = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 280),
       vsync: this,
     );
-    _bounceAnimation = CurvedAnimation(
-      parent: _bounceController,
-      curve: Curves.easeOut,
-    );
+
+    // TweenSequence for natural settle bounce:
+    // Phase 1: Quick push down (cards landing)
+    // Phase 2: Overshoot up slightly
+    // Phase 3: Settle back to rest
+    _bounceAnimation = TweenSequence<double>([
+      // Phase 1 (0-35%): Push down 12px
+      TweenSequenceItem<double>(
+        tween: Tween<double>(begin: 0.0, end: 12.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 35,
+      ),
+      // Phase 2 (35-65%): Spring back with overshoot to -4px
+      TweenSequenceItem<double>(
+        tween: Tween<double>(begin: 12.0, end: -4.0)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 30,
+      ),
+      // Phase 3 (65-100%): Settle to rest
+      TweenSequenceItem<double>(
+        tween: Tween<double>(begin: -4.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 35,
+      ),
+    ]).animate(_bounceController);
 
     _bounceController.addListener(() {
       setState(() {
-        // Quick dip: goes down 14px at peak (0.5), then back to 0
-        final t = _bounceAnimation.value;
-        // Sine curve: 0 -> 1 -> 0 as t goes 0 -> 0.5 -> 1
-        _bounceOffset = 14.0 * (t < 0.5 ? t * 2 : (1.0 - t) * 2);
+        _bounceOffset = _bounceAnimation.value;
       });
     });
   }
