@@ -304,6 +304,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
           key: const ValueKey('recent-albums'),
           title: S.of(context)!.recentlyPlayed,
           loadAlbums: () => provider.getRecentAlbumsWithCache(),
+          getCachedAlbums: () => provider.getCachedRecentAlbums(),
           rowHeight: rowHeight,
         );
       case 'discover-artists':
@@ -312,6 +313,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
           key: const ValueKey('discover-artists'),
           title: S.of(context)!.discoverArtists,
           loadArtists: () => provider.getDiscoverArtistsWithCache(),
+          getCachedArtists: () => provider.getCachedDiscoverArtists(),
           rowHeight: rowHeight,
         );
       case 'discover-albums':
@@ -320,6 +322,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
           key: const ValueKey('discover-albums'),
           title: S.of(context)!.discoverAlbums,
           loadAlbums: () => provider.getDiscoverAlbumsWithCache(),
+          getCachedAlbums: () => provider.getCachedDiscoverAlbums(),
           rowHeight: rowHeight,
         );
       case 'continue-listening':

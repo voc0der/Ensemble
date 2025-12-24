@@ -1692,6 +1692,15 @@ class MusicAssistantProvider with ChangeNotifier {
     _cacheService.invalidateHomeCache();
   }
 
+  /// Get cached recent albums synchronously (for instant display)
+  List<Album>? getCachedRecentAlbums() => _cacheService.getCachedRecentAlbums();
+
+  /// Get cached discover artists synchronously (for instant display)
+  List<Artist>? getCachedDiscoverArtists() => _cacheService.getCachedDiscoverArtists();
+
+  /// Get cached discover albums synchronously (for instant display)
+  List<Album>? getCachedDiscoverAlbums() => _cacheService.getCachedDiscoverAlbums();
+
   /// Force a full library sync (for pull-to-refresh)
   Future<void> forceLibrarySync() async {
     if (_api == null) return;

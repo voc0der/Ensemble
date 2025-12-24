@@ -10,6 +10,8 @@ class ArtistRow extends StatefulWidget {
   final Future<List<Artist>> Function() loadArtists;
   final String? heroTagSuffix;
   final double? rowHeight;
+  /// Optional: synchronous getter for cached data (for instant display)
+  final List<Artist>? Function()? getCachedArtists;
 
   const ArtistRow({
     super.key,
@@ -17,6 +19,7 @@ class ArtistRow extends StatefulWidget {
     required this.loadArtists,
     this.heroTagSuffix,
     this.rowHeight,
+    this.getCachedArtists,
   });
 
   @override
@@ -24,8 +27,8 @@ class ArtistRow extends StatefulWidget {
 }
 
 class _ArtistRowState extends State<ArtistRow> with AutomaticKeepAliveClientMixin {
-  late Future<List<Artist>> _artistsFuture;
-  List<Artist>? _cachedArtists; // Keep last loaded data to prevent flash
+  List<Artist> _artists = [];
+  bool _isLoading = true;
   bool _hasLoaded = false;
 
   @override
@@ -34,20 +37,98 @@ class _ArtistRowState extends State<ArtistRow> with AutomaticKeepAliveClientMixi
   @override
   void initState() {
     super.initState();
-    _loadArtistsOnce();
+    _loadArtists();
   }
 
-  void _loadArtistsOnce() {
-    if (!_hasLoaded) {
-      _artistsFuture = widget.loadArtists().then((artists) {
-        _cachedArtists = artists;
-        return artists;
-      });
-      _hasLoaded = true;
+  Future<void> _loadArtists() async {
+    if (_hasLoaded) return;
+    _hasLoaded = true;
+
+    // 1. Try to get cached data synchronously for instant display
+    final cachedArtists = widget.getCachedArtists?.call();
+    if (cachedArtists != null && cachedArtists.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _artists = cachedArtists;
+          _isLoading = false;
+        });
+      }
+    }
+
+    // 2. Load fresh data (silent background refresh if we had cache)
+    try {
+      final freshArtists = await widget.loadArtists();
+      if (mounted && freshArtists.isNotEmpty) {
+        // Only update if data actually changed
+        final hasChanged = _artists.isEmpty ||
+            _artists.length != freshArtists.length ||
+            (_artists.isNotEmpty && freshArtists.isNotEmpty &&
+             _artists.first.itemId != freshArtists.first.itemId);
+        if (hasChanged) {
+          setState(() {
+            _artists = freshArtists;
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      // Silent failure - keep showing cached data
+    }
+
+    if (mounted && _isLoading) {
+      setState(() => _isLoading = false);
     }
   }
 
   static final _logger = DebugLogger();
+
+  Widget _buildContent(double contentHeight, ColorScheme colorScheme) {
+    // Only show loading if we have no data at all
+    if (_artists.isEmpty && _isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_artists.isEmpty) {
+      return Center(
+        child: Text(
+          'No artists found',
+          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+        ),
+      );
+    }
+
+    // Card layout: circle image + name below
+    // Text area: 8px gap + ~36px for 2-line name = ~44px
+    const textAreaHeight = 44.0;
+    final imageSize = contentHeight - textAreaHeight;
+    final cardWidth = imageSize; // Card width = image width (circle)
+    final itemExtent = cardWidth + 16; // width + horizontal margins
+
+    return ScrollConfiguration(
+      behavior: const _StretchScrollBehavior(),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        itemCount: _artists.length,
+        itemExtent: itemExtent,
+        cacheExtent: 500, // Preload ~3 items ahead for smoother scrolling
+        addAutomaticKeepAlives: false, // Row already uses AutomaticKeepAliveClientMixin
+        addRepaintBoundaries: false, // Cards already have RepaintBoundary
+        itemBuilder: (context, index) {
+          final artist = _artists[index];
+          return Container(
+            key: ValueKey(artist.uri ?? artist.itemId),
+            width: cardWidth,
+            margin: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: ArtistCard(
+              artist: artist,
+              heroTagSuffix: widget.heroTagSuffix,
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,65 +159,7 @@ class _ArtistRowState extends State<ArtistRow> with AutomaticKeepAliveClientMixi
             ),
           ),
           Expanded(
-            child: FutureBuilder<List<Artist>>(
-              future: _artistsFuture,
-              builder: (context, snapshot) {
-                // Use cached data immediately if available (prevents flash on rebuild)
-                final artists = snapshot.data ?? _cachedArtists;
-
-                // Only show loading if we have no data at all
-                if (artists == null && snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError && artists == null) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}'),
-                  );
-                }
-
-                if (artists == null || artists.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No artists found',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
-                    ),
-                  );
-                }
-
-                // Card layout: circle image + name below
-                // Text area: 8px gap + ~36px for 2-line name = ~44px
-                const textAreaHeight = 44.0;
-                final imageSize = contentHeight - textAreaHeight;
-                final cardWidth = imageSize; // Card width = image width (circle)
-                final itemExtent = cardWidth + 16; // width + horizontal margins
-
-                return ScrollConfiguration(
-                  behavior: const _StretchScrollBehavior(),
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    itemCount: artists.length,
-                    itemExtent: itemExtent,
-                    cacheExtent: 500, // Preload ~3 items ahead for smoother scrolling
-                    addAutomaticKeepAlives: false, // Row already uses AutomaticKeepAliveClientMixin
-                    addRepaintBoundaries: false, // Cards already have RepaintBoundary
-                    itemBuilder: (context, index) {
-                      final artist = artists[index];
-                      return Container(
-                        key: ValueKey(artist.uri ?? artist.itemId),
-                        width: cardWidth,
-                        margin: const EdgeInsets.symmetric(horizontal: 8.0),
-                        child: ArtistCard(
-                          artist: artist,
-                          heroTagSuffix: widget.heroTagSuffix,
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
+            child: _buildContent(contentHeight, colorScheme),
           ),
           ],
         ),

@@ -10,6 +10,8 @@ class AlbumRow extends StatefulWidget {
   final Future<List<Album>> Function() loadAlbums;
   final String? heroTagSuffix;
   final double? rowHeight;
+  /// Optional: synchronous getter for cached data (for instant display)
+  final List<Album>? Function()? getCachedAlbums;
 
   const AlbumRow({
     super.key,
@@ -17,6 +19,7 @@ class AlbumRow extends StatefulWidget {
     required this.loadAlbums,
     this.heroTagSuffix,
     this.rowHeight,
+    this.getCachedAlbums,
   });
 
   @override
@@ -24,8 +27,8 @@ class AlbumRow extends StatefulWidget {
 }
 
 class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin {
-  late Future<List<Album>> _albumsFuture;
-  List<Album>? _cachedAlbums; // Keep last loaded data to prevent flash
+  List<Album> _albums = [];
+  bool _isLoading = true;
   bool _hasLoaded = false;
 
   @override
@@ -34,20 +37,98 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
   @override
   void initState() {
     super.initState();
-    _loadAlbumsOnce();
+    _loadAlbums();
   }
 
-  void _loadAlbumsOnce() {
-    if (!_hasLoaded) {
-      _albumsFuture = widget.loadAlbums().then((albums) {
-        _cachedAlbums = albums;
-        return albums;
-      });
-      _hasLoaded = true;
+  Future<void> _loadAlbums() async {
+    if (_hasLoaded) return;
+    _hasLoaded = true;
+
+    // 1. Try to get cached data synchronously for instant display
+    final cachedAlbums = widget.getCachedAlbums?.call();
+    if (cachedAlbums != null && cachedAlbums.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _albums = cachedAlbums;
+          _isLoading = false;
+        });
+      }
+    }
+
+    // 2. Load fresh data (silent background refresh if we had cache)
+    try {
+      final freshAlbums = await widget.loadAlbums();
+      if (mounted && freshAlbums.isNotEmpty) {
+        // Only update if data actually changed
+        final hasChanged = _albums.isEmpty ||
+            _albums.length != freshAlbums.length ||
+            (_albums.isNotEmpty && freshAlbums.isNotEmpty &&
+             _albums.first.itemId != freshAlbums.first.itemId);
+        if (hasChanged) {
+          setState(() {
+            _albums = freshAlbums;
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      // Silent failure - keep showing cached data
+    }
+
+    if (mounted && _isLoading) {
+      setState(() => _isLoading = false);
     }
   }
 
   static final _logger = DebugLogger();
+
+  Widget _buildContent(double contentHeight, ColorScheme colorScheme) {
+    // Only show loading if we have no data at all
+    if (_albums.isEmpty && _isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_albums.isEmpty) {
+      return Center(
+        child: Text(
+          'No albums found',
+          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+        ),
+      );
+    }
+
+    // Card layout: square artwork + text below
+    // Text area: 8px gap + ~18px title + ~18px artist = ~44px
+    const textAreaHeight = 44.0;
+    final artworkSize = contentHeight - textAreaHeight;
+    final cardWidth = artworkSize; // Card width = artwork width (square)
+    final itemExtent = cardWidth + 12; // width + horizontal margins
+
+    return ScrollConfiguration(
+      behavior: const _StretchScrollBehavior(),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        itemCount: _albums.length,
+        itemExtent: itemExtent,
+        cacheExtent: 500, // Preload ~3 items ahead for smoother scrolling
+        addAutomaticKeepAlives: false, // Row already uses AutomaticKeepAliveClientMixin
+        addRepaintBoundaries: false, // Cards already have RepaintBoundary
+        itemBuilder: (context, index) {
+          final album = _albums[index];
+          return Container(
+            key: ValueKey(album.uri ?? album.itemId),
+            width: cardWidth,
+            margin: const EdgeInsets.symmetric(horizontal: 6.0),
+            child: AlbumCard(
+              album: album,
+              heroTagSuffix: widget.heroTagSuffix,
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,65 +159,7 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
             ),
           ),
           Expanded(
-            child: FutureBuilder<List<Album>>(
-              future: _albumsFuture,
-              builder: (context, snapshot) {
-                // Use cached data immediately if available (prevents flash on rebuild)
-                final albums = snapshot.data ?? _cachedAlbums;
-
-                // Only show loading if we have no data at all
-                if (albums == null && snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError && albums == null) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}'),
-                  );
-                }
-
-                if (albums == null || albums.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No albums found',
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
-                    ),
-                  );
-                }
-
-                // Card layout: square artwork + text below
-                // Text area: 8px gap + ~18px title + ~18px artist = ~44px
-                const textAreaHeight = 44.0;
-                final artworkSize = contentHeight - textAreaHeight;
-                final cardWidth = artworkSize; // Card width = artwork width (square)
-                final itemExtent = cardWidth + 12; // width + horizontal margins
-
-                return ScrollConfiguration(
-                  behavior: const _StretchScrollBehavior(),
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    itemCount: albums.length,
-                    itemExtent: itemExtent,
-                    cacheExtent: 500, // Preload ~3 items ahead for smoother scrolling
-                    addAutomaticKeepAlives: false, // Row already uses AutomaticKeepAliveClientMixin
-                    addRepaintBoundaries: false, // Cards already have RepaintBoundary
-                    itemBuilder: (context, index) {
-                      final album = albums[index];
-                      return Container(
-                        key: ValueKey(album.uri ?? album.itemId),
-                        width: cardWidth,
-                        margin: const EdgeInsets.symmetric(horizontal: 6.0),
-                        child: AlbumCard(
-                          album: album,
-                          heroTagSuffix: widget.heroTagSuffix,
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
+            child: _buildContent(contentHeight, colorScheme),
           ),
           ],
         ),
