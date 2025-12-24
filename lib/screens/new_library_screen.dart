@@ -1222,17 +1222,18 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               ),
             )
           : null,
-      onTap: () => _navigateToAudiobook(book, heroTagSuffix: 'library$heroSuffix'),
+      onTap: () => _navigateToAudiobook(book, heroTagSuffix: 'library$heroSuffix', initialImageUrl: imageUrl),
     );
   }
 
-  void _navigateToAudiobook(Audiobook book, {String? heroTagSuffix}) {
+  void _navigateToAudiobook(Audiobook book, {String? heroTagSuffix, String? initialImageUrl}) {
     Navigator.push(
       context,
       FadeSlidePageRoute(
         child: AudiobookDetailScreen(
           audiobook: book,
           heroTagSuffix: heroTagSuffix,
+          initialImageUrl: initialImageUrl,
         ),
       ),
     );
@@ -2188,7 +2189,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         Navigator.push(
           context,
           FadeSlidePageRoute(
-            child: AlbumDetailsScreen(album: album),
+            child: AlbumDetailsScreen(
+              album: album,
+              initialImageUrl: imageUrl,
+            ),
           ),
         );
       },

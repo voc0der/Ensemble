@@ -860,6 +860,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
             child: AlbumDetailsScreen(
               album: album,
               heroTagSuffix: heroSuffix,
+              initialImageUrl: imageUrl,
             ),
           ),
         );
@@ -1022,6 +1023,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
             child: AlbumDetailsScreen(
               album: album,
               heroTagSuffix: 'artist_albums',
+              initialImageUrl: imageUrl,
             ),
           ),
         );

@@ -173,6 +173,7 @@ class _AudiobookCard extends StatelessWidget {
             child: AudiobookDetailScreen(
               audiobook: audiobook,
               heroTagSuffix: heroTagSuffix,
+              initialImageUrl: imageUrl,
             ),
           ),
         );

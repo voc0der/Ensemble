@@ -15,11 +15,14 @@ import '../l10n/app_localizations.dart';
 class AudiobookDetailScreen extends StatefulWidget {
   final Audiobook audiobook;
   final String? heroTagSuffix;
+  /// Initial image URL from the source for seamless hero animation
+  final String? initialImageUrl;
 
   const AudiobookDetailScreen({
     super.key,
     required this.audiobook,
     this.heroTagSuffix,
+    this.initialImageUrl,
   });
 
   @override
@@ -426,7 +429,9 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final maProvider = context.read<MusicAssistantProvider>();
-    final imageUrl = maProvider.getImageUrl(widget.audiobook, size: 512);
+    final providerImageUrl = maProvider.getImageUrl(widget.audiobook, size: 512);
+    // Use initialImageUrl as fallback for seamless hero animation
+    final imageUrl = providerImageUrl ?? widget.initialImageUrl;
 
     final adaptiveTheme = context.select<ThemeProvider, bool>(
       (provider) => provider.adaptiveTheme,

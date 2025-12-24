@@ -329,7 +329,7 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
     final heroSuffix = 'author${_heroTagSuffix}';
 
     return InkWell(
-      onTap: () => _navigateToAudiobook(book, heroTagSuffix: heroSuffix),
+      onTap: () => _navigateToAudiobook(book, heroTagSuffix: heroSuffix, initialImageUrl: imageUrl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -508,17 +508,18 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
               ),
             )
           : null,
-      onTap: () => _navigateToAudiobook(book, heroTagSuffix: heroSuffix),
+      onTap: () => _navigateToAudiobook(book, heroTagSuffix: heroSuffix, initialImageUrl: imageUrl),
     );
   }
 
-  void _navigateToAudiobook(Audiobook book, {String? heroTagSuffix}) {
+  void _navigateToAudiobook(Audiobook book, {String? heroTagSuffix, String? initialImageUrl}) {
     Navigator.push(
       context,
       FadeSlidePageRoute(
         child: AudiobookDetailScreen(
           audiobook: book,
           heroTagSuffix: heroTagSuffix,
+          initialImageUrl: initialImageUrl,
         ),
       ),
     );

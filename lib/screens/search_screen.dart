@@ -496,7 +496,10 @@ class SearchScreenState extends State<SearchScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => AlbumDetailsScreen(album: album),
+              builder: (context) => AlbumDetailsScreen(
+                album: album,
+                initialImageUrl: imageUrl,
+              ),
             ),
           );
         },
