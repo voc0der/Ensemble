@@ -37,6 +37,10 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
   int? _expandedTrackIndex;
   bool _isDescriptionExpanded = false;
   String? _albumDescription;
+  Album? _freshAlbum; // Full album data with image metadata
+
+  /// Get the best album data available (fresh with images, or widget.album as fallback)
+  Album get _displayAlbum => _freshAlbum ?? widget.album;
 
   String get _heroTagSuffix => widget.heroTagSuffix != null ? '_${widget.heroTagSuffix}' : '';
 
@@ -46,7 +50,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
     _isFavorite = widget.album.favorite ?? false;
     _loadTracks();
     _loadAlbumDescription();
-    _refreshFavoriteStatus();
+    _loadFreshAlbumData();
 
     // CRITICAL FIX: Defer color extraction until after the transition completes
     // This prevents expensive palette extraction during hero animation
@@ -61,14 +65,15 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
     });
   }
 
-  Future<void> _refreshFavoriteStatus() async {
+  /// Load fresh album data from API to get full metadata including images
+  Future<void> _loadFreshAlbumData() async {
     final maProvider = context.read<MusicAssistantProvider>();
     if (maProvider.api == null) return;
 
     // Need a URI to fetch fresh album data
     final albumUri = widget.album.uri;
     if (albumUri == null || albumUri.isEmpty) {
-      _logger.log('Cannot refresh favorite status: album has no URI');
+      _logger.log('Cannot load fresh album: album has no URI');
       return;
     }
 
@@ -76,17 +81,20 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
       final freshAlbum = await maProvider.api!.getAlbumByUri(albumUri);
       if (freshAlbum != null && mounted) {
         setState(() {
+          _freshAlbum = freshAlbum;
           _isFavorite = freshAlbum.favorite ?? false;
         });
+        // Re-extract colors now that we have fresh album with images
+        _extractColors();
       }
     } catch (e) {
-      _logger.log('Error refreshing favorite status: $e');
+      _logger.log('Error loading fresh album data: $e');
     }
   }
 
   Future<void> _extractColors() async {
     final maProvider = context.read<MusicAssistantProvider>();
-    final imageUrl = maProvider.getImageUrl(widget.album, size: 512);
+    final imageUrl = maProvider.getImageUrl(_displayAlbum, size: 512);
 
     if (imageUrl == null) return;
 
@@ -649,8 +657,9 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
   Widget build(BuildContext context) {
     // CRITICAL FIX: Use select() instead of watch() to reduce rebuilds
     // Only rebuild when specific properties change, not on every provider update
+    // Use _displayAlbum which has fresh data with images if available
     final imageUrl = context.select<MusicAssistantProvider, String?>(
-      (provider) => provider.getImageUrl(widget.album, size: 512),
+      (provider) => provider.getImageUrl(_displayAlbum, size: 512),
     );
     final adaptiveTheme = context.select<ThemeProvider, bool>(
       (provider) => provider.adaptiveTheme,
