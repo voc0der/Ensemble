@@ -23,71 +23,50 @@ class PlayerSelector extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Material(
-            color: colorScheme.primaryContainer,
+      child: Badge(
+        isLabelVisible: playingCount > 0,
+        backgroundColor: colorScheme.tertiary,
+        textColor: colorScheme.onTertiary,
+        label: Text(
+          playingCount.toString(),
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        child: Material(
+          color: colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: () => _showPlayerSelector(context, maProvider, availablePlayers),
             borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              onTap: () => _showPlayerSelector(context, maProvider, availablePlayers),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (selectedPlayer != null) ...[
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 120),
-                        child: Text(
-                          selectedPlayer.name,
-                          style: TextStyle(
-                            color: colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (selectedPlayer != null) ...[
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 120),
+                      child: Text(
+                        selectedPlayer.name,
+                        style: TextStyle(
+                          color: colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 8),
-                    ],
-                    Icon(
-                      MdiIcons.castAudio,
-                      color: colorScheme.onPrimaryContainer,
-                      size: 20,
                     ),
+                    const SizedBox(width: 8),
                   ],
-                ),
+                  Icon(
+                    MdiIcons.castAudio,
+                    color: colorScheme.onPrimaryContainer,
+                    size: 20,
+                  ),
+                ],
               ),
             ),
           ),
-          // Active player count badge
-          if (playingCount > 0)
-            Positioned(
-              top: -6,
-              right: -6,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(4, 2, 4, 4),
-                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                decoration: BoxDecoration(
-                  color: colorScheme.tertiary,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    playingCount.toString(),
-                    style: TextStyle(
-                      color: colorScheme.onTertiary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      height: 1.0,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }

@@ -1108,11 +1108,11 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final titleFontSize = _lerpDouble(16.0, 24.0, t);
     final artistFontSize = _lerpDouble(14.0, 18.0, t); // 14px collapsed, 18px expanded
 
-    final collapsedTitleLeft = _collapsedArtSize + 8; // Reduced from 12 to 8 (4px less)
+    final collapsedTitleLeft = _collapsedArtSize + 10; // Match non-playing mini player
     final expandedTitleLeft = contentPadding;
     final titleLeft = _lerpDouble(collapsedTitleLeft, expandedTitleLeft, t);
 
-    final collapsedTitleTop = (_collapsedHeight - 36) / 2; // Centered vertically (adjusted for increased track/artist gap)
+    final collapsedTitleTop = 13.0; // Match non-playing mini player positioning
 
     // Controls: 36 (prev) + 34 (play) + 36 (next) + 8 (right margin) = 114px from widget right
     // For 8px gap: text ends at widgetWidth - 114 - 8 = widgetWidth - 122
@@ -1174,7 +1174,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final titleTop = _lerpDouble(collapsedTitleTop, expandedTitleTop, t);
 
     // Artist positioned dynamically based on actual title height
-    final collapsedArtistTop = collapsedTitleTop + 22; // Increased gap from 18 to 22
+    final collapsedArtistTop = collapsedTitleTop + 20; // Match non-playing mini player (gap of 20)
     final expandedArtistTop = expandedTitleTop + expandedTitleHeight + titleToArtistGap;
     final artistTop = _lerpDouble(collapsedArtistTop, expandedArtistTop, t);
 

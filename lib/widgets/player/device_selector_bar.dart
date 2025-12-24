@@ -57,53 +57,62 @@ class DeviceSelectorBar extends StatelessWidget {
                 // Current player content
                 Transform.translate(
                   offset: Offset(slideOffset * width, 0),
-                  child: Row(
-                    children: [
-                      // Speaker icon - same size as album art for consistent text alignment
-                      SizedBox(
-                        width: height,
-                        height: height,
-                        child: Container(
-                          color: Color.lerp(backgroundColor, Colors.black, 0.15),
-                          child: Center(
-                            child: Icon(
-                              _getPlayerIcon(selectedPlayer.name),
-                              color: textColor.withOpacity(0.4),
-                              size: 28,
+                  child: SizedBox(
+                    width: width,
+                    height: height,
+                    child: Stack(
+                      children: [
+                        // Speaker icon - same size as album art for consistent text alignment
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          child: SizedBox(
+                            width: height,
+                            height: height,
+                            child: Container(
+                              color: Color.lerp(backgroundColor, Colors.black, 0.15),
+                              child: Center(
+                                child: Icon(
+                                  _getPlayerIcon(selectedPlayer.name),
+                                  color: textColor.withOpacity(0.4),
+                                  size: 28,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                selectedPlayer.name,
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (hasMultiplePlayers)
-                                Text(
-                                  S.of(context)!.swipeToSwitchDevice,
-                                  style: TextStyle(
-                                    color: textColor.withOpacity(0.6),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                            ],
+                        // Primary line (device name)
+                        Positioned(
+                          left: height + 10,
+                          top: hasMultiplePlayers ? 13 : (height - 16) / 2,
+                          right: 12,
+                          child: Text(
+                            selectedPlayer.name,
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                    ],
+                        // Secondary line (swipe hint)
+                        if (hasMultiplePlayers)
+                          Positioned(
+                            left: height + 10,
+                            top: 33,
+                            right: 12,
+                            child: Text(
+                              S.of(context)!.swipeToSwitchDevice,
+                              style: TextStyle(
+                                color: textColor.withOpacity(0.6),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -126,53 +135,62 @@ class DeviceSelectorBar extends StatelessWidget {
 
     return Transform.translate(
       offset: Offset(peekBaseOffset, 0),
-      child: Row(
-        children: [
-          // Speaker icon - same size as album art for consistent text alignment
-          SizedBox(
-            width: height,
-            height: height,
-            child: Container(
-              color: Color.lerp(backgroundColor, Colors.black, 0.15),
-              child: Center(
-                child: Icon(
-                  _getPlayerIcon(peekPlayer.name),
-                  color: textColor.withOpacity(0.4),
-                  size: 28,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Stack(
+          children: [
+            // Speaker icon - same size as album art for consistent text alignment
+            Positioned(
+              left: 0,
+              top: 0,
+              child: SizedBox(
+                width: height,
+                height: height,
+                child: Container(
+                  color: Color.lerp(backgroundColor, Colors.black, 0.15),
+                  child: Center(
+                    child: Icon(
+                      _getPlayerIcon(peekPlayer.name),
+                      color: textColor.withOpacity(0.4),
+                      size: 28,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    peekPlayer.name,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (hasMultiplePlayers)
-                    Text(
-                      S.of(context)!.swipeToSwitchDevice,
-                      style: TextStyle(
-                        color: textColor.withOpacity(0.6),
-                        fontSize: 14,
-                      ),
-                    ),
-                ],
+            // Primary line (device name)
+            Positioned(
+              left: height + 10,
+              top: hasMultiplePlayers ? 13 : (height - 16) / 2,
+              right: 12,
+              child: Text(
+                peekPlayer.name,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-        ],
+            // Secondary line (swipe hint)
+            if (hasMultiplePlayers)
+              Positioned(
+                left: height + 10,
+                top: 33,
+                right: 12,
+                child: Text(
+                  S.of(context)!.swipeToSwitchDevice,
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.6),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
