@@ -25,6 +25,8 @@ class RecentlyPlayedService {
     if (!_db.isInitialized) return;
 
     try {
+      // Store images metadata for instant artwork display
+      final images = album.metadata?['images'];
       await _db.addRecentlyPlayed(
         mediaId: album.itemId,
         mediaType: 'album',
@@ -33,6 +35,7 @@ class RecentlyPlayedService {
         metadata: {
           'provider': album.provider,
           'uri': album.uri,
+          if (images != null) 'images': images,
         },
       );
       _logger.log('📝 Recorded album play: ${album.name}');
@@ -151,6 +154,12 @@ class RecentlyPlayedService {
           } catch (_) {}
         }
 
+        // Build metadata with images if available (for instant artwork display)
+        Map<String, dynamic>? albumMetadata;
+        if (metadata?['images'] != null) {
+          albumMetadata = {'images': metadata!['images']};
+        }
+
         albums.add(Album(
           itemId: item.mediaId,
           provider: metadata?['provider'] ?? 'library',
@@ -160,6 +169,7 @@ class RecentlyPlayedService {
           artists: item.artistName != null
               ? [Artist(itemId: '', provider: '', name: item.artistName!)]
               : null,
+          metadata: albumMetadata,
         ));
 
         if (albums.length >= limit) break;
