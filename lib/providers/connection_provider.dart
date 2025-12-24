@@ -189,7 +189,9 @@ class ConnectionProvider with ChangeNotifier {
             _logger.log('✅ MA authentication successful');
             onAuthenticated?.call();
           } else if (state == MAConnectionState.disconnected) {
-            _cacheService.clearAll();
+            // DON'T clear caches on disconnect - keep showing cached data
+            // This allows instant UI display when app resumes or reconnects
+            // Caches will be refreshed when connection is restored
             onDisconnected?.call();
           }
         },
@@ -215,6 +217,12 @@ class ConnectionProvider with ChangeNotifier {
   Future<void> disconnect() async {
     await _api?.disconnect();
     _connectionState = MAConnectionState.disconnected;
+    // DON'T clear caches on disconnect - keep showing cached data for instant reconnect
+    notifyListeners();
+  }
+
+  /// Clear all caches and state (for logout or server change)
+  void clearCachesOnLogout() {
     _cacheService.clearAll();
     notifyListeners();
   }

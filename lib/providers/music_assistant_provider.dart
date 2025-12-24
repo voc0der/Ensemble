@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:audio_service/audio_service.dart' as audio_service;
@@ -21,6 +22,7 @@ import '../services/position_tracker.dart';
 import '../services/sendspin_service.dart';
 import '../services/pcm_audio_player.dart';
 import '../constants/timings.dart';
+import '../services/database_service.dart';
 import '../main.dart' show audioHandler;
 
 /// Main provider that coordinates connection, player, and library state.
@@ -188,11 +190,83 @@ class MusicAssistantProvider with ChangeNotifier {
 
   Future<void> _initialize() async {
     _serverUrl = await SettingsService.getServerUrl();
+
+    // Load cached players from database for instant display (before connecting)
+    await _loadPlayersFromDatabase();
+
     if (_serverUrl != null && _serverUrl!.isNotEmpty) {
       await _restoreAuthCredentials();
       await connectToServer(_serverUrl!);
       await _initializeLocalPlayback();
     }
+  }
+
+  /// Load cached players from database for instant UI display
+  Future<void> _loadPlayersFromDatabase() async {
+    try {
+      if (!DatabaseService.instance.isInitialized) {
+        await DatabaseService.instance.initialize();
+      }
+
+      final cachedPlayers = await DatabaseService.instance.getCachedPlayers();
+      if (cachedPlayers.isEmpty) {
+        _logger.log('📦 No cached players in database');
+        return;
+      }
+
+      final players = <Player>[];
+      for (final cached in cachedPlayers) {
+        try {
+          final playerData = jsonDecode(cached.playerJson) as Map<String, dynamic>;
+          players.add(Player.fromJson(playerData));
+        } catch (e) {
+          _logger.log('⚠️ Error parsing cached player: $e');
+        }
+      }
+
+      if (players.isNotEmpty) {
+        _availablePlayers = players;
+        _cacheService.setCachedPlayers(players);
+
+        // Restore selected player from settings
+        final lastSelectedPlayerId = await SettingsService.getLastSelectedPlayerId();
+        if (lastSelectedPlayerId != null) {
+          try {
+            _selectedPlayer = players.firstWhere((p) => p.playerId == lastSelectedPlayerId);
+            _cacheService.setCachedSelectedPlayer(_selectedPlayer);
+            _logger.log('📦 Restored selected player from database: ${_selectedPlayer?.name}');
+          } catch (_) {
+            // Player not in cached list
+          }
+        }
+
+        _logger.log('📦 Loaded ${players.length} players from database (instant)');
+        notifyListeners();
+      }
+    } catch (e) {
+      _logger.log('⚠️ Error loading players from database: $e');
+    }
+  }
+
+  /// Persist players to database for app restart persistence
+  void _persistPlayersToDatabase(List<Player> players) {
+    // Run async but don't await - this is fire-and-forget persistence
+    () async {
+      try {
+        if (!DatabaseService.instance.isInitialized) return;
+
+        final playerMaps = players.map((p) => {
+          'playerId': p.playerId,
+          'playerJson': jsonEncode(p.toJson()),
+          'currentTrackJson': null as String?, // Will be updated separately when track changes
+        }).toList();
+
+        await DatabaseService.instance.cachePlayers(playerMaps);
+        _logger.log('💾 Persisted ${players.length} players to database');
+      } catch (e) {
+        _logger.log('⚠️ Error persisting players to database: $e');
+      }
+    }();
   }
 
   Future<void> _restoreAuthCredentials() async {
@@ -247,11 +321,10 @@ class MusicAssistantProvider with ChangeNotifier {
             // Now safe to initialize since we're authenticated
             await _initializeAfterConnection();
           } else if (state == MAConnectionState.disconnected) {
-            _availablePlayers = [];
-            _selectedPlayer = null;
-            // Only clear detail caches on disconnect, NOT home screen caches
-            // Home screen data should persist across reconnects for better UX
-            _cacheService.clearAllDetailCaches();
+            // DON'T clear players or caches on disconnect!
+            // Keep showing cached data for instant UI display on reconnect
+            // Player list and state will be refreshed when connection is restored
+            _logger.log('📡 Disconnected - keeping cached players and data for instant resume');
           }
         },
         onError: (error) {
@@ -404,11 +477,21 @@ class MusicAssistantProvider with ChangeNotifier {
     }
     await _api?.disconnect();
     _connectionState = MAConnectionState.disconnected;
+    // DON'T clear caches or player state - keep for instant reconnect
+    _logger.log('📡 Explicit disconnect - keeping cached data for instant resume');
+    notifyListeners();
+  }
+
+  /// Clear all caches and state (for logout or server change)
+  void clearAllOnLogout() {
+    _availablePlayers = [];
+    _selectedPlayer = null;
     _artists = [];
     _albums = [];
     _tracks = [];
     _currentTrack = null;
     _cacheService.clearAll();
+    _logger.log('🗑️ Cleared all data on logout');
     notifyListeners();
   }
 
@@ -1817,6 +1900,9 @@ class MusicAssistantProvider with ChangeNotifier {
 
       // Cache players for instant display on app resume
       _cacheService.setCachedPlayers(_availablePlayers);
+
+      // Persist players to database for app restart persistence
+      _persistPlayersToDatabase(_availablePlayers);
 
       _logger.log('🎛️ After filtering: ${_availablePlayers.length} players available');
 

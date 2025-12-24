@@ -156,4 +156,70 @@ class DatabaseService {
 
   /// Clear all cached data (useful for logout)
   Future<void> clearAllCache() => db.clearAllCache();
+
+  // ============================================
+  // Player Cache Convenience Methods
+  // ============================================
+
+  /// Save playback state for instant resume
+  Future<void> savePlaybackState({
+    String? playerId,
+    String? playerName,
+    String? currentTrackJson,
+    double positionSeconds = 0.0,
+    bool isPlaying = false,
+  }) {
+    return db.savePlaybackState(
+      playerId: playerId,
+      playerName: playerName,
+      currentTrackJson: currentTrackJson,
+      positionSeconds: positionSeconds,
+      isPlaying: isPlaying,
+    );
+  }
+
+  /// Get saved playback state
+  Future<PlaybackStateData?> getPlaybackState() => db.getPlaybackState();
+
+  /// Cache a player with optional track info
+  Future<void> cachePlayer({
+    required String playerId,
+    required String playerJson,
+    String? currentTrackJson,
+  }) {
+    return db.cachePlayer(
+      playerId: playerId,
+      playerJson: playerJson,
+      currentTrackJson: currentTrackJson,
+    );
+  }
+
+  /// Cache multiple players at once
+  Future<void> cachePlayers(List<Map<String, dynamic>> players) {
+    return db.cachePlayers(players);
+  }
+
+  /// Get all cached players
+  Future<List<CachedPlayersData>> getCachedPlayers() => db.getCachedPlayers();
+
+  /// Update cached track for a player
+  Future<void> updateCachedPlayerTrack(String playerId, String? trackJson) {
+    return db.updateCachedPlayerTrack(playerId, trackJson);
+  }
+
+  /// Clear all cached players
+  Future<void> clearCachedPlayers() => db.clearCachedPlayers();
+
+  /// Save queue for a player
+  Future<void> saveQueue(String playerId, List<String> itemJsonList) {
+    return db.saveQueue(playerId, itemJsonList);
+  }
+
+  /// Get cached queue for a player
+  Future<List<CachedQueueData>> getCachedQueue(String playerId) {
+    return db.getCachedQueue(playerId);
+  }
+
+  /// Clear queue for a player
+  Future<void> clearCachedQueue(String playerId) => db.clearCachedQueue(playerId);
 }
