@@ -2000,17 +2000,20 @@ class MusicAssistantAPI {
   /// The player will join the leader's sync group and play the same audio
   Future<void> syncPlayerToLeader(String playerId, String leaderPlayerId) async {
     try {
-      _logger.log('🔗 Syncing player $playerId to leader $leaderPlayerId');
-      await _sendCommand(
+      _logger.log('🔗 API syncPlayerToLeader called');
+      _logger.log('🔗 player_id: $playerId');
+      _logger.log('🔗 target_player: $leaderPlayerId');
+
+      final response = await _sendCommand(
         'players/cmd/group',
         args: {
           'player_id': playerId,
           'target_player': leaderPlayerId,
         },
       );
-      _logger.log('✅ Player synced successfully');
+      _logger.log('✅ Player synced successfully, response: $response');
     } catch (e) {
-      _logger.log('Error syncing player: $e');
+      _logger.log('❌ Error syncing player: $e');
       rethrow;
     }
   }

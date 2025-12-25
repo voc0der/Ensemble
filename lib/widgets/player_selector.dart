@@ -236,6 +236,8 @@ class _PlayerSelectorSheetState extends State<_PlayerSelectorSheet> {
                                           // Haptic feedback for sync action
                                           HapticFeedback.mediumImpact();
                                           // Long-press to sync/unsync player
+                                          debugPrint('🔗 Long-press on ${player.name} (${player.playerId})');
+                                          debugPrint('🔗 Player isGrouped: ${player.isGrouped}, groupMembers: ${player.groupMembers}');
                                           maProvider.togglePlayerSync(player.playerId);
                                         }
                                       : null,

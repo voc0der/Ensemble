@@ -3306,6 +3306,8 @@ class MusicAssistantProvider with ChangeNotifier {
   Future<void> syncPlayerToSelected(String targetPlayerId) async {
     try {
       final leaderPlayer = _selectedPlayer;
+      _logger.log('🔗 syncPlayerToSelected: target=$targetPlayerId, leader=${leaderPlayer?.playerId}');
+
       if (leaderPlayer == null) {
         _logger.log('❌ Cannot sync: no player selected');
         return;
@@ -3316,12 +3318,21 @@ class MusicAssistantProvider with ChangeNotifier {
         return;
       }
 
-      _logger.log('🔗 Syncing $targetPlayerId to ${leaderPlayer.playerId}');
-      await _api?.syncPlayerToLeader(targetPlayerId, leaderPlayer.playerId);
+      if (_api == null) {
+        _logger.log('❌ Cannot sync: API is null');
+        return;
+      }
+
+      _logger.log('🔗 Calling API syncPlayerToLeader($targetPlayerId, ${leaderPlayer.playerId})');
+      await _api!.syncPlayerToLeader(targetPlayerId, leaderPlayer.playerId);
+      _logger.log('✅ API sync call completed');
 
       // Refresh players to get updated group state
+      _logger.log('🔄 Refreshing players after sync...');
       await refreshPlayers();
+      _logger.log('✅ Players refreshed');
     } catch (e) {
+      _logger.log('❌ syncPlayerToSelected error: $e');
       ErrorHandler.logError('Sync player to selected', e);
       rethrow;
     }
@@ -3343,15 +3354,27 @@ class MusicAssistantProvider with ChangeNotifier {
 
   /// Toggle sync state: if player is synced, unsync it; otherwise sync to selected
   Future<void> togglePlayerSync(String playerId) async {
-    final player = _availablePlayers.firstWhere(
-      (p) => p.playerId == playerId,
-      orElse: () => throw Exception('Player not found'),
-    );
+    _logger.log('🔗 togglePlayerSync called for: $playerId');
 
-    if (player.isGrouped) {
-      await unsyncPlayer(playerId);
-    } else {
-      await syncPlayerToSelected(playerId);
+    try {
+      final player = _availablePlayers.firstWhere(
+        (p) => p.playerId == playerId,
+        orElse: () => throw Exception('Player not found'),
+      );
+
+      _logger.log('🔗 Player found: ${player.name}, isGrouped: ${player.isGrouped}');
+      _logger.log('🔗 groupMembers: ${player.groupMembers}, syncedTo: ${player.syncedTo}');
+
+      if (player.isGrouped) {
+        _logger.log('🔓 Player is grouped, unsyncing...');
+        await unsyncPlayer(playerId);
+      } else {
+        _logger.log('🔗 Player not grouped, syncing to selected...');
+        await syncPlayerToSelected(playerId);
+      }
+    } catch (e) {
+      _logger.log('❌ togglePlayerSync error: $e');
+      rethrow;
     }
   }
 
