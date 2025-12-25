@@ -74,6 +74,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   static const double _bottomNavHeight = 56.0;
   static const double _edgeDeadZone = 40.0; // Dead zone for Android back gesture
 
+  // Pastel yellow for grouped players (matches PlayerCard.groupBorderColor)
+  static const Color _groupBorderColor = Color(0xFFFFF59D);
+
   // Track horizontal drag start position
   double? _horizontalDragStartX;
 
@@ -1347,13 +1350,20 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
             _handleHorizontalDragEnd(details, maProvider);
           }
         },
-        child: Material(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(borderRadius),
-          elevation: _lerpDouble(4, 0, t),
-          shadowColor: Colors.black.withOpacity(0.3),
-          clipBehavior: Clip.antiAlias,
-          child: SizedBox(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: selectedPlayer.isGrouped && t < 0.5
+                ? Border.all(color: _groupBorderColor, width: 2.5)
+                : null,
+          ),
+          child: Material(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(borderRadius),
+            elevation: _lerpDouble(4, 0, t),
+            shadowColor: Colors.black.withOpacity(0.3),
+            clipBehavior: Clip.antiAlias,
+            child: SizedBox(
             width: width,
             height: height,
             child: Stack(
@@ -1885,6 +1895,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
               ],
             ),
           ),
+        ),
         ),
       ),
     );
