@@ -3301,6 +3301,60 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
+  /// Sync a player to the currently selected player (temporary group)
+  /// The target player will play the same audio as the selected player
+  Future<void> syncPlayerToSelected(String targetPlayerId) async {
+    try {
+      final leaderPlayer = _selectedPlayer;
+      if (leaderPlayer == null) {
+        _logger.log('❌ Cannot sync: no player selected');
+        return;
+      }
+
+      if (targetPlayerId == leaderPlayer.playerId) {
+        _logger.log('❌ Cannot sync player to itself');
+        return;
+      }
+
+      _logger.log('🔗 Syncing $targetPlayerId to ${leaderPlayer.playerId}');
+      await _api?.syncPlayers(leaderPlayer.playerId, [targetPlayerId]);
+
+      // Refresh players to get updated group state
+      await refreshPlayers();
+    } catch (e) {
+      ErrorHandler.logError('Sync player to selected', e);
+      rethrow;
+    }
+  }
+
+  /// Remove a player from its sync group
+  Future<void> unsyncPlayer(String playerId) async {
+    try {
+      _logger.log('🔓 Unsyncing player: $playerId');
+      await _api?.unsyncPlayer(playerId);
+
+      // Refresh players to get updated group state
+      await refreshPlayers();
+    } catch (e) {
+      ErrorHandler.logError('Unsync player', e);
+      rethrow;
+    }
+  }
+
+  /// Toggle sync state: if player is synced, unsync it; otherwise sync to selected
+  Future<void> togglePlayerSync(String playerId) async {
+    final player = _availablePlayers.firstWhere(
+      (p) => p.playerId == playerId,
+      orElse: () => throw Exception('Player not found'),
+    );
+
+    if (player.isGrouped) {
+      await unsyncPlayer(playerId);
+    } else {
+      await syncPlayerToSelected(playerId);
+    }
+  }
+
   Future<void> togglePower(String playerId) async {
     try {
       _logger.log('🔋 togglePower called for playerId: $playerId');

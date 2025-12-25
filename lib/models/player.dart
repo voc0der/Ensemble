@@ -12,6 +12,8 @@ class Player {
   final bool? volumeMuted;
   final double? elapsedTime; // Seconds elapsed in current track
   final double? elapsedTimeLastUpdated; // Unix timestamp when elapsed_time was last updated
+  final List<String>? groupMembers; // List of player IDs in sync group (includes self)
+  final String? syncedTo; // Player ID this player is synced to (null if leader or not synced)
 
   Player({
     required this.playerId,
@@ -25,6 +27,8 @@ class Player {
     this.volumeMuted,
     this.elapsedTime,
     this.elapsedTimeLastUpdated,
+    this.groupMembers,
+    this.syncedTo,
   });
 
   /// Create a copy of this Player with some fields replaced
@@ -40,6 +44,8 @@ class Player {
     bool? volumeMuted,
     double? elapsedTime,
     double? elapsedTimeLastUpdated,
+    List<String>? groupMembers,
+    String? syncedTo,
   }) {
     return Player(
       playerId: playerId ?? this.playerId,
@@ -53,6 +59,8 @@ class Player {
       volumeMuted: volumeMuted ?? this.volumeMuted,
       elapsedTime: elapsedTime ?? this.elapsedTime,
       elapsedTimeLastUpdated: elapsedTimeLastUpdated ?? this.elapsedTimeLastUpdated,
+      groupMembers: groupMembers ?? this.groupMembers,
+      syncedTo: syncedTo ?? this.syncedTo,
     );
   }
 
@@ -60,6 +68,11 @@ class Player {
   bool get isPlaying => state == 'playing';
   bool get isMuted => volumeMuted ?? false;
   int get volume => volumeLevel ?? 0;
+
+  // Group properties
+  bool get isGrouped => groupMembers != null && groupMembers!.length > 1;
+  bool get isGroupLeader => isGrouped && syncedTo == null;
+  bool get isGroupChild => syncedTo != null;
 
   // Track when this Player object was created (for local interpolation fallback)
   static final Map<String, double> _playerCreationTimes = {};
@@ -164,6 +177,13 @@ class Player {
     elapsedTime ??= topLevelElapsedTime;
     elapsedTimeLastUpdated ??= topLevelLastUpdated;
 
+    // Parse group members - MA returns this as a list of player IDs
+    final groupMembersList = json['group_members'] as List<dynamic>?;
+    final groupMembers = groupMembersList?.map((e) => e.toString()).toList();
+
+    // Parse synced_to - the player ID this player is synced to
+    final syncedTo = json['synced_to'] as String?;
+
     return Player(
       playerId: json['player_id'] as String,
       name: json['name'] as String,
@@ -176,6 +196,8 @@ class Player {
       volumeMuted: json['volume_muted'] as bool?,
       elapsedTime: elapsedTime,
       elapsedTimeLastUpdated: elapsedTimeLastUpdated,
+      groupMembers: groupMembers,
+      syncedTo: syncedTo,
     );
   }
 
@@ -192,6 +214,8 @@ class Player {
       if (volumeMuted != null) 'volume_muted': volumeMuted,
       if (elapsedTime != null) 'elapsed_time': elapsedTime,
       if (elapsedTimeLastUpdated != null) 'elapsed_time_last_updated': elapsedTimeLastUpdated,
+      if (groupMembers != null) 'group_members': groupMembers,
+      if (syncedTo != null) 'synced_to': syncedTo,
     };
   }
 }

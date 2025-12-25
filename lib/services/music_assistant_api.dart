@@ -1996,6 +1996,42 @@ class MusicAssistantAPI {
     }
   }
 
+  /// Sync players together (temporary group)
+  /// The leader player's audio will be synced to all target players
+  Future<void> syncPlayers(String leaderPlayerId, List<String> targetPlayerIds) async {
+    try {
+      _logger.log('🔗 Syncing players: leader=$leaderPlayerId, targets=$targetPlayerIds');
+      await _sendCommand(
+        'players/cmd/group_many',
+        args: {
+          'player_id': leaderPlayerId,
+          'target_player_ids': targetPlayerIds,
+        },
+      );
+      _logger.log('✅ Players synced successfully');
+    } catch (e) {
+      _logger.log('Error syncing players: $e');
+      rethrow;
+    }
+  }
+
+  /// Remove a player from its sync group
+  Future<void> unsyncPlayer(String playerId) async {
+    try {
+      _logger.log('🔓 Unsyncing player: $playerId');
+      await _sendCommand(
+        'players/cmd/ungroup',
+        args: {
+          'player_id': playerId,
+        },
+      );
+      _logger.log('✅ Player unsynced successfully');
+    } catch (e) {
+      _logger.log('Error unsyncing player: $e');
+      rethrow;
+    }
+  }
+
   /// Toggle shuffle mode for queue
   Future<void> toggleShuffle(String queueId) async {
     try {

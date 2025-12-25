@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -218,6 +219,11 @@ class _PlayerSelectorSheetState extends State<_PlayerSelectorSheet> {
                                 );
                               }
 
+                              // Check if this player is part of a sync group
+                              final isGrouped = player.isGrouped;
+                              // Pastel yellow for grouped players
+                              const groupBorderColor = Color(0xFFFFF59D);
+
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: InkWell(
@@ -225,6 +231,14 @@ class _PlayerSelectorSheetState extends State<_PlayerSelectorSheet> {
                                     maProvider.selectPlayer(player);
                                     Navigator.pop(context);
                                   },
+                                  onLongPress: player.available && !isSelected
+                                      ? () {
+                                          // Haptic feedback for sync action
+                                          HapticFeedback.mediumImpact();
+                                          // Long-press to sync/unsync player
+                                          maProvider.togglePlayerSync(player.playerId);
+                                        }
+                                      : null,
                                   borderRadius: BorderRadius.circular(16),
                                   child: Container(
                                     height: 72,
@@ -233,6 +247,9 @@ class _PlayerSelectorSheetState extends State<_PlayerSelectorSheet> {
                                           ? colorScheme.primary.withOpacity(0.15)
                                           : colorScheme.surfaceVariant.withOpacity(0.3),
                                       borderRadius: BorderRadius.circular(16),
+                                      border: isGrouped
+                                          ? Border.all(color: groupBorderColor, width: 2.5)
+                                          : null,
                                     ),
                                     child: Row(
                                       children: [
@@ -322,6 +339,35 @@ class _PlayerSelectorSheetState extends State<_PlayerSelectorSheet> {
                                                       overflow: TextOverflow.ellipsis,
                                                     ),
                                                   ),
+                                                  if (isGrouped) ...[
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: groupBorderColor.withOpacity(0.3),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(
+                                                            Icons.link_rounded,
+                                                            size: 10,
+                                                            color: Colors.amber.shade800,
+                                                          ),
+                                                          const SizedBox(width: 3),
+                                                          Text(
+                                                            'Synced',
+                                                            style: TextStyle(
+                                                              color: Colors.amber.shade800,
+                                                              fontSize: 10,
+                                                              fontWeight: FontWeight.w600,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
                                                   if (isSelected) ...[
                                                     const SizedBox(width: 8),
                                                     Container(
