@@ -70,8 +70,9 @@ class Player {
   int get volume => volumeLevel ?? 0;
 
   // Group properties
-  bool get isGrouped => groupMembers != null && groupMembers!.length > 1;
-  bool get isGroupLeader => isGrouped && syncedTo == null;
+  // A player is grouped if it's a leader with members OR a child synced to another
+  bool get isGrouped => (groupMembers != null && groupMembers!.length > 1) || syncedTo != null;
+  bool get isGroupLeader => groupMembers != null && groupMembers!.length > 1 && syncedTo == null;
   bool get isGroupChild => syncedTo != null;
 
   // Track when this Player object was created (for local interpolation fallback)
