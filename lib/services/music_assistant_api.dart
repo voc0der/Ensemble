@@ -1996,21 +1996,21 @@ class MusicAssistantAPI {
     }
   }
 
-  /// Sync players together (temporary group)
-  /// The leader player's audio will be synced to all target players
-  Future<void> syncPlayers(String leaderPlayerId, List<String> targetPlayerIds) async {
+  /// Sync a player to a leader/group (temporary group)
+  /// The player will join the leader's sync group and play the same audio
+  Future<void> syncPlayerToLeader(String playerId, String leaderPlayerId) async {
     try {
-      _logger.log('🔗 Syncing players: leader=$leaderPlayerId, targets=$targetPlayerIds');
+      _logger.log('🔗 Syncing player $playerId to leader $leaderPlayerId');
       await _sendCommand(
-        'players/cmd/group_many',
+        'players/cmd/group',
         args: {
-          'player_id': leaderPlayerId,
-          'target_player_ids': targetPlayerIds,
+          'player_id': playerId,
+          'target_player': leaderPlayerId,
         },
       );
-      _logger.log('✅ Players synced successfully');
+      _logger.log('✅ Player synced successfully');
     } catch (e) {
-      _logger.log('Error syncing players: $e');
+      _logger.log('Error syncing player: $e');
       rethrow;
     }
   }

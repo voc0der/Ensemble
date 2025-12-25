@@ -3317,7 +3317,7 @@ class MusicAssistantProvider with ChangeNotifier {
       }
 
       _logger.log('🔗 Syncing $targetPlayerId to ${leaderPlayer.playerId}');
-      await _api?.syncPlayers(leaderPlayer.playerId, [targetPlayerId]);
+      await _api?.syncPlayerToLeader(targetPlayerId, leaderPlayer.playerId);
 
       // Refresh players to get updated group state
       await refreshPlayers();
