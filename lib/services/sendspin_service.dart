@@ -518,8 +518,9 @@ class SendspinService {
     if (muted != null) _isMuted = muted;
 
     // Determine player state for Sendspin protocol
-    // 'synchronized' = ready/playing, 'idle' = not playing
-    final playerState = _isPlaying || _isPaused ? 'synchronized' : 'idle';
+    // Valid values: 'synchronized', 'error', 'external_source'
+    // When connected, we're always synchronized (ready to receive audio)
+    const playerState = 'synchronized';
 
     _sendMessage({
       'type': 'client/state',
@@ -580,7 +581,7 @@ class SendspinService {
     _sendMessage({
       'type': 'client/time',
       'payload': {
-        'timestamp': timestampMicroseconds,
+        'client_transmitted': timestampMicroseconds,
       },
     }, allowDuringHandshake: allowDuringHandshake);
   }
