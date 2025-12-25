@@ -2084,14 +2084,35 @@ class MusicAssistantProvider with ChangeNotifier {
         }
 
         // Keep currently selected player if still available (and not overridden by prefer local)
+        // But allow switching to a playing player when preferLocalPlayer is OFF
         if (playerToSelect == null && _selectedPlayer != null) {
           final stillAvailable = _availablePlayers.any(
             (p) => p.playerId == _selectedPlayer!.playerId && p.available,
           );
           if (stillAvailable) {
-            playerToSelect = _availablePlayers.firstWhere(
-              (p) => p.playerId == _selectedPlayer!.playerId,
-            );
+            // If preferLocalPlayer is OFF, check if we should switch to a playing player
+            if (!preferLocalPlayer) {
+              final currentPlayerState = _availablePlayers
+                  .firstWhere((p) => p.playerId == _selectedPlayer!.playerId)
+                  .state;
+              final currentIsPlaying = currentPlayerState == 'playing';
+              final playingPlayers = _availablePlayers.where(
+                (p) => p.state == 'playing' && p.available,
+              ).toList();
+
+              // Switch to playing player only if current isn't playing and exactly one other is
+              if (!currentIsPlaying && playingPlayers.length == 1) {
+                playerToSelect = playingPlayers.first;
+                _logger.log('🎵 Switched to playing player: ${playerToSelect?.name}');
+              }
+            }
+
+            // Keep current selection if no switch happened
+            if (playerToSelect == null) {
+              playerToSelect = _availablePlayers.firstWhere(
+                (p) => p.playerId == _selectedPlayer!.playerId,
+              );
+            }
           }
         }
 
