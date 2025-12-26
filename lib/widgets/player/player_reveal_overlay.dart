@@ -258,10 +258,9 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
                                   child: Text(
                                     S.of(context)!.holdToSync,
                                     style: TextStyle(
-                                      color: colorScheme.onSurface.withOpacity(0.6),
-                                      fontSize: 12,
+                                      color: colorScheme.onSurface.withOpacity(0.7),
+                                      fontSize: 16,
                                       fontWeight: FontWeight.w500,
-                                      decoration: TextDecoration.none,
                                     ),
                                   ),
                                 ),

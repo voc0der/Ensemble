@@ -434,7 +434,7 @@
   "metadataApisDescription": "Las imágenes de artistas se obtienen automáticamente de Deezer. Añade claves API a continuación para biografías de artistas y descripciones de álbumes.",
   "lastFmApiKey": "Clave API de Last.fm",
   "lastFmApiKeyHint": "Obtén una clave gratuita en last.fm/api",
-  "swipeToSwitchDevice": "Desliza izquierda, abajo o derecha para cambiar dispositivo",
+  "swipeToSwitchDevice": "Desliza para cambiar dispositivo",
   "chapterNumber": "Capítulo {number}",
   "@chapterNumber": {
     "placeholders": {
@@ -482,5 +482,5 @@
   "showHints": "Mostrar Sugerencias",
   "showHintsDescription": "Mostrar consejos útiles para descubrir funciones",
   "pullToSelectPlayers": "Desliza para seleccionar dispositivos",
-  "holdToSync": "Mantén presionado para sincronizar"
+  "holdToSync": "Mantén presionado un dispositivo para sincronizar"
 }

@@ -469,37 +469,35 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
           },
         ),
 
-        // Pull hint text - appears below mini player during bounce
+        // Pull hint text - bounces with the mini player
         ValueListenableBuilder<double>(
           valueListenable: _hintOpacityNotifier,
           builder: (context, opacity, _) {
             if (opacity == 0) return const SizedBox.shrink();
-            return Positioned(
-              left: 0,
-              right: 0,
-              bottom: BottomSpacing.navBarHeight + MediaQuery.of(context).padding.bottom - 8,
-              child: AnimatedOpacity(
-                opacity: opacity,
-                duration: const Duration(milliseconds: 300),
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceVariant.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      S.of(context)!.pullToSelectPlayers,
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        decoration: TextDecoration.none,
+            return ValueListenableBuilder<double>(
+              valueListenable: _bounceOffsetNotifier,
+              builder: (context, bounceOffset, _) {
+                return Positioned(
+                  left: 0,
+                  right: 0,
+                  // Bounce with mini player: base position + bounce offset
+                  bottom: BottomSpacing.navBarHeight + MediaQuery.of(context).padding.bottom - 8 - bounceOffset,
+                  child: AnimatedOpacity(
+                    opacity: opacity,
+                    duration: const Duration(milliseconds: 300),
+                    child: Center(
+                      child: Text(
+                        S.of(context)!.pullToSelectPlayers,
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         ),

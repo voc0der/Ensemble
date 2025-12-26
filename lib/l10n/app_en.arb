@@ -1078,7 +1078,7 @@
     "description": "Hint for Last.fm API key field"
   },
 
-  "swipeToSwitchDevice": "Swipe left, down, or right to change player",
+  "swipeToSwitchDevice": "Swipe to change player",
   "@swipeToSwitchDevice": {
     "description": "Hint for device switching gesture"
   },
@@ -1233,7 +1233,7 @@
     "description": "Hint shown when mini player bounces"
   },
 
-  "holdToSync": "Hold player to sync",
+  "holdToSync": "Hold a player to sync",
   "@holdToSync": {
     "description": "Hint for long-press to sync players"
   }
