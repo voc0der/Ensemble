@@ -257,13 +257,24 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: Material(
                                     type: MaterialType.transparency,
-                                    child: Text(
-                                      S.of(context)!.holdToSync,
-                                      style: TextStyle(
-                                        color: colorScheme.onSurface.withOpacity(0.7),
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.lightbulb_outline,
+                                          size: 18,
+                                          color: colorScheme.onSurface.withOpacity(0.7),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          S.of(context)!.holdToSync,
+                                          style: TextStyle(
+                                            color: colorScheme.onSurface.withOpacity(0.7),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
