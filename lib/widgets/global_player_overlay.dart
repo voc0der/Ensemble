@@ -445,10 +445,11 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
 
         // Global player overlay - renders ON TOP so cards slide behind it
         // Use Selector instead of Consumer to avoid rebuilds during animation
-        Selector<MusicAssistantProvider, ({bool isConnected, bool hasPlayer})>(
+        Selector<MusicAssistantProvider, ({bool isConnected, bool hasPlayer, bool hasTrack})>(
           selector: (_, provider) => (
             isConnected: provider.isConnected,
             hasPlayer: provider.selectedPlayer != null,
+            hasTrack: provider.currentTrack != null,
           ),
           builder: (context, state, child) {
             // Only show player if connected and has a selected player
@@ -456,11 +457,12 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
               return const SizedBox.shrink();
             }
 
-            // Trigger pull hint when player first becomes available (every app launch)
+            // Trigger pull hint when player AND track are both available (stable state)
+            // This ensures hint only shows after the mini player has settled
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && !_hintTriggered && _showHints) {
-                // Delay before showing hint to let UI settle
-                Future.delayed(const Duration(milliseconds: 3500), () {
+              if (mounted && !_hintTriggered && _showHints && state.hasTrack) {
+                // Short delay to let final animations complete
+                Future.delayed(const Duration(milliseconds: 500), () {
                   if (mounted) _triggerPullHint();
                 });
               }

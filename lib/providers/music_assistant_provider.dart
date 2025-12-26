@@ -272,10 +272,66 @@ class MusicAssistantProvider with ChangeNotifier {
 
         _logger.log('📦 Loaded ${players.length} players from database (instant)');
         notifyListeners();
+
+        // Also load saved playback state for instant track display
+        if (_selectedPlayer != null) {
+          await _loadPlaybackStateFromDatabase();
+        }
       }
     } catch (e) {
       _logger.log('⚠️ Error loading players from database: $e');
     }
+  }
+
+  /// Load saved playback state (currentTrack) from database for instant display
+  Future<void> _loadPlaybackStateFromDatabase() async {
+    try {
+      final playbackState = await DatabaseService.instance.getPlaybackState();
+      if (playbackState == null) {
+        _logger.log('📦 No saved playback state in database');
+        return;
+      }
+
+      // Only restore if it matches the current player
+      if (playbackState.playerId != _selectedPlayer?.playerId) {
+        _logger.log('📦 Saved playback state is for different player, skipping');
+        return;
+      }
+
+      if (playbackState.currentTrackJson != null) {
+        try {
+          final trackData = jsonDecode(playbackState.currentTrackJson!) as Map<String, dynamic>;
+          _currentTrack = Track.fromJson(trackData);
+          _logger.log('📦 Restored currentTrack from database: ${_currentTrack?.name}');
+          notifyListeners();
+        } catch (e) {
+          _logger.log('⚠️ Error parsing cached track: $e');
+        }
+      }
+    } catch (e) {
+      _logger.log('⚠️ Error loading playback state: $e');
+    }
+  }
+
+  /// Persist current playback state to database (fire-and-forget)
+  void _persistPlaybackState() {
+    if (_selectedPlayer == null) return;
+
+    () async {
+      try {
+        if (!DatabaseService.instance.isInitialized) return;
+
+        await DatabaseService.instance.savePlaybackState(
+          playerId: _selectedPlayer!.playerId,
+          playerName: _selectedPlayer!.name,
+          currentTrackJson: _currentTrack != null ? jsonEncode(_currentTrack!.toJson()) : null,
+          isPlaying: _selectedPlayer!.state == 'playing',
+        );
+        _logger.log('💾 Persisted playback state to database');
+      } catch (e) {
+        _logger.log('⚠️ Error persisting playback state: $e');
+      }
+    }();
   }
 
   /// Persist players to database for app restart persistence
@@ -2729,6 +2785,8 @@ class MusicAssistantProvider with ChangeNotifier {
         if (_currentTrack != null) {
           _currentTrack = null;
           stateChanged = true;
+          // Persist cleared track state
+          _persistPlaybackState();
         }
         // Clear audiobook context when playback stops
         if (_currentAudiobook != null) {
@@ -2798,6 +2856,9 @@ class MusicAssistantProvider with ChangeNotifier {
             }
           }
           stateChanged = true;
+
+          // Persist the updated playback state to database for instant restore on next launch
+          _persistPlaybackState();
 
           // Clear audiobook context if switched to a different media item
           // Check if the new track is from the same audiobook (by comparing URIs)
@@ -2869,6 +2930,8 @@ class MusicAssistantProvider with ChangeNotifier {
         if (_currentTrack != null) {
           _currentTrack = null;
           stateChanged = true;
+          // Persist cleared track state
+          _persistPlaybackState();
         }
 
         // Show player name placeholder so notification shows correct player
