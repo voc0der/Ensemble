@@ -473,13 +473,14 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
             ),
           ),
 
-        // Welcome message during hint mode - positioned above mini player
+        // Welcome message during hint mode - two positioned sections
+        // Top section: Logo and Welcome title (stays fixed at top area)
         if (_isHintModeActive)
           Positioned(
             left: 24,
             right: 24,
-            // Move up by 1.5 album covers (~224px) from base position
-            bottom: BottomSpacing.navBarHeight + BottomSpacing.miniPlayerHeight + MediaQuery.of(context).padding.bottom + 24 + 224,
+            // Position logo section high up - about 1/3 from top
+            top: MediaQuery.of(context).size.height * 0.15,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -499,18 +500,32 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+
+        // Bottom section: Hint text and Skip button (positioned relative to mini player)
+        if (_isHintModeActive)
+          Positioned(
+            left: 24,
+            right: 24,
+            // Position so skip button is ~32px above mini player, matching skip-to-miniplayer gap
+            bottom: BottomSpacing.navBarHeight + BottomSpacing.miniPlayerHeight + MediaQuery.of(context).padding.bottom + 32,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 // Hint text
                 Text(
                   S.of(context)!.welcomeMessage,
-                  style: const TextStyle(
+                  style: theme.textTheme.bodyLarge?.copyWith(
                     color: Colors.white,
                     fontSize: 18,
+                    height: 1.4,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
-                // Skip button
+                // Skip button - same gap above as below to mini player
                 TextButton(
                   onPressed: _endHintMode,
                   child: Text(
