@@ -171,6 +171,9 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
   bool _hintTriggered = false; // Prevent multiple triggers per session
   final _hintOpacityNotifier = ValueNotifier<double>(0.0);
 
+  // Welcome content fade-in animation
+  late AnimationController _welcomeFadeController;
+
   // Key for the reveal overlay
   final _revealKey = GlobalKey<PlayerRevealOverlayState>();
 
@@ -217,12 +220,52 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
       }
     });
 
-    // Load hint settings
+    // Welcome content fade-in
+    _welcomeFadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    // Load hint settings and start welcome immediately if needed
     _loadHintSettings();
   }
 
   Future<void> _loadHintSettings() async {
     _showHints = await SettingsService.getShowHints();
+    // Start welcome screen immediately if hints enabled (no delay)
+    if (_showHints && mounted && !_hintTriggered) {
+      _startWelcomeScreen();
+    }
+  }
+
+  /// Start the welcome screen with fade-in animation
+  void _startWelcomeScreen() {
+    if (_hintTriggered) return;
+    _hintTriggered = true;
+
+    // Activate hint mode immediately (blur backdrop visible)
+    setState(() {
+      _isHintModeActive = true;
+    });
+
+    // Fade in welcome content
+    _welcomeFadeController.forward();
+
+    // Start bounce animation after fade completes
+    _welcomeFadeController.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        _doubleBounceController.reset();
+        _doubleBounceController.forward();
+
+        // Repeat bounce every 2 seconds
+        _hintBounceTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+          if (_isHintModeActive && mounted) {
+            _doubleBounceController.reset();
+            _doubleBounceController.forward();
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -231,6 +274,7 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
     _slideController.dispose();
     _singleBounceController.dispose();
     _doubleBounceController.dispose();
+    _welcomeFadeController.dispose();
     _bounceOffsetNotifier.dispose();
     _hintOpacityNotifier.dispose();
     super.dispose();
@@ -290,33 +334,6 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
   void _triggerBounce() {
     _singleBounceController.reset();
     _singleBounceController.forward();
-  }
-
-  /// Trigger interactive hint mode with blur backdrop
-  /// User must swipe down (reveals players) or tap backdrop (dismisses) to continue
-  void _triggerPullHint() {
-    if (_hintTriggered || !_showHints) return;
-    _hintTriggered = true;
-
-    // Activate hint mode (shows blur backdrop)
-    setState(() {
-      _isHintModeActive = true;
-    });
-
-    // Show hint text
-    _hintOpacityNotifier.value = 1.0;
-
-    // Trigger initial bounce
-    _doubleBounceController.reset();
-    _doubleBounceController.forward();
-
-    // Repeat bounce every 2 seconds until user acts
-    _hintBounceTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (_isHintModeActive && mounted) {
-        _doubleBounceController.reset();
-        _doubleBounceController.forward();
-      }
-    });
   }
 
   /// End hint mode (called when user taps backdrop to skip)
@@ -473,7 +490,7 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
             ),
           ),
 
-        // Welcome message during hint mode - two positioned sections
+        // Welcome message during hint mode - two positioned sections with fade-in
         // Top section: Logo and Welcome title (stays fixed at top area)
         if (_isHintModeActive)
           Positioned(
@@ -481,26 +498,32 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
             right: 24,
             // Position logo section high up - about 1/3 from top
             top: MediaQuery.of(context).size.height * 0.15,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Ensemble logo - same as settings screen
-                Image.asset(
-                  'assets/images/ensemble_icon_transparent.png',
-                  width: MediaQuery.of(context).size.width * 0.5,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: 24),
-                // Welcome title
-                Text(
-                  S.of(context)!.welcomeToEnsemble,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+            child: FadeTransition(
+              opacity: CurvedAnimation(
+                parent: _welcomeFadeController,
+                curve: Curves.easeOut,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Ensemble logo - same as settings screen
+                  Image.asset(
+                    'assets/images/ensemble_icon_transparent.png',
+                    width: MediaQuery.of(context).size.width * 0.5,
+                    fit: BoxFit.contain,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  // Welcome title
+                  Text(
+                    S.of(context)!.welcomeToEnsemble,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -511,32 +534,38 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
             right: 24,
             // Position so skip button is ~32px above mini player, matching skip-to-miniplayer gap
             bottom: BottomSpacing.navBarHeight + BottomSpacing.miniPlayerHeight + MediaQuery.of(context).padding.bottom + 32,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Hint text
-                Text(
-                  S.of(context)!.welcomeMessage,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
-                    fontSize: 18,
-                    height: 1.4,
+            child: FadeTransition(
+              opacity: CurvedAnimation(
+                parent: _welcomeFadeController,
+                curve: Curves.easeOut,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Hint text
+                  Text(
+                    S.of(context)!.welcomeMessage,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: Colors.white,
+                      fontSize: 16,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                // Skip button - same gap above as below to mini player
-                TextButton(
-                  onPressed: _endHintMode,
-                  child: Text(
-                    S.of(context)!.skip,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 14,
+                  const SizedBox(height: 32),
+                  // Skip button - same gap above as below to mini player
+                  TextButton(
+                    onPressed: _endHintMode,
+                    child: Text(
+                      S.of(context)!.skip,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 14,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -563,17 +592,6 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
             if (!state.isConnected || !state.hasPlayer) {
               return const SizedBox.shrink();
             }
-
-            // Trigger pull hint when player is available
-            // The 1500ms delay gives time for any track to load (stable state)
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && !_hintTriggered && _showHints) {
-                // Delay lets mini player settle before showing hint
-                Future.delayed(const Duration(milliseconds: 1500), () {
-                  if (mounted) _triggerPullHint();
-                });
-              }
-            });
 
             // Combine slide, bounce, and hint animations with ValueListenableBuilders
             // This prevents full widget tree rebuilds - only ExpandablePlayer updates
