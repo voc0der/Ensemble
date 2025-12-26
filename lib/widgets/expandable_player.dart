@@ -36,12 +36,17 @@ class ExpandablePlayer extends StatefulWidget {
   /// When true, shows player name instead of track name in collapsed state
   final bool isDeviceRevealVisible;
 
+  /// Whether the hint text should be shown
+  /// When true, shows "Pull to select players" instead of track info
+  final bool isHintVisible;
+
   const ExpandablePlayer({
     super.key,
     this.slideOffset = 0.0,
     this.bounceOffset = 0.0,
     this.onRevealPlayers,
     this.isDeviceRevealVisible = false,
+    this.isHintVisible = false,
   });
 
   @override
@@ -1483,6 +1488,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                   ),
 
                 // Track title - with slide animation when collapsed
+                // When hint is visible, show lightbulb icon + "Pull to select players"
                 // When device reveal is visible, show player name instead of track name
                 // Hidden during transition to prevent flash
                 // FALLBACK: Show if transition active but no peek content available
@@ -1493,33 +1499,58 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     top: titleTop,
                     child: SizedBox(
                       width: titleWidth,
-                      child: Text(
-                        // Show player name when device reveal visible and collapsed
-                        (widget.isDeviceRevealVisible && t < 0.5)
-                            ? selectedPlayer.name
-                            : currentTrack.name,
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: titleFontSize,
-                          fontWeight: t > 0.5 ? FontWeight.w600 : MiniPlayerLayout.primaryFontWeight,
-                          letterSpacing: t > 0.5 ? -0.5 : 0,
-                          height: t > 0.5 ? 1.2 : null, // Only use line height when expanded
-                        ),
-                        textAlign: t > 0.5 ? TextAlign.center : TextAlign.left,
-                        maxLines: t > 0.5 ? 2 : 1,
-                        softWrap: t > 0.5, // false in collapsed to ensure ellipsis truncation
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: (widget.isHintVisible && t < 0.5)
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.lightbulb_outline,
+                                  size: 16,
+                                  color: textColor,
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    S.of(context)!.pullToSelectPlayers,
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: titleFontSize,
+                                      fontWeight: MiniPlayerLayout.primaryFontWeight,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              // Show player name when device reveal visible and collapsed
+                              (widget.isDeviceRevealVisible && t < 0.5)
+                                  ? selectedPlayer.name
+                                  : currentTrack.name,
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: titleFontSize,
+                                fontWeight: t > 0.5 ? FontWeight.w600 : MiniPlayerLayout.primaryFontWeight,
+                                letterSpacing: t > 0.5 ? -0.5 : 0,
+                                height: t > 0.5 ? 1.2 : null, // Only use line height when expanded
+                              ),
+                              textAlign: t > 0.5 ? TextAlign.center : TextAlign.left,
+                              maxLines: t > 0.5 ? 2 : 1,
+                              softWrap: t > 0.5, // false in collapsed to ensure ellipsis truncation
+                              overflow: TextOverflow.ellipsis,
+                            ),
                     ),
                   ),
 
                 // Artist/Author name - with slide animation when collapsed
+                // When hint is visible, show blank line
                 // When device reveal is visible, show "Now Playing" hint
                 // For audiobooks: show author from audiobook context
                 // Hidden during transition to prevent flash
                 // FALLBACK: Show if transition active but no peek content available
                 // GPU PERF: Use conditional instead of Opacity to avoid saveLayer
-                if (!(_inTransition && t < 0.1 && _peekPlayer != null))
+                if (!(_inTransition && t < 0.1 && _peekPlayer != null) && !(widget.isHintVisible && t < 0.5))
                   Positioned(
                     left: titleLeft + miniPlayerSlideOffset,
                     top: artistTop,

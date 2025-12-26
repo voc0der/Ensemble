@@ -466,71 +466,30 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
               }
             });
 
-            // Combine slide and bounce animations with ValueListenableBuilder
+            // Combine slide, bounce, and hint animations with ValueListenableBuilders
             // This prevents full widget tree rebuilds - only ExpandablePlayer updates
             return ValueListenableBuilder<double>(
               valueListenable: _bounceOffsetNotifier,
               builder: (context, bounceOffset, _) {
-                return AnimatedBuilder(
-                  animation: _slideAnimation,
-                  builder: (context, _) {
-                    return ExpandablePlayer(
-                      key: globalPlayerKey,
-                      slideOffset: _slideAnimation.value,
-                      bounceOffset: bounceOffset,
-                      onRevealPlayers: _showPlayerReveal,
-                      isDeviceRevealVisible: _isRevealVisible,
+                return ValueListenableBuilder<double>(
+                  valueListenable: _hintOpacityNotifier,
+                  builder: (context, hintOpacity, _) {
+                    return AnimatedBuilder(
+                      animation: _slideAnimation,
+                      builder: (context, _) {
+                        return ExpandablePlayer(
+                          key: globalPlayerKey,
+                          slideOffset: _slideAnimation.value,
+                          bounceOffset: bounceOffset,
+                          onRevealPlayers: _showPlayerReveal,
+                          isDeviceRevealVisible: _isRevealVisible,
+                          isHintVisible: hintOpacity > 0,
+                        );
+                      },
                     );
                   },
                 );
               },
-            );
-          },
-        ),
-
-        // Pull hint - toast pill overlapping bottom nav bar (no bounce)
-        ValueListenableBuilder<double>(
-          valueListenable: _hintOpacityNotifier,
-          builder: (context, opacity, _) {
-            if (opacity == 0) return const SizedBox.shrink();
-            return Positioned(
-              left: 16,
-              right: 16,
-              // Position overlapping the bottom nav bar
-              bottom: MediaQuery.of(context).padding.bottom + 20,
-              child: AnimatedOpacity(
-                opacity: opacity,
-                duration: const Duration(milliseconds: 300),
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: colorScheme.inverseSurface,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.lightbulb_outline,
-                          size: 16,
-                          color: colorScheme.onInverseSurface,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          S.of(context)!.pullToSelectPlayers,
-                          style: TextStyle(
-                            color: colorScheme.onInverseSurface,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             );
           },
         ),
