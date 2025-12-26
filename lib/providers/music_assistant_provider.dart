@@ -2057,8 +2057,9 @@ class MusicAssistantProvider with ChangeNotifier {
           .where((p) => p.name.endsWith(sendspinSuffix))
           .toList();
 
-      // Clear the Cast-to-Sendspin ID mapping
-      _castToSendspinIdMap = {};
+      // NOTE: Don't clear _castToSendspinIdMap - we want to remember mappings
+      // even when the Sendspin player is temporarily unavailable (e.g., device off)
+      // This allows syncing to work when the device powers back on
 
       if (sendspinPlayers.isNotEmpty) {
         // Build maps for Sendspin players and their grouped status
