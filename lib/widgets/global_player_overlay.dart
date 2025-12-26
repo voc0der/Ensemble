@@ -481,15 +481,18 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
               behavior: _isHintModeActive ? HitTestBehavior.opaque : HitTestBehavior.translucent,
               onTap: _isHintModeActive ? _endHintMode : null,
               child: TweenAnimationBuilder<double>(
-                // Hint mode: start fully black (1.0), fade to 0.5 over 2 seconds
+                // Hint mode: hold black for 2s, then fade to 0.5 over 1s
                 // Reveal mode: instant 0.5 (no animation)
                 key: ValueKey(_isHintModeActive ? 'hint' : 'reveal'),
                 tween: Tween<double>(
                   begin: _isHintModeActive ? 1.0 : 0.5,
                   end: 0.5,
                 ),
-                duration: _isHintModeActive ? const Duration(seconds: 2) : Duration.zero,
-                curve: Curves.easeOut,
+                duration: _isHintModeActive ? const Duration(seconds: 3) : Duration.zero,
+                // Hold at start for first 2/3 (2s), then ease out for last 1/3 (1s)
+                curve: _isHintModeActive
+                    ? const Interval(0.67, 1.0, curve: Curves.easeOut)
+                    : Curves.linear,
                 builder: (context, opacity, child) {
                   return BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
