@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -362,6 +363,19 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
             },
           ),
         ),
+        // Blur backdrop when device selector is open
+        if (_isRevealVisible)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+                child: Container(
+                  color: Colors.black.withOpacity(0.1),
+                ),
+              ),
+            ),
+          ),
+
         // Player reveal overlay - renders BELOW mini player so cards slide behind it
         if (_isRevealVisible)
           PlayerRevealOverlay(
@@ -396,6 +410,7 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
                       slideOffset: _slideAnimation.value,
                       bounceOffset: bounceOffset,
                       onRevealPlayers: _showPlayerReveal,
+                      isDeviceRevealVisible: _isRevealVisible,
                     );
                   },
                 );

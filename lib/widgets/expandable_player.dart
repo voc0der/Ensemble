@@ -32,11 +32,16 @@ class ExpandablePlayer extends StatefulWidget {
   /// Callback when swipe-down gesture triggers player reveal
   final VoidCallback? onRevealPlayers;
 
+  /// Whether the device reveal overlay is currently visible
+  /// When true, shows player name instead of track name in collapsed state
+  final bool isDeviceRevealVisible;
+
   const ExpandablePlayer({
     super.key,
     this.slideOffset = 0.0,
     this.bounceOffset = 0.0,
     this.onRevealPlayers,
+    this.isDeviceRevealVisible = false,
   });
 
   @override
@@ -1478,6 +1483,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                   ),
 
                 // Track title - with slide animation when collapsed
+                // When device reveal is visible, show player name instead of track name
                 // Hidden during transition to prevent flash
                 // FALLBACK: Show if transition active but no peek content available
                 // GPU PERF: Use conditional instead of Opacity to avoid saveLayer
@@ -1488,7 +1494,10 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     child: SizedBox(
                       width: titleWidth,
                       child: Text(
-                        currentTrack.name,
+                        // Show player name when device reveal visible and collapsed
+                        (widget.isDeviceRevealVisible && t < 0.5)
+                            ? selectedPlayer.name
+                            : currentTrack.name,
                         style: TextStyle(
                           color: textColor,
                           fontSize: titleFontSize,
@@ -1505,6 +1514,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                   ),
 
                 // Artist/Author name - with slide animation when collapsed
+                // When device reveal is visible, show "Now Playing" hint
                 // For audiobooks: show author from audiobook context
                 // Hidden during transition to prevent flash
                 // FALLBACK: Show if transition active but no peek content available
@@ -1516,9 +1526,12 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     child: SizedBox(
                       width: titleWidth,
                       child: Text(
-                        maProvider.isPlayingAudiobook
-                            ? (maProvider.currentAudiobook?.authorsString ?? S.of(context)!.unknownAuthor)
-                            : currentTrack.artistsString,
+                        // Show "Now Playing" when device reveal visible and collapsed
+                        (widget.isDeviceRevealVisible && t < 0.5)
+                            ? S.of(context)!.nowPlaying
+                            : maProvider.isPlayingAudiobook
+                                ? (maProvider.currentAudiobook?.authorsString ?? S.of(context)!.unknownAuthor)
+                                : currentTrack.artistsString,
                         style: TextStyle(
                           color: textColor.withOpacity(t > 0.5 ? 0.7 : MiniPlayerLayout.secondaryTextOpacity),
                           fontSize: artistFontSize,
