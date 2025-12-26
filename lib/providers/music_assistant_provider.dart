@@ -221,6 +221,12 @@ class MusicAssistantProvider with ChangeNotifier {
     // Load cached players from database for instant display (before connecting)
     await _loadPlayersFromDatabase();
 
+    // Load cached library from SyncService for instant favorites display
+    await _loadLibraryFromCache();
+
+    // Load cached home rows from database for instant discover/recent display
+    await _cacheService.loadHomeRowsFromDatabase();
+
     // Initialize offline action queue
     await OfflineActionQueue.instance.initialize();
 
@@ -310,6 +316,28 @@ class MusicAssistantProvider with ChangeNotifier {
       }
     } catch (e) {
       _logger.log('⚠️ Error loading playback state: $e');
+    }
+  }
+
+  /// Load library data from SyncService cache for instant favorites display
+  Future<void> _loadLibraryFromCache() async {
+    try {
+      final syncService = SyncService.instance;
+
+      // Ensure SyncService has loaded from database
+      if (!syncService.hasCache) {
+        await syncService.loadFromCache();
+      }
+
+      if (syncService.hasCache) {
+        _albums = syncService.cachedAlbums;
+        _artists = syncService.cachedArtists;
+        // Note: tracks are loaded separately via API, not cached in SyncService
+        _logger.log('📦 Pre-loaded library for favorites: ${_albums.length} albums, ${_artists.length} artists');
+        notifyListeners();
+      }
+    } catch (e) {
+      _logger.log('⚠️ Error loading library from cache: $e');
     }
   }
 

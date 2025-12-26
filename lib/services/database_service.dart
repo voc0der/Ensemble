@@ -222,4 +222,21 @@ class DatabaseService {
 
   /// Clear queue for a player
   Future<void> clearCachedQueue(String playerId) => db.clearCachedQueue(playerId);
+
+  // ============================================
+  // Home Row Cache Convenience Methods
+  // ============================================
+
+  /// Save home row data (recent albums, discover artists, etc.)
+  Future<void> saveHomeRowCache(String rowType, String itemsJson) {
+    return db.saveHomeRowCache(rowType, itemsJson);
+  }
+
+  /// Get cached home row data
+  Future<HomeRowCacheData?> getHomeRowCache(String rowType) {
+    return db.getHomeRowCache(rowType);
+  }
+
+  /// Clear all home row cache
+  Future<void> clearHomeRowCache() => db.clearHomeRowCache();
 }

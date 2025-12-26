@@ -1,12 +1,15 @@
+import 'dart:convert';
 import '../models/media_item.dart';
 import '../models/player.dart';
 import '../services/debug_logger.dart';
+import '../services/database_service.dart';
 import '../constants/timings.dart';
 
 /// Centralized cache service for all app data caching
 /// This is a non-notifying service - it just stores and retrieves cached data
 class CacheService {
   final DebugLogger _logger = DebugLogger();
+  bool _homeRowsLoaded = false;
 
   // Home screen row caching
   List<Album>? _cachedRecentAlbums;
@@ -57,6 +60,8 @@ class CacheService {
     _cachedRecentAlbums = albums;
     _recentAlbumsLastFetched = DateTime.now();
     _logger.log('✅ Cached ${albums.length} recent albums');
+    // Persist to database for instant load on next launch
+    _persistHomeRowToDatabase('recent_albums', albums.map((a) => a.toJson()).toList());
   }
 
   /// Check if discover artists cache is valid
@@ -76,6 +81,8 @@ class CacheService {
     _cachedDiscoverArtists = artists;
     _discoverArtistsLastFetched = DateTime.now();
     _logger.log('✅ Cached ${artists.length} discover artists');
+    // Persist to database for instant load on next launch
+    _persistHomeRowToDatabase('discover_artists', artists.map((a) => a.toJson()).toList());
   }
 
   /// Check if discover albums cache is valid
@@ -95,6 +102,8 @@ class CacheService {
     _cachedDiscoverAlbums = albums;
     _discoverAlbumsLastFetched = DateTime.now();
     _logger.log('✅ Cached ${albums.length} discover albums');
+    // Persist to database for instant load on next launch
+    _persistHomeRowToDatabase('discover_albums', albums.map((a) => a.toJson()).toList());
   }
 
   /// Invalidate home screen cache (call on pull-to-refresh)
@@ -275,5 +284,79 @@ class CacheService {
     _cachedPlayers = null;
     _cachedSelectedPlayer = null;
     _playersLastFetched = null;
+  }
+
+  // ============================================================================
+  // DATABASE PERSISTENCE FOR HOME ROWS
+  // ============================================================================
+
+  /// Load home row data from database for instant display on startup
+  Future<void> loadHomeRowsFromDatabase() async {
+    if (_homeRowsLoaded) return;
+    _homeRowsLoaded = true;
+
+    try {
+      if (!DatabaseService.instance.isInitialized) return;
+
+      // Load recent albums
+      final recentData = await DatabaseService.instance.getHomeRowCache('recent_albums');
+      if (recentData != null) {
+        try {
+          final items = (jsonDecode(recentData.itemsJson) as List)
+              .map((json) => Album.fromJson(json as Map<String, dynamic>))
+              .toList();
+          _cachedRecentAlbums = items;
+          _recentAlbumsLastFetched = recentData.lastUpdated;
+          _logger.log('📦 Loaded ${items.length} recent albums from database');
+        } catch (e) {
+          _logger.log('⚠️ Failed to parse recent albums: $e');
+        }
+      }
+
+      // Load discover artists
+      final artistsData = await DatabaseService.instance.getHomeRowCache('discover_artists');
+      if (artistsData != null) {
+        try {
+          final items = (jsonDecode(artistsData.itemsJson) as List)
+              .map((json) => Artist.fromJson(json as Map<String, dynamic>))
+              .toList();
+          _cachedDiscoverArtists = items;
+          _discoverArtistsLastFetched = artistsData.lastUpdated;
+          _logger.log('📦 Loaded ${items.length} discover artists from database');
+        } catch (e) {
+          _logger.log('⚠️ Failed to parse discover artists: $e');
+        }
+      }
+
+      // Load discover albums
+      final albumsData = await DatabaseService.instance.getHomeRowCache('discover_albums');
+      if (albumsData != null) {
+        try {
+          final items = (jsonDecode(albumsData.itemsJson) as List)
+              .map((json) => Album.fromJson(json as Map<String, dynamic>))
+              .toList();
+          _cachedDiscoverAlbums = items;
+          _discoverAlbumsLastFetched = albumsData.lastUpdated;
+          _logger.log('📦 Loaded ${items.length} discover albums from database');
+        } catch (e) {
+          _logger.log('⚠️ Failed to parse discover albums: $e');
+        }
+      }
+    } catch (e) {
+      _logger.log('⚠️ Error loading home rows from database: $e');
+    }
+  }
+
+  /// Persist home row data to database (fire-and-forget)
+  void _persistHomeRowToDatabase(String rowType, List<Map<String, dynamic>> items) {
+    () async {
+      try {
+        if (!DatabaseService.instance.isInitialized) return;
+        await DatabaseService.instance.saveHomeRowCache(rowType, jsonEncode(items));
+        _logger.log('💾 Persisted $rowType to database');
+      } catch (e) {
+        _logger.log('⚠️ Failed to persist $rowType: $e');
+      }
+    }();
   }
 }

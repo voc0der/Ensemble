@@ -153,12 +153,27 @@ class CachedQueue extends Table {
   IntColumn get position => integer()();
 }
 
-@DriftDatabase(tables: [Profiles, RecentlyPlayed, LibraryCache, SyncMetadata, PlaybackState, CachedPlayers, CachedQueue])
+/// Cached home row data for instant display on startup
+class HomeRowCache extends Table {
+  /// Row type: 'recent_albums', 'discover_artists', 'discover_albums'
+  TextColumn get rowType => text()();
+
+  /// Serialized list of items as JSON array
+  TextColumn get itemsJson => text()();
+
+  /// When this was last updated
+  DateTimeColumn get lastUpdated => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {rowType};
+}
+
+@DriftDatabase(tables: [Profiles, RecentlyPlayed, LibraryCache, SyncMetadata, PlaybackState, CachedPlayers, CachedQueue, HomeRowCache])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -172,6 +187,10 @@ class AppDatabase extends _$AppDatabase {
           await m.createTable(playbackState);
           await m.createTable(cachedPlayers);
           await m.createTable(cachedQueue);
+        }
+        // Migration from v2 to v3: Add home row cache table
+        if (from < 3) {
+          await m.createTable(homeRowCache);
         }
       },
     );
@@ -523,5 +542,31 @@ class AppDatabase extends _$AppDatabase {
   /// Clear all cached queues
   Future<void> clearAllCachedQueues() async {
     await delete(cachedQueue).go();
+  }
+
+  // ============================================
+  // Home Row Cache Operations
+  // ============================================
+
+  /// Save home row data
+  Future<void> saveHomeRowCache(String rowType, String itemsJson) async {
+    await into(homeRowCache).insertOnConflictUpdate(
+      HomeRowCacheCompanion(
+        rowType: Value(rowType),
+        itemsJson: Value(itemsJson),
+        lastUpdated: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Get cached home row data
+  Future<HomeRowCacheData?> getHomeRowCache(String rowType) async {
+    return (select(homeRowCache)..where((h) => h.rowType.equals(rowType)))
+        .getSingleOrNull();
+  }
+
+  /// Clear all home row cache
+  Future<void> clearHomeRowCache() async {
+    await delete(homeRowCache).go();
   }
 }
