@@ -56,6 +56,7 @@ class MusicAssistantProvider with ChangeNotifier {
   // Player state
   Player? _selectedPlayer;
   List<Player> _availablePlayers = [];
+  Map<String, String> _castToSendspinIdMap = {}; // Maps regular Cast IDs to Sendspin IDs for grouping
   Track? _currentTrack;
   Audiobook? _currentAudiobook; // Currently playing audiobook context (with chapters)
   Timer? _playerStateTimer;
@@ -2056,6 +2057,9 @@ class MusicAssistantProvider with ChangeNotifier {
           .where((p) => p.name.endsWith(sendspinSuffix))
           .toList();
 
+      // Clear the Cast-to-Sendspin ID mapping
+      _castToSendspinIdMap = {};
+
       if (sendspinPlayers.isNotEmpty) {
         // Build maps for Sendspin players and their grouped status
         final sendspinByBaseName = <String, Player>{};
@@ -2064,6 +2068,16 @@ class MusicAssistantProvider with ChangeNotifier {
         for (final player in sendspinPlayers) {
           final baseName = player.name.substring(0, player.name.length - sendspinSuffix.length);
           sendspinByBaseName[baseName] = player;
+
+          // Find the corresponding regular Cast player and store the ID mapping
+          final regularCastPlayer = _availablePlayers.where(
+            (p) => p.name == baseName && !p.name.endsWith(sendspinSuffix)
+          ).firstOrNull;
+          if (regularCastPlayer != null) {
+            _castToSendspinIdMap[regularCastPlayer.playerId] = player.playerId;
+            _logger.log('🔗 Mapped Cast ID ${regularCastPlayer.playerId} -> Sendspin ID ${player.playerId}');
+          }
+
           if (player.isGrouped) {
             groupedSendspinBaseNames.add(baseName);
             _logger.log('🔊 Sendspin player "$baseName" is grouped - will prefer Sendspin version');
@@ -3425,8 +3439,15 @@ class MusicAssistantProvider with ChangeNotifier {
         return;
       }
 
-      _logger.log('🔗 Calling API syncPlayerToLeader($targetPlayerId, ${leaderPlayer.playerId})');
-      await _api!.syncPlayerToLeader(targetPlayerId, leaderPlayer.playerId);
+      // Translate Cast player ID to Sendspin ID if available
+      // This is needed because regular Cast players can't sync with Sendspin players
+      final actualTargetId = _castToSendspinIdMap[targetPlayerId] ?? targetPlayerId;
+      if (actualTargetId != targetPlayerId) {
+        _logger.log('🔗 Translated Cast ID to Sendspin ID: $targetPlayerId -> $actualTargetId');
+      }
+
+      _logger.log('🔗 Calling API syncPlayerToLeader($actualTargetId, ${leaderPlayer.playerId})');
+      await _api!.syncPlayerToLeader(actualTargetId, leaderPlayer.playerId);
       _logger.log('✅ API sync call completed');
 
       // Refresh players to get updated group state
