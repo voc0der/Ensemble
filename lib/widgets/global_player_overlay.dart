@@ -489,7 +489,7 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
                   left: 0,
                   right: 0,
                   // Position half-overlapping mini player top edge
-                  bottom: BottomSpacing.navBarHeight + BottomSpacing.miniPlayerHeight + MediaQuery.of(context).padding.bottom + 10 - bounceOffset,
+                  bottom: BottomSpacing.navBarHeight + BottomSpacing.miniPlayerHeight + MediaQuery.of(context).padding.bottom - 12 - bounceOffset,
                   child: AnimatedOpacity(
                     opacity: opacity,
                     duration: const Duration(milliseconds: 300),
