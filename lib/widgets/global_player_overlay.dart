@@ -480,12 +480,24 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
               // Tappable during hint mode to dismiss, ignored during reveal
               behavior: _isHintModeActive ? HitTestBehavior.opaque : HitTestBehavior.translucent,
               onTap: _isHintModeActive ? _endHintMode : null,
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-                child: Container(
-                  // Consistent darkness for seamless hint -> reveal transition
-                  color: Colors.black.withOpacity(0.5),
+              child: TweenAnimationBuilder<double>(
+                // Hint mode: start fully black (1.0), fade to 0.5 over 2 seconds
+                // Reveal mode: instant 0.5 (no animation)
+                key: ValueKey(_isHintModeActive ? 'hint' : 'reveal'),
+                tween: Tween<double>(
+                  begin: _isHintModeActive ? 1.0 : 0.5,
+                  end: 0.5,
                 ),
+                duration: _isHintModeActive ? const Duration(seconds: 2) : Duration.zero,
+                curve: Curves.easeOut,
+                builder: (context, opacity, child) {
+                  return BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+                    child: Container(
+                      color: Colors.black.withOpacity(opacity),
+                    ),
+                  );
+                },
               ),
             ),
           ),
