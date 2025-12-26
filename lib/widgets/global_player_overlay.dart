@@ -466,8 +466,8 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
                 child: Container(
-                  // Darker during hint mode for better focus
-                  color: Colors.black.withOpacity(_isHintModeActive ? 0.4 : 0.1),
+                  // Consistent darkness for seamless hint -> reveal transition
+                  color: Colors.black.withOpacity(0.5),
                 ),
               ),
             ),

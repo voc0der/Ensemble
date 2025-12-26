@@ -222,13 +222,12 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
 
             return Stack(
               children: [
-                // Backdrop - tap to dismiss
+                // Backdrop - tap to dismiss (darkness handled by GlobalPlayerOverlay)
                 Positioned.fill(
                   child: GestureDetector(
                     onTap: dismiss,
-                    child: Container(
-                      color: Colors.black.withOpacity(0.6 * _backdropAnimation.value),
-                    ),
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox.expand(),
                   ),
                 ),
 
