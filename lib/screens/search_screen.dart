@@ -439,13 +439,13 @@ class SearchScreenState extends State<SearchScreen> {
       score = 20; // Fuzzy/partial match (MA returned it, so some relevance)
     }
 
-    // Bonus for library items
-    if (item.inLibrary) {
+    // Bonus for library items (Album has inLibrary property)
+    if (item is Album && item.inLibrary) {
       score += 10;
     }
 
     // Bonus for favorites
-    if (item.favorite) {
+    if (item.favorite == true) {
       score += 5;
     }
 
@@ -465,8 +465,8 @@ class SearchScreenState extends State<SearchScreen> {
         score += 8;
       }
       // Also check album name for tracks
-      if (item.albumName != null) {
-        final albumLower = item.albumName!.toLowerCase();
+      if (item.album?.name != null) {
+        final albumLower = item.album!.name.toLowerCase();
         if (albumLower.contains(queryLower)) {
           score += 5;
         }
