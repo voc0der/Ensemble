@@ -390,6 +390,29 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    // Watch provider state synchronously to catch connection changes immediately
+    // This ensures the preemptive backdrop renders in the same frame as home screen
+    final provider = context.watch<MusicAssistantProvider>();
+    final isReadyForWelcome = provider.isConnected && provider.selectedPlayer != null;
+
+    // Show solid backdrop when waiting for connection AND now connected (covers home screen)
+    final shouldShowPreemptiveBackdrop = _waitingForConnection &&
+        !_isHintModeActive &&
+        isReadyForWelcome;
+
+    // Trigger welcome screen start if we just became ready
+    if (shouldShowPreemptiveBackdrop && !_hintTriggered) {
+      // Schedule for post-frame to avoid setState during build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _waitingForConnection && !_hintTriggered) {
+          _waitingForConnection = false;
+          _miniPlayerHintsReady = true;
+          _startWelcomeScreen();
+          _startMiniPlayerBounce();
+        }
+      });
+    }
+
     // Handle back gesture at top level - dismiss hint mode or device list if visible
     return PopScope(
       canPop: !_isRevealVisible && !_isHintModeActive,
@@ -535,18 +558,12 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
 
         // Preemptive solid backdrop - shows instantly when transitioning to welcome
         // This covers the home screen before the animated welcome starts
-        if (_waitingForConnection && !_isHintModeActive)
-          Selector<MusicAssistantProvider, bool>(
-            selector: (_, provider) => provider.isConnected && provider.selectedPlayer != null,
-            builder: (context, isReady, _) {
-              if (!isReady) return const SizedBox.shrink();
-              // Show solid backdrop immediately to cover home screen
-              return Positioned.fill(
-                child: Container(
-                  color: colorScheme.surface,
-                ),
-              );
-            },
+        // Uses synchronous provider.watch() check from build method for immediate response
+        if (shouldShowPreemptiveBackdrop)
+          Positioned.fill(
+            child: Container(
+              color: colorScheme.surface,
+            ),
           ),
 
         // Blur backdrop for hint/welcome mode - animated fade from solid to semi-transparent
@@ -666,14 +683,6 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
             hasTrack: provider.currentTrack != null,
           ),
           builder: (context, state, child) {
-            // Check if we should enable mini player hints now that we're connected
-            if (state.isConnected && state.hasPlayer && _waitingForConnection && !_miniPlayerHintsReady) {
-              // Use post-frame callback to avoid setState during build
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _checkConnectionForMiniPlayerHints();
-              });
-            }
-
             // Only show player if connected and has a selected player
             if (!state.isConnected || !state.hasPlayer) {
               return const SizedBox.shrink();
