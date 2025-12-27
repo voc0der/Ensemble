@@ -1238,7 +1238,7 @@
     "description": "Hint for long-press to sync players"
   },
 
-  "selectPlayerHint": "Tap a player to start listening",
+  "selectPlayerHint": "Choose a player, or dismiss by swiping down",
   "@selectPlayerHint": {
     "description": "First-time hint for selecting a player in device selector"
   },
