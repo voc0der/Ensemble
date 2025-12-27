@@ -597,7 +597,7 @@ class MusicAssistantProvider with ChangeNotifier {
 
       await _tryAdoptGhostPlayer();
       await _registerLocalPlayer();
-      await _loadAndSelectPlayers();
+      await _loadAndSelectPlayers(coldStart: true);
 
       loadLibrary();
 
@@ -785,6 +785,12 @@ class MusicAssistantProvider with ChangeNotifier {
     // This makes mini player and device button appear instantly on app resume
     if (_availablePlayers.isEmpty && _cacheService.hasCachedPlayers) {
       _availablePlayers = _cacheService.getCachedPlayers()!;
+
+      // Sort cached players immediately so list appears in correct order
+      final smartSort = await SettingsService.getSmartSortPlayers();
+      final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
+      _sortPlayersSync(_availablePlayers, smartSort, builtinPlayerId);
+
       _selectedPlayer = _cacheService.getCachedSelectedPlayer();
       // Also try to restore from settings if cache doesn't have selected player
       if (_selectedPlayer == null && _availablePlayers.isNotEmpty) {
@@ -801,7 +807,7 @@ class MusicAssistantProvider with ChangeNotifier {
           _selectedPlayer = _availablePlayers.first;
         }
       }
-      _logger.log('⚡ Loaded ${_availablePlayers.length} cached players instantly');
+      _logger.log('⚡ Loaded ${_availablePlayers.length} cached players instantly (sorted)');
       notifyListeners(); // Update UI immediately with cached data
     }
 
@@ -2121,7 +2127,38 @@ class MusicAssistantProvider with ChangeNotifier {
     return await SettingsService.getBuiltinPlayerId();
   }
 
-  Future<void> _loadAndSelectPlayers({bool forceRefresh = false}) async {
+  /// Sort players list based on smart sort setting
+  /// Can be called synchronously with pre-fetched settings for cached players
+  void _sortPlayersSync(List<Player> players, bool smartSort, String? builtinPlayerId) {
+    if (smartSort) {
+      // Smart sort: local player first, then playing, then on, then off
+      players.sort((a, b) {
+        // Local player always first
+        final aIsLocal = builtinPlayerId != null && a.playerId == builtinPlayerId;
+        final bIsLocal = builtinPlayerId != null && b.playerId == builtinPlayerId;
+        if (aIsLocal && !bIsLocal) return -1;
+        if (bIsLocal && !aIsLocal) return 1;
+
+        // Then by status: playing > on > off
+        int statusPriority(Player p) {
+          if (p.state == 'playing') return 0;
+          if (p.powered && p.state != 'off') return 1;
+          return 2;
+        }
+        final aPriority = statusPriority(a);
+        final bPriority = statusPriority(b);
+        if (aPriority != bPriority) return aPriority.compareTo(bPriority);
+
+        // Within same status, sort alphabetically
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+    } else {
+      // Default alphabetical sort
+      players.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    }
+  }
+
+  Future<void> _loadAndSelectPlayers({bool forceRefresh = false, bool coldStart = false}) async {
     try {
       if (!forceRefresh &&
           _cacheService.isPlayersCacheValid() &&
@@ -2253,34 +2290,9 @@ class MusicAssistantProvider with ChangeNotifier {
         }).toList();
       }
 
-      // Sort players - check if smart sort is enabled
+      // Sort players using helper method
       final smartSort = await SettingsService.getSmartSortPlayers();
-      if (smartSort) {
-        // Smart sort: local player first, then playing, then on, then off
-        _availablePlayers.sort((a, b) {
-          // Local player always first
-          final aIsLocal = builtinPlayerId != null && a.playerId == builtinPlayerId;
-          final bIsLocal = builtinPlayerId != null && b.playerId == builtinPlayerId;
-          if (aIsLocal && !bIsLocal) return -1;
-          if (bIsLocal && !aIsLocal) return 1;
-
-          // Then by status: playing > on > off
-          int statusPriority(Player p) {
-            if (p.state == 'playing') return 0;
-            if (p.powered && p.state != 'off') return 1;
-            return 2;
-          }
-          final aPriority = statusPriority(a);
-          final bPriority = statusPriority(b);
-          if (aPriority != bPriority) return aPriority.compareTo(bPriority);
-
-          // Within same status, sort alphabetically
-          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-        });
-      } else {
-        // Default alphabetical sort
-        _availablePlayers.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-      }
+      _sortPlayersSync(_availablePlayers, smartSort, builtinPlayerId);
 
       // Cache players for instant display on app resume
       _cacheService.setCachedPlayers(_availablePlayers);
@@ -2310,7 +2322,8 @@ class MusicAssistantProvider with ChangeNotifier {
 
         // Keep currently selected player if still available (and not overridden by prefer local)
         // But allow switching to a playing player when preferLocalPlayer is OFF
-        if (playerToSelect == null && _selectedPlayer != null) {
+        // On coldStart, skip this block and apply full priority logic (playing > local > last selected)
+        if (playerToSelect == null && _selectedPlayer != null && !coldStart) {
           final stillAvailable = _availablePlayers.any(
             (p) => p.playerId == _selectedPlayer!.playerId && p.available,
           );
@@ -2339,6 +2352,10 @@ class MusicAssistantProvider with ChangeNotifier {
               );
             }
           }
+        }
+
+        if (coldStart) {
+          _logger.log('🚀 Cold start: applying full priority logic (playing > local > last selected)');
         }
 
         if (playerToSelect == null) {

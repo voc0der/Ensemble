@@ -363,9 +363,17 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
       return;
     }
 
+    final api = maProvider.api;
+    if (api == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(S.of(context)!.notConnected)),
+      );
+      return;
+    }
+
     try {
       // For adding to queue with radio mode, we use radio_mode but with 'add' option
-      await maProvider.api?.playArtistRadioToQueue(selectedPlayer.playerId, widget.artist);
+      await api.playArtistRadioToQueue(selectedPlayer.playerId, widget.artist);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
