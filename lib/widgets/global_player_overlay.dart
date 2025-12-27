@@ -238,7 +238,9 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
     _hasCompletedOnboarding = await SettingsService.getHasCompletedOnboarding();
     // Mark that we need to show welcome after first connection (if first use)
     if (!_hasCompletedOnboarding && mounted && !_hintTriggered) {
-      _waitingForConnection = true;
+      setState(() {
+        _waitingForConnection = true;
+      });
     }
   }
 
