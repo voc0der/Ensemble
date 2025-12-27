@@ -667,7 +667,8 @@ class SearchScreenState extends State<SearchScreen> {
             MaterialPageRoute(
               builder: (context) => PlaylistDetailsScreen(
                 playlist: playlist,
-                initialImageUrl: imageUrl,
+                provider: playlist.provider,
+                itemId: playlist.itemId,
               ),
             ),
           );
