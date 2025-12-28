@@ -280,20 +280,22 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
   void _showPlayOnMenu(BuildContext context) {
     final maProvider = context.read<MusicAssistantProvider>();
     final players = maProvider.availablePlayers;
-    final colorScheme = Theme.of(context).colorScheme;
+
+    // Slide mini player down out of the way
+    GlobalPlayerOverlay.hidePlayer();
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(16.0),
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 16),
             Text(
               S.of(context)!.startRadioOn(widget.artist.name),
               style: Theme.of(context).textTheme.titleLarge,
@@ -314,7 +316,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                     return ListTile(
                       leading: Icon(
                         Icons.speaker,
-                        color: colorScheme.onSurface,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                       title: Text(player.name),
                       onTap: () async {
@@ -345,11 +347,14 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                   },
                 ),
               ),
-            const SizedBox(height: 16),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
           ],
         ),
       ),
-    );
+    ).whenComplete(() {
+      // Slide mini player back up when sheet is dismissed
+      GlobalPlayerOverlay.showPlayer();
+    });
   }
 
   Future<void> _addArtistRadioToQueue() async {

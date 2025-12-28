@@ -211,23 +211,19 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
     final maProvider = context.read<MusicAssistantProvider>();
     final players = maProvider.availablePlayers;
 
+    // Slide mini player down out of the way
     GlobalPlayerOverlay.hidePlayer();
-
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final sheetHeight = (screenHeight * 0.45) + bottomPadding;
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true,
       builder: (context) => Container(
-        height: sheetHeight,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 16),
             Text(
@@ -235,37 +231,43 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            Expanded(
-              child: players.isEmpty
-                  ? Center(child: Text(S.of(context)!.noPlayersAvailable))
-                  : ListView.builder(
-                      padding: EdgeInsets.only(bottom: bottomPadding + 16),
-                      itemCount: players.length,
-                      itemBuilder: (context, index) {
-                        final player = players[index];
-                        return ListTile(
-                          leading: Icon(
-                            Icons.speaker,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                          title: Text(player.name),
-                          onTap: () async {
-                            Navigator.pop(context);
-                            maProvider.selectPlayer(player);
-                            maProvider.setCurrentAudiobook(_audiobook);
-                            await maProvider.api?.playAudiobook(
-                              player.playerId,
-                              widget.audiobook,
-                            );
-                          },
+            if (players.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Text(S.of(context)!.noPlayersAvailable),
+              )
+            else
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: players.length,
+                  itemBuilder: (context, index) {
+                    final player = players[index];
+                    return ListTile(
+                      leading: Icon(
+                        Icons.speaker,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      title: Text(player.name),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        maProvider.selectPlayer(player);
+                        maProvider.setCurrentAudiobook(_audiobook);
+                        await maProvider.api?.playAudiobook(
+                          player.playerId,
+                          widget.audiobook,
                         );
                       },
-                    ),
-            ),
+                    );
+                  },
+                ),
+              ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
           ],
         ),
       ),
     ).whenComplete(() {
+      // Slide mini player back up when sheet is dismissed
       GlobalPlayerOverlay.showPlayer();
     });
   }

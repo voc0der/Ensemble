@@ -558,7 +558,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                   },
                 ),
               ),
-            const SizedBox(height: 16),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
           ],
         ),
       ),
@@ -1132,7 +1132,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
     );
   }
 
-  /// Shared "Play on..." bottom sheet with fixed height and scrollable list
+  /// Shared "Play on..." bottom sheet that sizes to content
   void _showPlayOnSheet(
     BuildContext context,
     List players, {
@@ -1141,21 +1141,16 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
     // Slide mini player down out of the way
     GlobalPlayerOverlay.hidePlayer();
 
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final sheetHeight = (screenHeight * 0.45) + bottomPadding; // Fixed 45% + safe area
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true,
       builder: (context) => Container(
-        height: sheetHeight,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 16),
             Text(
@@ -1163,30 +1158,33 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            Expanded(
-              child: players.isEmpty
-                  ? Center(
-                      child: Text(S.of(context)!.noPlayersAvailable),
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.only(bottom: bottomPadding + 16),
-                      itemCount: players.length,
-                      itemBuilder: (context, index) {
-                        final player = players[index];
-                        return ListTile(
-                          leading: Icon(
-                            Icons.speaker,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                          title: Text(player.name),
-                          onTap: () {
-                            Navigator.pop(context);
-                            onPlayerSelected(player);
-                          },
-                        );
+            if (players.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Text(S.of(context)!.noPlayersAvailable),
+              )
+            else
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: players.length,
+                  itemBuilder: (context, index) {
+                    final player = players[index];
+                    return ListTile(
+                      leading: Icon(
+                        Icons.speaker,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      title: Text(player.name),
+                      onTap: () {
+                        Navigator.pop(context);
+                        onPlayerSelected(player);
                       },
-                    ),
-            ),
+                    );
+                  },
+                ),
+              ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
           ],
         ),
       ),
