@@ -243,41 +243,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
     }
   }
 
-  Future<void> _startArtistRadio() async {
-    final maProvider = context.read<MusicAssistantProvider>();
-    final selectedPlayer = maProvider.selectedPlayer;
-
-    if (selectedPlayer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.of(context)!.noPlayerSelected)),
-      );
-      return;
-    }
-
-    try {
-      await maProvider.playArtistRadio(selectedPlayer.playerId, widget.artist);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(S.of(context)!.startingRadio(widget.artist.name)),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
-    } catch (e) {
-      _logger.log('Error starting artist radio: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(S.of(context)!.failedToStartRadio(e.toString())),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  void _showPlayOnMenu(BuildContext context) {
+  void _showRadioMenu(BuildContext context) {
     final maProvider = context.read<MusicAssistantProvider>();
     final players = maProvider.availablePlayers;
 
@@ -357,47 +323,93 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
     });
   }
 
-  Future<void> _addArtistRadioToQueue() async {
+  void _showAddToQueueMenu(BuildContext context) {
     final maProvider = context.read<MusicAssistantProvider>();
-    final selectedPlayer = maProvider.selectedPlayer;
+    final players = maProvider.availablePlayers;
 
-    if (selectedPlayer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.of(context)!.noPlayerSelected)),
-      );
-      return;
-    }
+    // Slide mini player down out of the way
+    GlobalPlayerOverlay.hidePlayer();
 
-    final api = maProvider.api;
-    if (api == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.of(context)!.notConnected)),
-      );
-      return;
-    }
-
-    try {
-      // For adding to queue with radio mode, we use radio_mode but with 'add' option
-      await api.playArtistRadioToQueue(selectedPlayer.playerId, widget.artist);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(S.of(context)!.addedRadioToQueue(widget.artist.name)),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
-    } catch (e) {
-      _logger.log('Error adding artist radio to queue: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(S.of(context)!.failedToAddToQueue(e.toString())),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            Text(
+              S.of(context)!.addToQueueOn,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            if (players.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Text(S.of(context)!.noPlayersAvailable),
+              )
+            else
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: players.length,
+                  itemBuilder: (context, index) {
+                    final player = players[index];
+                    return ListTile(
+                      leading: Icon(
+                        Icons.speaker,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      title: Text(player.name),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        final api = maProvider.api;
+                        if (api == null) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(S.of(context)!.notConnected)),
+                            );
+                          }
+                          return;
+                        }
+                        try {
+                          await api.playArtistRadioToQueue(player.playerId, widget.artist);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(S.of(context)!.addedRadioToQueue(widget.artist.name)),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          _logger.log('Error adding artist radio to queue: $e');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(S.of(context)!.failedToAddToQueue(e.toString())),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
+          ],
+        ),
+      ),
+    ).whenComplete(() {
+      // Slide mini player back up when sheet is dismissed
+      GlobalPlayerOverlay.showPlayer();
+    });
   }
 
   Future<void> _loadArtistImage() async {
@@ -640,7 +652,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                         child: SizedBox(
                           height: 50,
                           child: ElevatedButton.icon(
-                            onPressed: _startArtistRadio,
+                            onPressed: () => _showRadioMenu(context),
                             icon: const Icon(Icons.radio),
                             label: Text(S.of(context)!.radio),
                             style: ElevatedButton.styleFrom(
@@ -653,23 +665,6 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-
-                      // "Play on..." Button (Square)
-                      SizedBox(
-                        height: 50,
-                        width: 50,
-                        child: FilledButton.tonal(
-                          onPressed: () => _showPlayOnMenu(context),
-                          style: FilledButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Icon(Icons.speaker_group_outlined),
-                        ),
-                      ),
 
                       const SizedBox(width: 12),
 
@@ -678,7 +673,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                         height: 50,
                         width: 50,
                         child: FilledButton.tonal(
-                          onPressed: _addArtistRadioToQueue,
+                          onPressed: () => _showAddToQueueMenu(context),
                           style: FilledButton.styleFrom(
                             padding: EdgeInsets.zero,
                             shape: RoundedRectangleBorder(
