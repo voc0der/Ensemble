@@ -154,49 +154,55 @@ class SearchScreenState extends State<SearchScreen> {
 
   /// Scroll filter bar to keep active filter visible
   /// Only scrolls when the filter would be obscured (off-screen)
+  /// Uses post-frame callback to avoid interfering with PageView animation
   void _scrollFilterIntoView(int filterIndex) {
     if (!_filterScrollController.hasClients) return;
 
-    final maxScroll = _filterScrollController.position.maxScrollExtent;
+    // Defer scroll calculation to after the frame to avoid layout during animation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_filterScrollController.hasClients) return;
 
-    // If all filters fit on screen, don't scroll at all
-    if (maxScroll <= 0) return;
+      final maxScroll = _filterScrollController.position.maxScrollExtent;
 
-    // Approximate width per filter chip (padding + text)
-    const chipWidth = 80.0;
-    const horizontalPadding = 16.0;
+      // If all filters fit on screen, don't scroll at all
+      if (maxScroll <= 0) return;
 
-    final currentScroll = _filterScrollController.offset;
-    final viewportWidth = _filterScrollController.position.viewportDimension;
+      // Approximate width per filter chip (padding + text)
+      const chipWidth = 80.0;
+      const horizontalPadding = 16.0;
 
-    // Calculate the left and right edges of the active filter chip
-    final chipLeft = (filterIndex * chipWidth);
-    final chipRight = chipLeft + chipWidth;
+      final currentScroll = _filterScrollController.offset;
+      final viewportWidth = _filterScrollController.position.viewportDimension;
 
-    // Calculate what's currently visible in the viewport
-    final visibleLeft = currentScroll;
-    final visibleRight = currentScroll + viewportWidth - (horizontalPadding * 2);
+      // Calculate the left and right edges of the active filter chip
+      final chipLeft = (filterIndex * chipWidth);
+      final chipRight = chipLeft + chipWidth;
 
-    // Only scroll if the chip is actually obscured
-    double? targetOffset;
+      // Calculate what's currently visible in the viewport
+      final visibleLeft = currentScroll;
+      final visibleRight = currentScroll + viewportWidth - (horizontalPadding * 2);
 
-    if (chipRight > visibleRight) {
-      // Chip is cut off on the right - scroll right just enough to show it
-      targetOffset = chipRight - viewportWidth + (horizontalPadding * 2);
-    } else if (chipLeft < visibleLeft) {
-      // Chip is cut off on the left - scroll left just enough to show it
-      targetOffset = chipLeft;
-    }
+      // Only scroll if the chip is actually obscured
+      double? targetOffset;
 
-    // Only animate if we need to scroll
-    if (targetOffset != null) {
-      final clampedOffset = targetOffset.clamp(0.0, maxScroll);
-      _filterScrollController.animateTo(
-        clampedOffset,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-      );
-    }
+      if (chipRight > visibleRight) {
+        // Chip is cut off on the right - scroll right just enough to show it
+        targetOffset = chipRight - viewportWidth + (horizontalPadding * 2);
+      } else if (chipLeft < visibleLeft) {
+        // Chip is cut off on the left - scroll left just enough to show it
+        targetOffset = chipLeft;
+      }
+
+      // Only animate if we need to scroll
+      if (targetOffset != null) {
+        final clampedOffset = targetOffset.clamp(0.0, maxScroll);
+        _filterScrollController.animateTo(
+          clampedOffset,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
   }
 
   Future<void> _loadRecentSearches() async {
@@ -533,11 +539,14 @@ class SearchScreenState extends State<SearchScreen> {
     return Column(
       children: [
         // Filter tabs - always visible
-        SingleChildScrollView(
-          controller: _filterScrollController,
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _buildFilterSelector(colorScheme),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: SingleChildScrollView(
+            controller: _filterScrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildFilterSelector(colorScheme),
+          ),
         ),
         // Results with swipeable pages
         Expanded(
