@@ -532,15 +532,12 @@ class SearchScreenState extends State<SearchScreen> {
     // Column layout - filter bar above results, no overlay
     return Column(
       children: [
-        // Filter tabs - always visible, with solid background
-        Container(
-          color: colorScheme.background,
-          child: SingleChildScrollView(
-            controller: _filterScrollController,
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.only(left: 16, right: 16, top: 4),
-            child: _buildFilterSelector(colorScheme),
-          ),
+        // Filter tabs - always visible
+        SingleChildScrollView(
+          controller: _filterScrollController,
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _buildFilterSelector(colorScheme),
         ),
         // Results with swipeable pages
         Expanded(
