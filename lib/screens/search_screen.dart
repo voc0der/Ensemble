@@ -532,19 +532,12 @@ class SearchScreenState extends State<SearchScreen> {
     // Column layout - filter bar above results, no overlay
     return Column(
       children: [
-        // Filter tabs - hides on scroll along with search bar
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          height: _isSearchBarVisible ? 52 : 0,
-          clipBehavior: Clip.hardEdge,
-          decoration: const BoxDecoration(),
-          child: SingleChildScrollView(
-            controller: _filterScrollController,
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: _buildFilterSelector(colorScheme),
-          ),
+        // Filter tabs - always visible
+        SingleChildScrollView(
+          controller: _filterScrollController,
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: _buildFilterSelector(colorScheme),
         ),
         // Results with swipeable pages
         Expanded(
