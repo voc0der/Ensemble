@@ -153,23 +153,50 @@ class SearchScreenState extends State<SearchScreen> {
   }
 
   /// Scroll filter bar to keep active filter visible
+  /// Only scrolls when the filter would be obscured (off-screen)
   void _scrollFilterIntoView(int filterIndex) {
     if (!_filterScrollController.hasClients) return;
+
+    final maxScroll = _filterScrollController.position.maxScrollExtent;
+
+    // If all filters fit on screen, don't scroll at all
+    if (maxScroll <= 0) return;
 
     // Approximate width per filter chip (padding + text)
     const chipWidth = 80.0;
     const horizontalPadding = 16.0;
 
-    // Calculate target scroll position to center the active filter
-    final targetOffset = (filterIndex * chipWidth) - horizontalPadding;
-    final maxScroll = _filterScrollController.position.maxScrollExtent;
-    final clampedOffset = targetOffset.clamp(0.0, maxScroll);
+    final currentScroll = _filterScrollController.offset;
+    final viewportWidth = _filterScrollController.position.viewportDimension;
 
-    _filterScrollController.animateTo(
-      clampedOffset,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOutCubic,
-    );
+    // Calculate the left and right edges of the active filter chip
+    final chipLeft = (filterIndex * chipWidth);
+    final chipRight = chipLeft + chipWidth;
+
+    // Calculate what's currently visible in the viewport
+    final visibleLeft = currentScroll;
+    final visibleRight = currentScroll + viewportWidth - (horizontalPadding * 2);
+
+    // Only scroll if the chip is actually obscured
+    double? targetOffset;
+
+    if (chipRight > visibleRight) {
+      // Chip is cut off on the right - scroll right just enough to show it
+      targetOffset = chipRight - viewportWidth + (horizontalPadding * 2);
+    } else if (chipLeft < visibleLeft) {
+      // Chip is cut off on the left - scroll left just enough to show it
+      targetOffset = chipLeft;
+    }
+
+    // Only animate if we need to scroll
+    if (targetOffset != null) {
+      final clampedOffset = targetOffset.clamp(0.0, maxScroll);
+      _filterScrollController.animateTo(
+        clampedOffset,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   Future<void> _loadRecentSearches() async {
@@ -502,73 +529,76 @@ class SearchScreenState extends State<SearchScreen> {
       return EmptyState.search(context: context);
     }
 
-    // Use Stack so content scrolls behind the filter tabs
-    return Stack(
+    // Column layout - filter bar above results, no overlay
+    return Column(
       children: [
-        // Results with swipeable pages - fills entire area
-        NotificationListener<ScrollNotification>(
-          onNotification: _handleScrollNotification,
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: _onPageChanged,
-            itemCount: _getAvailableFilters().length,
-            itemBuilder: (context, pageIndex) {
-              final filters = _getAvailableFilters();
-              final filterForPage = filters[pageIndex];
-
-              // PERF: Use cached list items to avoid rebuilding during animation
-              final listItems = _cachedListItems[filterForPage] ??= _buildListItemsForFilter(
-                filterForPage, artists, albums, tracks, playlists, audiobooks,
-              );
-
-              // PERF: Wrap each page in RepaintBoundary to isolate repaints during swipe
-              return RepaintBoundary(
-                key: ValueKey('page_$filterForPage'),
-                child: ListView.builder(
-                  // PERF: Use key to preserve scroll position per filter
-                  key: PageStorageKey('list_$filterForPage'),
-                  // Top padding accounts for filter tabs overlay
-                  padding: EdgeInsets.fromLTRB(16, 68, 16, BottomSpacing.navBarOnly),
-                  cacheExtent: 500,
-                  addAutomaticKeepAlives: false,
-                  // PERF: false because each tile already has RepaintBoundary
-                  addRepaintBoundaries: false,
-                  itemCount: listItems.length,
-                  itemBuilder: (context, index) {
-                    final item = listItems[index];
-                    final showTypeInSubtitle = filterForPage == 'all';
-                    switch (item.type) {
-                      case _ListItemType.header:
-                        return _buildSectionHeader(item.headerTitle!, item.headerCount!);
-                      case _ListItemType.artist:
-                        return _buildArtistTile(item.mediaItem! as Artist);
-                      case _ListItemType.album:
-                        return _buildAlbumTile(item.mediaItem! as Album, showType: showTypeInSubtitle);
-                      case _ListItemType.track:
-                        return _buildTrackTile(item.mediaItem! as Track, showType: showTypeInSubtitle);
-                      case _ListItemType.playlist:
-                        return _buildPlaylistTile(item.mediaItem! as Playlist, showType: showTypeInSubtitle);
-                      case _ListItemType.audiobook:
-                        return _buildAudiobookTile(item.mediaItem! as Audiobook, showType: showTypeInSubtitle);
-                      case _ListItemType.spacer:
-                        return const SizedBox(height: 24);
-                    }
-                  },
-                ),
-              );
-            },
-          ),
-        ),
-        // Filter tabs overlay - positioned at top, content scrolls behind
-        Positioned(
-          top: 12,
-          left: 0,
-          right: 0,
+        // Filter tabs - hides on scroll along with search bar
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          height: _isSearchBarVisible ? 52 : 0,
+          clipBehavior: Clip.hardEdge,
+          decoration: const BoxDecoration(),
           child: SingleChildScrollView(
             controller: _filterScrollController,
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: _buildFilterSelector(colorScheme),
+          ),
+        ),
+        // Results with swipeable pages
+        Expanded(
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: _onPageChanged,
+              itemCount: _getAvailableFilters().length,
+              itemBuilder: (context, pageIndex) {
+                final filters = _getAvailableFilters();
+                final filterForPage = filters[pageIndex];
+
+                // PERF: Use cached list items to avoid rebuilding during animation
+                final listItems = _cachedListItems[filterForPage] ??= _buildListItemsForFilter(
+                  filterForPage, artists, albums, tracks, playlists, audiobooks,
+                );
+
+                // PERF: Wrap each page in RepaintBoundary to isolate repaints during swipe
+                return RepaintBoundary(
+                  key: ValueKey('page_$filterForPage'),
+                  child: ListView.builder(
+                    // PERF: Use key to preserve scroll position per filter
+                    key: PageStorageKey('list_$filterForPage'),
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, BottomSpacing.navBarOnly),
+                    cacheExtent: 500,
+                    addAutomaticKeepAlives: false,
+                    // PERF: false because each tile already has RepaintBoundary
+                    addRepaintBoundaries: false,
+                    itemCount: listItems.length,
+                    itemBuilder: (context, index) {
+                      final item = listItems[index];
+                      final showTypeInSubtitle = filterForPage == 'all';
+                      switch (item.type) {
+                        case _ListItemType.header:
+                          return _buildSectionHeader(item.headerTitle!, item.headerCount!);
+                        case _ListItemType.artist:
+                          return _buildArtistTile(item.mediaItem! as Artist);
+                        case _ListItemType.album:
+                          return _buildAlbumTile(item.mediaItem! as Album, showType: showTypeInSubtitle);
+                        case _ListItemType.track:
+                          return _buildTrackTile(item.mediaItem! as Track, showType: showTypeInSubtitle);
+                        case _ListItemType.playlist:
+                          return _buildPlaylistTile(item.mediaItem! as Playlist, showType: showTypeInSubtitle);
+                        case _ListItemType.audiobook:
+                          return _buildAudiobookTile(item.mediaItem! as Audiobook, showType: showTypeInSubtitle);
+                        case _ListItemType.spacer:
+                          return const SizedBox(height: 24);
+                      }
+                    },
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ],
