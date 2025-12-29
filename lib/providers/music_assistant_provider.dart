@@ -2931,7 +2931,7 @@ class MusicAssistantProvider with ChangeNotifier {
           stateChanged = true;
         }
         // Clear notification for external source
-        audioHandler.clearRemoteState();
+        audioHandler.clearRemotePlaybackState();
         if (stateChanged) {
           notifyListeners();
         }
