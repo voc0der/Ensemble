@@ -81,8 +81,8 @@ class DeviceIdService {
     // Check if we already have the correct ID
     final existingId = prefs.getString(_keyLocalPlayerId);
     if (existingId == expectedId) {
-      _logger.log('Using existing player ID: $existingId');
-      return existingId;
+      _logger.log('Using existing player ID: $expectedId');
+      return expectedId;
     }
 
     // ID needs to be updated (first login, username changed, or migration)
