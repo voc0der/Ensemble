@@ -342,66 +342,71 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
                             },
                           ),
                         // Build player cards - scrollable when overflow, otherwise static
+                        // Using ListView.builder for many players: only builds visible items
+                        // This significantly improves animation performance with 10+ players
                         if (needsScroll)
                           ConstrainedBox(
                             constraints: BoxConstraints(maxHeight: maxListHeight),
-                            child: SingleChildScrollView(
+                            child: ListView.builder(
                               controller: _scrollController,
                               physics: const ClampingScrollPhysics(),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: List.generate(players.length, (index) {
-                                  final player = players[index];
-                                  final isPlaying = player.state == 'playing';
-                                  final playerTrack = maProvider.getCachedTrackForPlayer(player.playerId);
-                                  String? albumArtUrl;
-                                  if (playerTrack != null && player.available && player.powered) {
-                                    albumArtUrl = maProvider.getImageUrl(playerTrack, size: 128);
-                                  }
-                                  final playerColorScheme = _playerColors[player.playerId];
-                                  final cardBgColor = playerColorScheme?.primaryContainer ?? defaultBgColor;
-                                  final cardTextColor = playerColorScheme?.onPrimaryContainer ?? defaultTextColor;
-                                  const baseOffset = 80.0;
-                                  final reverseIndex = players.length - 1 - index;
-                                  final distanceToTravel = baseOffset + (reverseIndex * (cardHeight + cardSpacing));
-                                  final slideOffset = distanceToTravel * (1.0 - t);
+                              itemCount: players.length,
+                              // Fixed height per item for optimal scroll performance
+                              itemExtent: cardHeight + cardSpacing,
+                              itemBuilder: (context, index) {
+                                final player = players[index];
+                                final isPlaying = player.state == 'playing';
+                                final playerTrack = maProvider.getCachedTrackForPlayer(player.playerId);
+                                String? albumArtUrl;
+                                if (playerTrack != null && player.available && player.powered) {
+                                  albumArtUrl = maProvider.getImageUrl(playerTrack, size: 128);
+                                }
+                                final playerColorScheme = _playerColors[player.playerId];
+                                final cardBgColor = playerColorScheme?.primaryContainer ?? defaultBgColor;
+                                final cardTextColor = playerColorScheme?.onPrimaryContainer ?? defaultTextColor;
 
-                                  return Transform.translate(
-                                    offset: Offset(0, slideOffset),
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(bottom: 12),
-                                      child: PlayerCard(
-                                        player: player,
-                                        trackInfo: playerTrack,
-                                        albumArtUrl: albumArtUrl,
-                                        isSelected: false,
-                                        isPlaying: isPlaying,
-                                        isGrouped: player.isGrouped,
-                                        backgroundColor: cardBgColor,
-                                        textColor: cardTextColor,
-                                        onTap: () {
-                                          HapticFeedback.mediumImpact();
-                                          maProvider.selectPlayer(player);
-                                          dismiss();
-                                        },
-                                        onLongPress: () {
-                                          HapticFeedback.mediumImpact();
-                                          maProvider.togglePlayerSync(player.playerId);
-                                        },
-                                        onPlayPause: () {
-                                          if (isPlaying) {
-                                            maProvider.pausePlayer(player.playerId);
-                                          } else {
-                                            maProvider.resumePlayer(player.playerId);
-                                          }
-                                        },
-                                        onSkipNext: () => maProvider.nextTrack(player.playerId),
-                                        onPower: () => maProvider.togglePower(player.playerId),
-                                      ),
+                                // Animation: slide from behind mini player
+                                // Only calculate for items that will be built (visible ones)
+                                const baseOffset = 80.0;
+                                final reverseIndex = players.length - 1 - index;
+                                final distanceToTravel = baseOffset + (reverseIndex * (cardHeight + cardSpacing));
+                                final slideOffset = distanceToTravel * (1.0 - t);
+
+                                return Transform.translate(
+                                  offset: Offset(0, slideOffset),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: cardSpacing),
+                                    child: PlayerCard(
+                                      player: player,
+                                      trackInfo: playerTrack,
+                                      albumArtUrl: albumArtUrl,
+                                      isSelected: false,
+                                      isPlaying: isPlaying,
+                                      isGrouped: player.isGrouped,
+                                      backgroundColor: cardBgColor,
+                                      textColor: cardTextColor,
+                                      onTap: () {
+                                        HapticFeedback.mediumImpact();
+                                        maProvider.selectPlayer(player);
+                                        dismiss();
+                                      },
+                                      onLongPress: () {
+                                        HapticFeedback.mediumImpact();
+                                        maProvider.togglePlayerSync(player.playerId);
+                                      },
+                                      onPlayPause: () {
+                                        if (isPlaying) {
+                                          maProvider.pausePlayer(player.playerId);
+                                        } else {
+                                          maProvider.resumePlayer(player.playerId);
+                                        }
+                                      },
+                                      onSkipNext: () => maProvider.nextTrack(player.playerId),
+                                      onPower: () => maProvider.togglePower(player.playerId),
                                     ),
-                                  );
-                                }),
-                              ),
+                                  ),
+                                );
+                              },
                             ),
                           )
                         else
