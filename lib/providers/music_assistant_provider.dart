@@ -3991,9 +3991,12 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   Future<void> toggleShuffle(String queueId, bool shuffleEnabled) async {
+    _logger.log('🔀 toggleShuffle called: queueId=$queueId, shuffleEnabled=$shuffleEnabled');
     try {
       await _api?.toggleShuffle(queueId, shuffleEnabled);
+      _logger.log('🔀 toggleShuffle: API call completed');
     } catch (e) {
+      _logger.log('🔀 toggleShuffle ERROR: $e');
       ErrorHandler.logError('Toggle shuffle', e);
       rethrow;
     }
