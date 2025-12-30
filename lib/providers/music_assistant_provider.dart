@@ -2196,7 +2196,9 @@ class MusicAssistantProvider with ChangeNotifier {
 
   Future<void> _loadAndSelectPlayers({bool forceRefresh = false, bool coldStart = false}) async {
     try {
+      // Don't skip on coldStart - we need to apply full auto-selection priority logic
       if (!forceRefresh &&
+          !coldStart &&
           _cacheService.isPlayersCacheValid() &&
           _availablePlayers.isNotEmpty) {
         return;
@@ -3988,9 +3990,9 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
-  Future<void> toggleShuffle(String queueId) async {
+  Future<void> toggleShuffle(String queueId, bool shuffleEnabled) async {
     try {
-      await _api?.toggleShuffle(queueId);
+      await _api?.toggleShuffle(queueId, shuffleEnabled);
     } catch (e) {
       ErrorHandler.logError('Toggle shuffle', e);
       rethrow;

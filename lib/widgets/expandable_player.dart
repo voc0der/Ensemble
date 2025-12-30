@@ -408,7 +408,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   Future<void> _toggleShuffle() async {
     if (_queue == null) return;
     final maProvider = context.read<MusicAssistantProvider>();
-    await maProvider.toggleShuffle(_queue!.playerId);
+    // Toggle: if currently shuffled, disable; if not shuffled, enable
+    await maProvider.toggleShuffle(_queue!.playerId, !_queue!.shuffle);
     await _loadQueue();
   }
 

@@ -2067,11 +2067,11 @@ class MusicAssistantAPI {
   }
 
   /// Toggle shuffle mode for queue
-  Future<void> toggleShuffle(String queueId) async {
+  Future<void> toggleShuffle(String queueId, bool shuffleEnabled) async {
     try {
       await _sendCommand(
         'player_queues/shuffle',
-        args: {'queue_id': queueId},
+        args: {'queue_id': queueId, 'shuffle_enabled': shuffleEnabled},
       );
     } catch (e) {
       _logger.log('Error toggling shuffle: $e');

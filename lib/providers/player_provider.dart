@@ -907,10 +907,10 @@ class PlayerProvider with ChangeNotifier {
     }
   }
 
-  Future<void> toggleShuffle(String queueId) async {
+  Future<void> toggleShuffle(String queueId, bool shuffleEnabled) async {
     if (_api == null) return;
     try {
-      await _api!.toggleShuffle(queueId);
+      await _api!.toggleShuffle(queueId, shuffleEnabled);
     } catch (e) {
       ErrorHandler.logError('Toggle shuffle', e);
       rethrow;
