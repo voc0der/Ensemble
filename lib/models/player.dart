@@ -16,6 +16,7 @@ class Player {
   final String? syncedTo; // Player ID this player is synced to (null if leader or not synced)
   final String? activeSource; // The currently active source for this player
   final bool isExternalSource; // True when an external source (optical, Spotify, etc.) is active
+  final String? appId; // The app_id from MA - 'music_assistant' when MA is playing, else external source
 
   Player({
     required this.playerId,
@@ -33,6 +34,7 @@ class Player {
     this.syncedTo,
     this.activeSource,
     this.isExternalSource = false,
+    this.appId,
   });
 
   /// Create a copy of this Player with some fields replaced
@@ -52,6 +54,7 @@ class Player {
     String? syncedTo,
     String? activeSource,
     bool? isExternalSource,
+    String? appId,
   }) {
     return Player(
       playerId: playerId ?? this.playerId,
@@ -69,6 +72,7 @@ class Player {
       syncedTo: syncedTo ?? this.syncedTo,
       activeSource: activeSource ?? this.activeSource,
       isExternalSource: isExternalSource ?? this.isExternalSource,
+      appId: appId ?? this.appId,
     );
   }
 
@@ -264,6 +268,7 @@ class Player {
       syncedTo: syncedTo,
       activeSource: activeSource,
       isExternalSource: isExternalSource,
+      appId: appId,
     );
   }
 
@@ -284,6 +289,7 @@ class Player {
       if (syncedTo != null) 'synced_to': syncedTo,
       if (activeSource != null) 'active_source': activeSource,
       'is_external_source': isExternalSource,
+      if (appId != null) 'app_id': appId,
     };
   }
 }

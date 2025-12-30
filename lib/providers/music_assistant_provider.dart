@@ -2777,11 +2777,16 @@ class MusicAssistantProvider with ChangeNotifier {
     if (_api == null) return;
 
     try {
-      _logger.log('🔍 Preload ${player.name}: state=${player.state}, available=${player.available}');
+      // Log app_id for playing players to help diagnose external source detection
+      if (player.state == 'playing') {
+        _logger.log('🔍 Preload ${player.name}: state=${player.state}, app_id=${player.appId}, isExternalSource=${player.isExternalSource}');
+      } else {
+        _logger.log('🔍 Preload ${player.name}: state=${player.state}, available=${player.available}');
+      }
 
       // Skip external sources - they're not playing MA content
       if (player.isExternalSource) {
-        _logger.log('🔍 Preload ${player.name}: SKIPPED - external source');
+        _logger.log('🔍 Preload ${player.name}: SKIPPED - external source (app_id=${player.appId})');
         _cacheService.setCachedTrackForPlayer(player.playerId, null);
         return;
       }
