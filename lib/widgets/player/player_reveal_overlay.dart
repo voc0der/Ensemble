@@ -382,7 +382,7 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
                                       albumArtUrl: albumArtUrl,
                                       isSelected: false,
                                       isPlaying: isPlaying,
-                                      isGrouped: player.isManuallySynced,
+                                      isGrouped: maProvider.isPlayerManuallySynced(player.playerId),
                                       backgroundColor: cardBgColor,
                                       textColor: cardTextColor,
                                       onTap: () {

@@ -131,6 +131,24 @@ class MusicAssistantProvider with ChangeNotifier {
     return _availablePlayers;
   }
 
+  /// Check if a player should show the "manually synced" indicator (yellow border)
+  /// Returns true only if the player is synced to another REGULAR player (not a group player)
+  /// This excludes players that are part of pre-configured MA speaker groups
+  bool isPlayerManuallySynced(String playerId) {
+    final player = _availablePlayers.where((p) => p.playerId == playerId).firstOrNull;
+    if (player == null || player.syncedTo == null) return false;
+
+    // Check if syncedTo points to a group player (provider = 'player_group')
+    final syncTarget = _availablePlayers.where((p) => p.playerId == player.syncedTo).firstOrNull;
+    if (syncTarget == null) return false;
+
+    // If synced to a group player, it's part of a pre-configured group, not manually synced
+    if (syncTarget.provider == 'player_group') return false;
+
+    // Synced to a regular player - this is a manual sync
+    return true;
+  }
+
   Track? get currentTrack => _currentTrack;
 
   /// Whether we have cached players available (for instant UI display on app resume)

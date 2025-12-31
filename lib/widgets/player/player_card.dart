@@ -51,24 +51,25 @@ class PlayerCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: Container(
-        height: cardHeight,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(borderRadius),
-          border: isGrouped
-              ? Border.all(color: groupBorderColor, width: 1.5)
-              : null,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+      // Use Stack to render border ON TOP of content, preventing album art clipping
+      child: Stack(
+        children: [
+          // Main card content
+          Container(
+            height: cardHeight,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(borderRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Row(
+            clipBehavior: Clip.antiAlias,
+            child: Row(
           children: [
             // Album art or speaker icon - same size for consistent text alignment
             SizedBox(
@@ -193,7 +194,19 @@ class PlayerCard extends StatelessWidget {
 
             const SizedBox(width: 4),
           ],
-        ),
+            ),
+          ),
+          // Border overlay - renders ON TOP to prevent clipping by album art
+          if (isGrouped)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(borderRadius),
+                  border: Border.all(color: groupBorderColor, width: 1.5),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

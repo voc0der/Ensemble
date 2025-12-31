@@ -1436,7 +1436,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         child: Container(
           // Use foregroundDecoration for border so it renders ON TOP of content
           // This prevents the album art from clipping the yellow synced border
-          foregroundDecoration: selectedPlayer.isManuallySynced && t < 0.5
+          foregroundDecoration: maProvider.isPlayerManuallySynced(selectedPlayer.playerId) && t < 0.5
               ? BoxDecoration(
                   borderRadius: BorderRadius.circular(borderRadius),
                   border: Border.all(color: _groupBorderColor, width: 1.5),
