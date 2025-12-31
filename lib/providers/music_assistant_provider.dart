@@ -139,7 +139,7 @@ class MusicAssistantProvider with ChangeNotifier {
     if (player == null) return false;
 
     // Debug: log player info to diagnose yellow border issues
-    _logger.info('🔍 isPlayerManuallySynced: ${player.name} | provider: ${player.provider} | syncedTo: ${player.syncedTo} | groupMembers: ${player.groupMembers}');
+    _logger.info('🔍 isPlayerManuallySynced: ${player.name} (${player.playerId}) | provider: ${player.provider} | syncedTo: ${player.syncedTo} | groupMembers: ${player.groupMembers}');
 
     // Group players (like "All Speakers") should NEVER have yellow border
     // They are pre-configured containers, not manually synced players
@@ -159,8 +159,16 @@ class MusicAssistantProvider with ChangeNotifier {
     }
 
     // Case 2: Player is a leader with group members
-    // (player_group already handled above, so this is a manual sync leader)
     if (player.groupMembers != null && player.groupMembers!.length > 1) {
+      // Key distinction: In a MANUAL sync, the leader's own ID is in groupMembers
+      // In a PRE-CONFIGURED group (UGP), the group player's ID is NOT in groupMembers
+      // (the members are the child players, not including the group itself)
+      final isInOwnGroup = player.groupMembers!.contains(player.playerId);
+      if (!isInOwnGroup) {
+        // This is a pre-configured group player (like "All Speakers")
+        return false;
+      }
+      // Leader's ID is in groupMembers = manual sync
       return true;
     }
 
