@@ -2099,6 +2099,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                   child: Text(
                     selectedPlayer.name,
                     style: TextStyle(
+                      fontFamily: 'Roboto',
                       color: (adaptiveScheme?.onTertiary ?? colorScheme.onTertiary).withOpacity(1.0 - t * 2),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
