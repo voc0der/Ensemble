@@ -2084,33 +2084,30 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           ),
         ),
         ),
-            // Player name pill - centered below mini player
+            // Player name pill - top right of mini player, flush with right edge
             // Outside Material so it's not clipped, always visible when collapsed
             if (t < 0.5)
               Positioned(
-                left: 0,
                 right: 0,
-                bottom: -12, // Extends below mini player
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: (adaptiveScheme?.tertiary ?? colorScheme.tertiary).withOpacity(0.95 * (1.0 - t * 2)),
-                      borderRadius: BorderRadius.circular(12),
+                top: -14, // Extends above mini player
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: (adaptiveScheme?.tertiary ?? colorScheme.tertiary).withOpacity(0.95 * (1.0 - t * 2)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    selectedPlayer.name,
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      color: (adaptiveScheme?.onTertiary ?? colorScheme.onTertiary).withOpacity(1.0 - t * 2),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0,
+                      decoration: TextDecoration.none,
                     ),
-                    child: Text(
-                      selectedPlayer.name,
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        color: (adaptiveScheme?.onTertiary ?? colorScheme.onTertiary).withOpacity(1.0 - t * 2),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0,
-                        decoration: TextDecoration.none,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
