@@ -3697,6 +3697,31 @@ class MusicAssistantProvider with ChangeNotifier {
       effectivePlayerId = player.syncedTo!;
     }
 
+    // Translate Sendspin ID to Cast UUID for queue fetch
+    // MA stores queues under the Cast UUID, not the Sendspin ID
+    if (effectivePlayerId.startsWith('cast-') && effectivePlayerId.length >= 13) {
+      // Sendspin ID format: cast-7df484e3 -> need Cast UUID starting with 7df484e3
+      final prefix = effectivePlayerId.substring(5); // Remove "cast-"
+      // Reverse lookup in the map
+      for (final entry in _castToSendspinIdMap.entries) {
+        if (entry.value == effectivePlayerId) {
+          _logger.log('🔗 Translated Sendspin ID $effectivePlayerId to Cast UUID ${entry.key} for queue fetch');
+          effectivePlayerId = entry.key;
+          break;
+        }
+      }
+      // If not in map, try to find in available players
+      if (effectivePlayerId.startsWith('cast-')) {
+        for (final p in _availablePlayers) {
+          if (p.provider == 'chromecast' && p.playerId.startsWith(prefix)) {
+            _logger.log('🔗 Found Cast UUID ${p.playerId} for Sendspin ID $effectivePlayerId via player lookup');
+            effectivePlayerId = p.playerId;
+            break;
+          }
+        }
+      }
+    }
+
     final queue = await _api?.getQueue(effectivePlayerId);
 
     // Persist queue to database for instant display on app resume
