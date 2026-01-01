@@ -138,9 +138,6 @@ class MusicAssistantProvider with ChangeNotifier {
     final player = _availablePlayers.where((p) => p.playerId == playerId).firstOrNull;
     if (player == null) return false;
 
-    // Debug: log player info to diagnose yellow border issues
-    _logger.info('🔍 isPlayerManuallySynced: ${player.name} (${player.playerId}) | provider: ${player.provider} | syncedTo: ${player.syncedTo} | groupMembers: ${player.groupMembers}');
-
     // Group players (like "All Speakers") should NEVER have yellow border
     // They are pre-configured containers, not manually synced players
     // Check this FIRST before any other logic to prevent edge cases
