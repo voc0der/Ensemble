@@ -4016,23 +4016,16 @@ class MusicAssistantProvider with ChangeNotifier {
       // Cast players don't support group commands - only their Sendspin counterparts do
       // We need to translate BOTH target and leader IDs
       //
-      // Strategy:
-      // 1. Use cached mapping from _castToSendspinIdMap if available
-      // 2. For Cast players (provider: chromecast), compute Sendspin ID dynamically:
-      //    Cast ID format: {uuid} e.g., 7ad8d968-e687-ef3c-ba07-f6e5c0a2806d
-      //    Sendspin ID format: cast-{first 8 chars} e.g., cast-7ad8d968
+      // IMPORTANT: Only translate if player is in _castToSendspinIdMap
+      // Not all chromecast players have Sendspin enabled - those without Sendspin
+      // should use their original Cast UUID for group commands
       String translateToSendspinId(String playerId, Player? player) {
-        // Check cached mapping first
+        // Only translate if we have a cached mapping (player has Sendspin enabled)
         if (_castToSendspinIdMap.containsKey(playerId)) {
+          _logger.log('🔗 Found Sendspin mapping: $playerId -> ${_castToSendspinIdMap[playerId]}');
           return _castToSendspinIdMap[playerId]!;
         }
-        // For chromecast players, compute Sendspin ID dynamically
-        // This handles cases where the Sendspin player isn't active yet
-        if (player?.provider == 'chromecast' && playerId.length >= 8) {
-          final sendspinId = 'cast-${playerId.substring(0, 8)}';
-          _logger.log('🔗 Computed Sendspin ID for Cast player: $playerId -> $sendspinId');
-          return sendspinId;
-        }
+        // No Sendspin counterpart - use original ID
         return playerId;
       }
 
