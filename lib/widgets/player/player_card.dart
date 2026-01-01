@@ -52,7 +52,6 @@ class PlayerCard extends StatefulWidget {
 class _PlayerCardState extends State<PlayerCard> {
   bool _isDraggingVolume = false;
   double _dragVolumeLevel = 0.0;
-  double _dragStartX = 0.0;
   double _cardWidth = 0.0;
   int _lastVolumeUpdateTime = 0;
   static const int _volumeThrottleMs = 150; // Only send volume updates every 150ms
@@ -282,7 +281,6 @@ class _PlayerCardState extends State<PlayerCard> {
   }
 
   void _onDragStart(DragStartDetails details) {
-    _dragStartX = details.localPosition.dx;
     // Get current volume from player
     final currentVolume = (widget.player.volumeLevel ?? 0).toDouble() / 100.0;
     setState(() {
@@ -295,8 +293,9 @@ class _PlayerCardState extends State<PlayerCard> {
   void _onDragUpdate(DragUpdateDetails details) {
     if (!_isDraggingVolume || _cardWidth <= 0) return;
 
-    // Calculate volume change based on drag distance
-    // Full card width = 100% volume range
+    // Directional volume: drag right = increase, drag left = decrease
+    // Distance determines amount of change (full card width = 100%)
+    // Multiple swipes accumulate - each starts from current volume
     final dragDelta = details.delta.dx;
     final volumeDelta = dragDelta / _cardWidth;
 

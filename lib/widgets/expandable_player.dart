@@ -1419,6 +1419,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         onHorizontalDragUpdate: (details) {
           // Volume swipe when device reveal is visible
           if (widget.isDeviceRevealVisible && _isDraggingVolume && !isExpanded) {
+            // Directional volume: drag right = increase, drag left = decrease
+            // Multiple swipes accumulate - each starts from current volume
             final dragDelta = details.delta.dx;
             final volumeDelta = dragDelta / collapsedWidth;
             final newVolume = (_dragVolumeLevel + volumeDelta).clamp(0.0, 1.0);
