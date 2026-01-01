@@ -4016,15 +4016,33 @@ class MusicAssistantProvider with ChangeNotifier {
       // Cast players don't support group commands - only their Sendspin counterparts do
       // We need to translate BOTH target and leader IDs
       //
-      // IMPORTANT: Only translate if player is in _castToSendspinIdMap
-      // Not all chromecast players have Sendspin enabled - those without Sendspin
-      // should use their original Cast UUID for group commands
+      // Strategy:
+      // 1. Check cached mapping first (player's Sendspin counterpart is available)
+      // 2. For chromecast players, compute Sendspin ID and verify it exists in sync groups
+      //    (handles case where Sendspin player is unavailable because device is off)
       String translateToSendspinId(String playerId, Player? player) {
-        // Only translate if we have a cached mapping (player has Sendspin enabled)
+        // Check cached mapping first (player has Sendspin enabled and available)
         if (_castToSendspinIdMap.containsKey(playerId)) {
           _logger.log('🔗 Found Sendspin mapping: $playerId -> ${_castToSendspinIdMap[playerId]}');
           return _castToSendspinIdMap[playerId]!;
         }
+
+        // For chromecast players, try computing Sendspin ID and verify it exists
+        // This handles when Sendspin player is unavailable (device off) but exists in sync groups
+        if (player?.provider == 'chromecast' && playerId.length >= 8) {
+          final computedSendspinId = 'cast-${playerId.substring(0, 8)}';
+
+          // Check if this Sendspin ID exists in any sync group's members
+          // This proves the player has Sendspin enabled even if currently unavailable
+          for (final p in _availablePlayers) {
+            if (p.groupMembers != null && p.groupMembers!.contains(computedSendspinId)) {
+              _logger.log('🔗 Found Sendspin ID in sync group: $playerId -> $computedSendspinId');
+              return computedSendspinId;
+            }
+          }
+          _logger.log('🔗 Computed Sendspin ID $computedSendspinId not found in any sync group');
+        }
+
         // No Sendspin counterpart - use original ID
         return playerId;
       }
