@@ -240,6 +240,7 @@ class MusicAssistantProvider with ChangeNotifier {
 
   /// Get cached track for a player (used for smooth swipe transitions)
   /// For grouped child players, returns the leader's track
+  /// Also checks translated Cast<->Sendspin IDs
   Track? getCachedTrackForPlayer(String playerId) {
     // If player is a group child, get the leader's track instead
     final player = _availablePlayers.firstWhere(
@@ -257,7 +258,29 @@ class MusicAssistantProvider with ChangeNotifier {
         ? player.syncedTo!
         : playerId;
 
-    return _cacheService.getCachedTrackForPlayer(effectivePlayerId);
+    // Try direct lookup first
+    var track = _cacheService.getCachedTrackForPlayer(effectivePlayerId);
+
+    // If not found, try translated Cast<->Sendspin ID
+    if (track == null) {
+      // Check Cast -> Sendspin
+      final sendspinId = _castToSendspinIdMap[effectivePlayerId];
+      if (sendspinId != null) {
+        track = _cacheService.getCachedTrackForPlayer(sendspinId);
+      }
+
+      // Check Sendspin -> Cast (reverse lookup)
+      if (track == null) {
+        for (final entry in _castToSendspinIdMap.entries) {
+          if (entry.value == effectivePlayerId) {
+            track = _cacheService.getCachedTrackForPlayer(entry.key);
+            if (track != null) break;
+          }
+        }
+      }
+    }
+
+    return track;
   }
 
   /// Get artwork URL for a player from cache
@@ -1653,8 +1676,16 @@ class MusicAssistantProvider with ChangeNotifier {
       final playerId = event['player_id'] as String?;
       if (playerId == null) return;
 
-      if (_selectedPlayer != null && playerId == _selectedPlayer!.playerId) {
-        _updatePlayerState();
+      // Check if this event is for the selected player - also check translated Cast<->Sendspin IDs
+      // Events may come with Cast ID but selected player uses Sendspin ID (or vice versa)
+      if (_selectedPlayer != null) {
+        final selectedId = _selectedPlayer!.playerId;
+        final isMatch = playerId == selectedId ||
+            _castToSendspinIdMap[playerId] == selectedId ||
+            _castToSendspinIdMap[selectedId] == playerId;
+        if (isMatch) {
+          _updatePlayerState();
+        }
       }
 
       final currentMedia = event['current_media'] as Map<String, dynamic>?;
@@ -3057,10 +3088,51 @@ class MusicAssistantProvider with ChangeNotifier {
     try {
       bool stateChanged = false;
 
+      // Get fresh player data - but look up from _availablePlayers which has
+      // the processed names (Sendspin suffix removed) and correct filtering
+      // Also check translated Cast<->Sendspin IDs
+      final selectedId = _selectedPlayer!.playerId;
+      final translatedSendspinId = _castToSendspinIdMap[selectedId];
+      String? translatedCastId;
+      for (final entry in _castToSendspinIdMap.entries) {
+        if (entry.value == selectedId) {
+          translatedCastId = entry.key;
+          break;
+        }
+      }
+
+      // Try to refresh from API first for latest state
       final allPlayers = await getPlayers();
-      final updatedPlayer = allPlayers.firstWhere(
-        (p) => p.playerId == _selectedPlayer!.playerId,
+      Player? rawPlayer = allPlayers.firstWhere(
+        (p) => p.playerId == selectedId ||
+               (translatedSendspinId != null && p.playerId == translatedSendspinId) ||
+               (translatedCastId != null && p.playerId == translatedCastId),
         orElse: () => _selectedPlayer!,
+      );
+
+      // Now get the processed version from _availablePlayers to preserve renamed name
+      // But update with latest state (volume, playing state, etc.) from rawPlayer
+      final processedPlayer = _availablePlayers.firstWhere(
+        (p) => p.playerId == selectedId ||
+               (translatedSendspinId != null && p.playerId == translatedSendspinId) ||
+               (translatedCastId != null && p.playerId == translatedCastId),
+        orElse: () => rawPlayer,
+      );
+
+      // Use the processed player's name but raw player's state
+      final updatedPlayer = processedPlayer.copyWith(
+        state: rawPlayer.state,
+        volumeLevel: rawPlayer.volumeLevel,
+        volumeMuted: rawPlayer.volumeMuted,
+        elapsedTime: rawPlayer.elapsedTime,
+        elapsedTimeLastUpdated: rawPlayer.elapsedTimeLastUpdated,
+        powered: rawPlayer.powered,
+        available: rawPlayer.available,
+        groupMembers: rawPlayer.groupMembers,
+        syncedTo: rawPlayer.syncedTo,
+        currentItemId: rawPlayer.currentItemId,
+        isExternalSource: rawPlayer.isExternalSource,
+        appId: rawPlayer.appId,
       );
 
       _selectedPlayer = updatedPlayer;
