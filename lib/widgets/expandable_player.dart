@@ -107,6 +107,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   // Volume swipe state (only active when device reveal is visible)
   bool _isDraggingVolume = false;
   double _dragVolumeLevel = 0.0;
+  int _lastVolumeUpdateTime = 0;
+  static const int _volumeThrottleMs = 150; // Only send volume updates every 150ms
 
   // Track favorite state for current track
   bool _isCurrentTrackFavorite = false;
@@ -1424,8 +1426,12 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
               setState(() {
                 _dragVolumeLevel = newVolume;
               });
-              // Live volume update
-              maProvider.setVolume(selectedPlayer.playerId, (newVolume * 100).round());
+              // Throttle API calls to prevent flooding
+              final now = DateTime.now().millisecondsSinceEpoch;
+              if (now - _lastVolumeUpdateTime >= _volumeThrottleMs) {
+                _lastVolumeUpdateTime = now;
+                maProvider.setVolume(selectedPlayer.playerId, (newVolume * 100).round());
+              }
             }
             return;
           }
@@ -1445,6 +1451,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         onHorizontalDragEnd: (details) {
           // End volume drag
           if (_isDraggingVolume) {
+            // Send final volume on release
+            maProvider.setVolume(selectedPlayer.playerId, (_dragVolumeLevel * 100).round());
             setState(() {
               _isDraggingVolume = false;
             });

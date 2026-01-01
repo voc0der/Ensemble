@@ -54,6 +54,8 @@ class _PlayerCardState extends State<PlayerCard> {
   double _dragVolumeLevel = 0.0;
   double _dragStartX = 0.0;
   double _cardWidth = 0.0;
+  int _lastVolumeUpdateTime = 0;
+  static const int _volumeThrottleMs = 150; // Only send volume updates every 150ms
 
   @override
   Widget build(BuildContext context) {
@@ -300,18 +302,24 @@ class _PlayerCardState extends State<PlayerCard> {
 
     final newVolume = (_dragVolumeLevel + volumeDelta).clamp(0.0, 1.0);
 
-    // Only update if changed enough to matter
+    // Always update visual
     if ((newVolume - _dragVolumeLevel).abs() > 0.001) {
       setState(() {
         _dragVolumeLevel = newVolume;
       });
 
-      // Live volume update
-      widget.onVolumeChange?.call(newVolume);
+      // Throttle API calls to prevent flooding
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - _lastVolumeUpdateTime >= _volumeThrottleMs) {
+        _lastVolumeUpdateTime = now;
+        widget.onVolumeChange?.call(newVolume);
+      }
     }
   }
 
   void _onDragEnd(DragEndDetails details) {
+    // Send final volume on release
+    widget.onVolumeChange?.call(_dragVolumeLevel);
     setState(() {
       _isDraggingVolume = false;
     });
