@@ -1440,16 +1440,16 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           children: [
             // Player name pill - behind mini player, teardrop tail effect
             // The curved corner of the mini player reveals the tail tapering down
-            // Uses same colors as mini player for a subtle, unified look
+            // Uses dark tertiary color for subtle complementary accent
             if (t < 0.5)
               Positioned(
-                right: 1, // Offset left to hide sharp corner behind mini player's curve
+                right: 0, // Align with mini player edge
                 top: -18, // Starts above mini player
                 child: Container(
                   // Extends down behind the player - the curved corner reveals the "tail"
                   padding: const EdgeInsets.only(left: 16, right: 14, top: 3, bottom: 24),
                   decoration: BoxDecoration(
-                    color: (adaptiveScheme?.primaryContainer ?? colorScheme.primaryContainer).withOpacity(0.95 * (1.0 - t * 2)),
+                    color: (adaptiveScheme?.tertiaryContainer ?? colorScheme.tertiaryContainer).withOpacity(0.95 * (1.0 - t * 2)),
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(_collapsedBorderRadius),
                       topRight: Radius.circular(_collapsedBorderRadius),
@@ -1459,7 +1459,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     selectedPlayer.name,
                     style: TextStyle(
                       fontFamily: 'Roboto',
-                      color: (adaptiveScheme?.onPrimaryContainer ?? colorScheme.onPrimaryContainer).withOpacity(1.0 - t * 2),
+                      color: (adaptiveScheme?.onTertiaryContainer ?? colorScheme.onTertiaryContainer).withOpacity(1.0 - t * 2),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0,
