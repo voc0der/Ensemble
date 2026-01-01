@@ -2206,12 +2206,15 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final hasTrack = _peekTrack != null && peekImageUrl != null;
     final peekTrackName = hasTrack ? _peekTrack!.name : (peekPlayer?.name ?? S.of(context)!.unknown);
     final peekArtistName = hasTrack ? (_peekTrack!.artistsString ?? '') : S.of(context)!.swipeToSwitchDevice;
+    // Show player name as third line only when playing
+    final peekPlayerName = hasTrack ? (peekPlayer?.name ?? '') : null;
 
     return Transform.translate(
       offset: Offset(peekBaseOffset, 0),
       child: MiniPlayerContent(
         primaryText: peekTrackName,
         secondaryText: peekArtistName,
+        tertiaryText: peekPlayerName,
         imageUrl: hasTrack ? peekImageUrl : null,
         playerName: peekPlayer?.name ?? '',
         backgroundColor: backgroundColor,

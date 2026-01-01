@@ -11,6 +11,9 @@ class MiniPlayerLayout {
   static const double primaryTop = 7.0;
   static const double secondaryTop = 27.0;
   static const double tertiaryTop = 46.0;
+  // 2-line layout (centered): player name, hint
+  static const double primaryTop2Line = 16.0;
+  static const double secondaryTop2Line = 36.0;
   static const double textRightPadding = 12.0;
   static const double iconSize = 28.0;
   static const double iconOpacity = 0.4;
@@ -32,6 +35,10 @@ class MiniPlayerContent extends StatelessWidget {
   /// Secondary text line (artist name or "Swipe to switch device")
   /// If null, primary text will be vertically centered
   final String? secondaryText;
+
+  /// Tertiary text line (player name when playing)
+  /// If provided, uses 3-line layout; if null, uses centered 2-line layout
+  final String? tertiaryText;
 
   /// Album art URL - if null, shows device icon
   final String? imageUrl;
@@ -64,6 +71,7 @@ class MiniPlayerContent extends StatelessWidget {
     super.key,
     required this.primaryText,
     this.secondaryText,
+    this.tertiaryText,
     this.imageUrl,
     required this.playerName,
     required this.backgroundColor,
@@ -78,7 +86,12 @@ class MiniPlayerContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasSecondaryLine = secondaryText != null && secondaryText!.isNotEmpty;
+    final hasTertiaryLine = tertiaryText != null && tertiaryText!.isNotEmpty;
     final slidePixels = slideOffset * width;
+
+    // Use 3-line layout when tertiary exists, 2-line centered otherwise
+    final primaryTop = hasTertiaryLine ? MiniPlayerLayout.primaryTop : MiniPlayerLayout.primaryTop2Line;
+    final secondaryTop = hasTertiaryLine ? MiniPlayerLayout.secondaryTop : MiniPlayerLayout.secondaryTop2Line;
 
     // Calculate text width (leaves room for right padding)
     final textWidth = width - MiniPlayerLayout.textLeft - MiniPlayerLayout.textRightPadding;
@@ -128,7 +141,7 @@ class MiniPlayerContent extends StatelessWidget {
           Positioned(
             left: MiniPlayerLayout.textLeft + slidePixels,
             top: hasSecondaryLine
-                ? MiniPlayerLayout.primaryTop
+                ? primaryTop
                 : (MiniPlayerLayout.height - MiniPlayerLayout.primaryFontSize) / 2,
             right: MiniPlayerLayout.textRightPadding - slidePixels,
             child: Text(
@@ -147,7 +160,7 @@ class MiniPlayerContent extends StatelessWidget {
           if (hasSecondaryLine)
             Positioned(
               left: MiniPlayerLayout.textLeft + slidePixels,
-              top: MiniPlayerLayout.secondaryTop,
+              top: secondaryTop,
               right: MiniPlayerLayout.textRightPadding - slidePixels,
               child: isHint
                   ? Row(
@@ -181,6 +194,23 @@ class MiniPlayerContent extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+            ),
+
+          // Tertiary text line (player name, only for 3-line layout)
+          if (hasTertiaryLine)
+            Positioned(
+              left: MiniPlayerLayout.textLeft + slidePixels,
+              top: MiniPlayerLayout.tertiaryTop,
+              right: MiniPlayerLayout.textRightPadding - slidePixels,
+              child: Text(
+                tertiaryText!,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: MiniPlayerLayout.tertiaryFontSize,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
         ],
       ),
