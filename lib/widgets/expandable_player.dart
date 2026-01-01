@@ -1616,10 +1616,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     child: SizedBox(
                       width: titleWidth,
                       child: Text(
-                        // Show player name when device reveal visible and collapsed
-                        (widget.isDeviceRevealVisible && t < 0.5)
-                            ? selectedPlayer.name
-                            : currentTrack.name,
+                        currentTrack.name,
                         style: TextStyle(
                           color: textColor,
                           fontSize: titleFontSize,

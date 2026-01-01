@@ -403,6 +403,7 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
                                       },
                                       onSkipNext: () => maProvider.nextTrack(player.playerId),
                                       onPower: () => maProvider.togglePower(player.playerId),
+                                      onVolumeChange: (volume) => maProvider.setVolume(player.playerId, (volume * 100).round()),
                                     ),
                                   ),
                                 );
@@ -480,6 +481,7 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
                                 onPower: () {
                                   maProvider.togglePower(player.playerId);
                                 },
+                                onVolumeChange: (volume) => maProvider.setVolume(player.playerId, (volume * 100).round()),
                               ),
                             ),
                           );

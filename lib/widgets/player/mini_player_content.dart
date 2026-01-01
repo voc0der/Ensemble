@@ -3,14 +3,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 /// Shared constants for mini player layout
 class MiniPlayerLayout {
-  static const double height = 76.0;
-  static const double artSize = 76.0;
+  static const double height = 72.0;
+  static const double artSize = 72.0;
   static const double textLeftOffset = 10.0; // Gap between art and text
-  static const double textLeft = artSize + textLeftOffset; // 86px
+  static const double textLeft = artSize + textLeftOffset; // 82px
   // 3-line layout: track, artist, player
-  static const double primaryTop = 8.0;
-  static const double secondaryTop = 26.0;
-  static const double tertiaryTop = 44.0;
+  static const double primaryTop = 7.0;
+  static const double secondaryTop = 27.0;
+  static const double tertiaryTop = 46.0;
   static const double textRightPadding = 12.0;
   static const double iconSize = 28.0;
   static const double iconOpacity = 0.4;
