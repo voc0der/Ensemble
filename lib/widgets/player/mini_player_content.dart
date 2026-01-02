@@ -238,16 +238,19 @@ class MiniPlayerContent extends StatelessWidget {
           if (showPowerButton)
             Positioned(
               right: 8.0 - slidePixels,
-              top: (MiniPlayerLayout.height - MiniPlayerLayout.powerButtonSize) / 2,
-              child: IconButton(
-                onPressed: onPowerToggle,
-                icon: Icon(
-                  Icons.power_settings_new_rounded,
-                  color: isPoweredOn ? textColor : textColor.withOpacity(0.5),
-                  size: 20,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: IconButton(
+                  onPressed: onPowerToggle,
+                  icon: Icon(
+                    Icons.power_settings_new_rounded,
+                    color: isPoweredOn ? textColor : textColor.withOpacity(0.5),
+                    size: 20,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
               ),
             ),
         ],
