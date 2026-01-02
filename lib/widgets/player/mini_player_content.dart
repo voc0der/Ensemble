@@ -14,7 +14,7 @@ class MiniPlayerLayout {
   // 2-line layout (evenly spaced): player name, hint
   // Height 72 / 3 = 24px spacing. Line 1 center at 24, Line 2 center at 48
   static const double primaryTop2Line = 14.0; // 24 - (18/2) = 15, adjusted to 14
-  static const double secondaryTop2Line = 42.0; // 48 - (14/2) = 41, adjusted to 42
+  static const double secondaryTop2Line = 40.0; // raised slightly from 42
   static const double textRightPadding = 12.0;
   static const double powerButtonSize = 40.0; // Power button tap area
   static const double iconSize = 28.0;
@@ -234,30 +234,20 @@ class MiniPlayerContent extends StatelessWidget {
             ),
 
           // Power button (only for 2-line mode when callback provided)
+          // Matches PlayerCard power button style
           if (showPowerButton)
             Positioned(
               right: 8.0 - slidePixels,
               top: (MiniPlayerLayout.height - MiniPlayerLayout.powerButtonSize) / 2,
-              child: GestureDetector(
-                onTap: onPowerToggle,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: MiniPlayerLayout.powerButtonSize,
-                  height: MiniPlayerLayout.powerButtonSize,
-                  decoration: BoxDecoration(
-                    color: textColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(MiniPlayerLayout.powerButtonSize / 2),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.power_settings_new_rounded,
-                      color: isPoweredOn
-                          ? textColor.withOpacity(0.8)
-                          : textColor.withOpacity(0.4),
-                      size: 22,
-                    ),
-                  ),
+              child: IconButton(
+                onPressed: onPowerToggle,
+                icon: Icon(
+                  Icons.power_settings_new_rounded,
+                  color: isPoweredOn ? textColor : textColor.withOpacity(0.5),
+                  size: 20,
                 ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
             ),
         ],

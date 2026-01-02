@@ -769,7 +769,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
