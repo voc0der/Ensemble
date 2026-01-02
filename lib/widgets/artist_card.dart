@@ -163,6 +163,7 @@ class _ArtistCardState extends State<ArtistCard> {
                   style: textTheme.titleSmall?.copyWith(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w500,
+                    height: 1.15,
                   ),
                 ),
               ),

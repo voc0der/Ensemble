@@ -277,8 +277,8 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
       backgroundColor: colorScheme.surface,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          // Responsive cover size: 50% of screen width, clamped between 200-320
-          final coverSize = (constraints.maxWidth * 0.5).clamp(200.0, 320.0);
+          // Responsive cover size: 70% of screen width, clamped between 200-320
+          final coverSize = (constraints.maxWidth * 0.7).clamp(200.0, 320.0);
           final expandedHeight = coverSize + 70;
 
           return CustomScrollView(

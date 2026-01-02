@@ -553,8 +553,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
         backgroundColor: colorScheme.background,
         body: LayoutBuilder(
           builder: (context, constraints) {
-            // Responsive cover size: 40% of screen width, clamped between 160-280 (smaller for circular artist image)
-            final coverSize = (constraints.maxWidth * 0.4).clamp(160.0, 280.0);
+            // Responsive cover size: 70% of screen width, clamped between 160-280 (smaller for circular artist image)
+            final coverSize = (constraints.maxWidth * 0.7).clamp(160.0, 280.0);
             final expandedHeight = coverSize + 100;
 
             return CustomScrollView(

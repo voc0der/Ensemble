@@ -126,6 +126,7 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
     return ScrollConfiguration(
       behavior: const _StretchScrollBehavior(),
       child: ListView.builder(
+        clipBehavior: Clip.none,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12.0),
         itemCount: _albums.length,
@@ -135,13 +136,16 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
         addRepaintBoundaries: false, // Cards already have RepaintBoundary
         itemBuilder: (context, index) {
           final album = _albums[index];
-          return Container(
-            key: ValueKey(album.uri ?? album.itemId),
-            width: cardWidth,
-            margin: const EdgeInsets.symmetric(horizontal: 6.0),
-            child: AlbumCard(
-              album: album,
-              heroTagSuffix: widget.heroTagSuffix,
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4.0),
+            child: Container(
+              key: ValueKey(album.uri ?? album.itemId),
+              width: cardWidth,
+              margin: const EdgeInsets.symmetric(horizontal: 6.0),
+              child: AlbumCard(
+                album: album,
+                heroTagSuffix: widget.heroTagSuffix,
+              ),
             ),
           );
         },

@@ -246,7 +246,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         // Simple calculation: available height divided by 3 rows
         // Each row includes its title, artwork, and info
         final availableHeight = constraints.maxHeight - BottomSpacing.withMiniPlayer;
-        final rowHeight = availableHeight / 3;
+        final rowHeight = (availableHeight + 8) / 3;
 
         // Use Android 12+ stretch overscroll effect
         return NotificationListener<ScrollNotification>(
