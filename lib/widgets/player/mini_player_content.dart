@@ -8,7 +8,7 @@ class MiniPlayerLayout {
   static const double textLeftOffset = 10.0; // Gap between art and text
   static const double textLeft = artSize + textLeftOffset; // 82px
   // 3-line layout: track, artist, player
-  static const double primaryTop = 7.0;
+  static const double primaryTop = 5.0; // raised slightly from 7
   static const double secondaryTop = 27.0;
   static const double tertiaryTop = 46.0;
   // 2-line layout (evenly spaced): player name, hint
@@ -20,8 +20,8 @@ class MiniPlayerLayout {
   static const double iconSize = 28.0;
   static const double iconOpacity = 0.4;
   static const double secondaryTextOpacity = 0.6;
-  static const double primaryFontSize = 18.0; // Increased from 16
-  static const double primaryFontSize2Line = 18.0; // Larger for 2-line layout
+  static const double primaryFontSize = 16.0; // 3-line playing mode
+  static const double primaryFontSize2Line = 18.0; // larger for 2-line off mode
   static const double secondaryFontSize = 14.0;
   static const double tertiaryFontSize = 14.0;
   static const FontWeight primaryFontWeight = FontWeight.w500;
