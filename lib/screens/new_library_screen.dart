@@ -48,6 +48,17 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   bool _isLoadingAudiobooks = false;
   bool _showFavoritesOnly = false;
 
+  // PERF: Pre-sorted lists - computed once on data load, not on every build
+  List<Playlist> _sortedPlaylists = [];
+  List<String> _playlistNames = [];
+  List<Track> _sortedFavoriteTracks = [];
+  List<Audiobook> _sortedAudiobooks = [];
+  List<String> _audiobookNames = [];
+  List<String> _sortedAuthorNames = [];
+  Map<String, List<Audiobook>> _groupedAudiobooksByAuthor = {};
+  List<AudiobookSeries> _sortedSeries = [];
+  List<String> _seriesNames = [];
+
   // Media type selection (Music, Books, Podcasts)
   LibraryMediaType _selectedMediaType = LibraryMediaType.music;
 
@@ -233,7 +244,23 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   void _toggleAudiobooksSortOrder() {
     final newOrder = _audiobooksSortOrder == 'alpha' ? 'year' : 'alpha';
-    setState(() => _audiobooksSortOrder = newOrder);
+    // PERF: Re-sort once on order change, not on every build
+    final sorted = List<Audiobook>.from(_audiobooks);
+    if (newOrder == 'year') {
+      sorted.sort((a, b) {
+        if (a.year == null && b.year == null) return a.name.compareTo(b.name);
+        if (a.year == null) return 1;
+        if (b.year == null) return -1;
+        return a.year!.compareTo(b.year!);
+      });
+    } else {
+      sorted.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    }
+    setState(() {
+      _audiobooksSortOrder = newOrder;
+      _sortedAudiobooks = sorted;
+      _audiobookNames = sorted.map((a) => a.name).toList();
+    });
     SettingsService.setLibraryAudiobooksSortOrder(newOrder);
   }
 
@@ -485,8 +512,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         favoriteOnly: favoriteOnly,
       );
       if (mounted) {
+        // PERF: Pre-sort once on load, not on every build
+        final sorted = List<Playlist>.from(playlists)
+          ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
         setState(() {
           _playlists = playlists;
+          _sortedPlaylists = sorted;
+          _playlistNames = sorted.map((p) => p.name ?? '').toList();
           _isLoadingPlaylists = false;
         });
       }
@@ -513,8 +545,16 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         favoriteOnly: true,
       );
       if (mounted) {
+        // PERF: Pre-sort once on load, not on every build
+        final sorted = List<Track>.from(tracks)
+          ..sort((a, b) {
+            final artistCompare = a.artistsString.compareTo(b.artistsString);
+            if (artistCompare != 0) return artistCompare;
+            return a.name.compareTo(b.name);
+          });
         setState(() {
           _favoriteTracks = tracks;
+          _sortedFavoriteTracks = sorted;
           _isLoadingTracks = false;
         });
       }
@@ -552,8 +592,24 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         _logger.log('📚 First audiobook: ${audiobooks.first.name} by ${audiobooks.first.authorsString}');
       }
       if (mounted) {
+        // PERF: Pre-sort and pre-group once on load, not on every build
+        final sortedAlpha = List<Audiobook>.from(audiobooks)
+          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+        // Group audiobooks by author
+        final authorMap = <String, List<Audiobook>>{};
+        for (final book in audiobooks) {
+          final authorName = book.authorsString;
+          authorMap.putIfAbsent(authorName, () => []).add(book);
+        }
+        final sortedAuthors = authorMap.keys.toList()..sort();
+
         setState(() {
           _audiobooks = audiobooks;
+          _sortedAudiobooks = sortedAlpha;
+          _audiobookNames = sortedAlpha.map((a) => a.name).toList();
+          _groupedAudiobooksByAuthor = authorMap;
+          _sortedAuthorNames = sortedAuthors;
           _isLoadingAudiobooks = false;
         });
         _logger.log('📚 State updated, _audiobooks.length = ${_audiobooks.length}');
@@ -618,8 +674,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         _logger.log('📚 Loaded ${series.length} series');
 
         if (mounted) {
+          // PERF: Pre-sort once on load, not on every build
+          final sorted = List<AudiobookSeries>.from(series)
+            ..sort((a, b) => a.name.compareTo(b.name));
           setState(() {
             _series = series;
+            _sortedSeries = sorted;
+            _seriesNames = sorted.map((s) => s.name).toList();
             _isLoadingSeries = false;
             _seriesLoaded = true;
           });
@@ -1135,16 +1196,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       );
     }
 
-    // Group audiobooks by author
-    final authorMap = <String, List<Audiobook>>{};
-    for (final book in audiobooks) {
-      final authorName = book.authorsString;
-      authorMap.putIfAbsent(authorName, () => []).add(book);
-    }
-
-    // Sort authors alphabetically
-    final sortedAuthors = authorMap.keys.toList()..sort();
-
+    // PERF: Use pre-sorted and pre-grouped lists (computed once on load)
     // Match music artists tab layout - no header, direct list/grid
     return RefreshIndicator(
       color: colorScheme.primary,
@@ -1152,7 +1204,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       onRefresh: () => _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null),
       child: LetterScrollbar(
         controller: _authorsScrollController,
-        items: sortedAuthors,
+        items: _sortedAuthorNames,
         onDragStateChanged: _onLetterScrollbarDragChanged,
         child: _authorsViewMode == 'list'
             ? ListView.builder(
@@ -1161,10 +1213,11 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                 cacheExtent: 500,
                 addAutomaticKeepAlives: false,
                 addRepaintBoundaries: false,
-                itemCount: sortedAuthors.length,
+                itemCount: _sortedAuthorNames.length,
                 padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.withMiniPlayer),
                 itemBuilder: (context, index) {
-                  return _buildAuthorListTile(sortedAuthors[index], authorMap[sortedAuthors[index]]!, l10n);
+                  final authorName = _sortedAuthorNames[index];
+                  return _buildAuthorListTile(authorName, _groupedAudiobooksByAuthor[authorName]!, l10n);
                 },
               )
             : GridView.builder(
@@ -1180,9 +1233,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                 ),
-                itemCount: sortedAuthors.length,
+                itemCount: _sortedAuthorNames.length,
                 itemBuilder: (context, index) {
-                  return _buildAuthorCard(sortedAuthors[index], authorMap[sortedAuthors[index]]!, l10n);
+                  final authorName = _sortedAuthorNames[index];
+                  return _buildAuthorCard(authorName, _groupedAudiobooksByAuthor[authorName]!, l10n);
                 },
               ),
       ),
@@ -1479,21 +1533,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       );
     }
 
-    // Sort audiobooks
-    if (_audiobooksSortOrder == 'year') {
-      audiobooks.sort((a, b) {
-        if (a.year == null && b.year == null) return a.name.compareTo(b.name);
-        if (a.year == null) return 1;
-        if (b.year == null) return -1;
-        return a.year!.compareTo(b.year!);
-      });
-    } else {
-      audiobooks.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    }
-
-    // Get book names for letter scrollbar (only useful when sorted alphabetically)
-    final audiobookNames = audiobooks.map((a) => a.name).toList();
-
+    // PERF: Use pre-sorted list (sorted once on load or when sort order changes)
     // Match music albums tab layout - no header, direct list/grid
     return RefreshIndicator(
       color: colorScheme.primary,
@@ -1501,7 +1541,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       onRefresh: () => _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null),
       child: LetterScrollbar(
         controller: _audiobooksScrollController,
-        items: audiobookNames,
+        items: _audiobookNames,
         onDragStateChanged: _onLetterScrollbarDragChanged,
         child: _audiobooksViewMode == 'list'
             ? ListView.builder(
@@ -1510,10 +1550,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                 cacheExtent: 500,
                 addAutomaticKeepAlives: false,
                 addRepaintBoundaries: false,
-                itemCount: audiobooks.length,
+                itemCount: _sortedAudiobooks.length,
                 padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.withMiniPlayer),
                 itemBuilder: (context, index) {
-                  return _buildAudiobookListTile(context, audiobooks[index], maProvider);
+                  return _buildAudiobookListTile(context, _sortedAudiobooks[index], maProvider);
                 },
               )
             : GridView.builder(
@@ -1529,9 +1569,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                 ),
-                itemCount: audiobooks.length,
+                itemCount: _sortedAudiobooks.length,
                 itemBuilder: (context, index) {
-                  return _buildAudiobookCard(context, audiobooks[index], maProvider);
+                  return _buildAudiobookCard(context, _sortedAudiobooks[index], maProvider);
                 },
               ),
       ),
@@ -1715,17 +1755,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       );
     }
 
-    // Sort series and get names for letter scrollbar
-    final sortedSeries = List<AudiobookSeries>.from(_series)
-      ..sort((a, b) => a.name.compareTo(b.name));
-    final seriesNames = sortedSeries.map((s) => s.name).toList();
-
+    // PERF: Use pre-sorted list (sorted once on load)
     // Series view - supports grid2, grid3, and list modes
     return RefreshIndicator(
       onRefresh: _loadSeries,
       child: LetterScrollbar(
         controller: _seriesScrollController,
-        items: seriesNames,
+        items: _seriesNames,
         onDragStateChanged: _onLetterScrollbarDragChanged,
         child: _seriesViewMode == 'list'
             ? ListView.builder(
@@ -1734,10 +1770,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                 cacheExtent: 500,
                 addAutomaticKeepAlives: false,
                 addRepaintBoundaries: false,
-                itemCount: sortedSeries.length,
+                itemCount: _sortedSeries.length,
                 padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.withMiniPlayer),
                 itemBuilder: (context, index) {
-                  return _buildSeriesListTile(context, sortedSeries[index], maProvider, l10n);
+                  return _buildSeriesListTile(context, _sortedSeries[index], maProvider, l10n);
                 },
               )
             : GridView.builder(
@@ -1750,9 +1786,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                 ),
-                itemCount: sortedSeries.length,
+                itemCount: _sortedSeries.length,
                 itemBuilder: (context, index) {
-                  final series = sortedSeries[index];
+                  final series = _sortedSeries[index];
                   return _buildSeriesCard(context, series, maProvider, l10n, maxCoverGridSize: _seriesViewMode == 'grid3' ? 2 : 3);
                 },
               ),
@@ -2564,18 +2600,14 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       return EmptyState.playlists(context: context, onRefresh: () => _loadPlaylists());
     }
 
-    // Sort playlists alphabetically for letter scrollbar
-    final sortedPlaylists = List<Playlist>.from(_playlists)
-      ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
-    final playlistNames = sortedPlaylists.map((p) => p.name ?? '').toList();
-
+    // PERF: Use pre-sorted lists (sorted once on load)
     return RefreshIndicator(
       color: colorScheme.primary,
       backgroundColor: colorScheme.surface,
       onRefresh: () => _loadPlaylists(favoriteOnly: _showFavoritesOnly ? true : null),
       child: LetterScrollbar(
         controller: _playlistsScrollController,
-        items: playlistNames,
+        items: _playlistNames,
         onDragStateChanged: _onLetterScrollbarDragChanged,
         child: _playlistsViewMode == 'list'
             ? ListView.builder(
@@ -2584,10 +2616,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                 cacheExtent: 500,
                 addAutomaticKeepAlives: false,
                 addRepaintBoundaries: false,
-                itemCount: sortedPlaylists.length,
+                itemCount: _sortedPlaylists.length,
                 padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.navBarOnly),
                 itemBuilder: (context, index) {
-                  final playlist = sortedPlaylists[index];
+                  final playlist = _sortedPlaylists[index];
                   return _buildPlaylistTile(context, playlist, l10n);
                 },
               )
@@ -2604,9 +2636,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                 ),
-                itemCount: sortedPlaylists.length,
+                itemCount: _sortedPlaylists.length,
                 itemBuilder: (context, index) {
-                  final playlist = sortedPlaylists[index];
+                  final playlist = _sortedPlaylists[index];
                   return _buildPlaylistGridCard(context, playlist, l10n);
                 },
               ),
@@ -2767,14 +2799,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       );
     }
 
-    // Sort tracks by artist name, then track name
-    final sortedTracks = List<Track>.from(_favoriteTracks)
-      ..sort((a, b) {
-        final artistCompare = a.artistsString.compareTo(b.artistsString);
-        if (artistCompare != 0) return artistCompare;
-        return a.name.compareTo(b.name);
-      });
-
+    // PERF: Use pre-sorted list (sorted once on load)
     return RefreshIndicator(
       color: colorScheme.primary,
       backgroundColor: colorScheme.surface,
@@ -2785,9 +2810,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         addAutomaticKeepAlives: false, // Tiles don't need individual keep-alive
         addRepaintBoundaries: false, // We add RepaintBoundary manually to tiles
         padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.navBarOnly),
-        itemCount: sortedTracks.length,
+        itemCount: _sortedFavoriteTracks.length,
         itemBuilder: (context, index) {
-          final track = sortedTracks[index];
+          final track = _sortedFavoriteTracks[index];
           return _buildTrackTile(context, track);
         },
       ),
