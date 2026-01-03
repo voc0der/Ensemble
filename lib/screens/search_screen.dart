@@ -286,7 +286,7 @@ class SearchScreenState extends State<SearchScreen> {
   Future<void> _performSearch(String query, {bool keepFocus = false}) async {
     if (query.isEmpty) {
       setState(() {
-        _searchResults = {'artists': [], 'albums': [], 'tracks': [], 'playlists': [], 'audiobooks': [], 'podcasts': []};
+        _searchResults = {'artists': [], 'albums': [], 'tracks': [], 'playlists': [], 'audiobooks': [], 'radios': [], 'podcasts': []};
         _hasSearched = false;
         _searchError = null;
         _cachedListItems.clear(); // PERF: Clear cache
@@ -304,9 +304,19 @@ class SearchScreenState extends State<SearchScreen> {
       final provider = context.read<MusicAssistantProvider>();
       final results = await provider.searchWithCache(query, libraryOnly: _libraryOnly);
 
+      // Also filter radio stations from the provider's loaded list
+      // since the search API doesn't include radios
+      final queryLower = query.toLowerCase();
+      final matchingRadios = provider.radioStations
+          .where((radio) => radio.name.toLowerCase().contains(queryLower))
+          .toList();
+
       if (mounted) {
         setState(() {
-          _searchResults = results;
+          _searchResults = {
+            ...results,
+            'radios': matchingRadios,
+          };
           _isSearching = false;
           _hasSearched = true;
           _cachedListItems.clear(); // PERF: Clear cache on new results
