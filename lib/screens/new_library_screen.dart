@@ -813,13 +813,39 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                     ),
                   ),
                 Expanded(
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: _handleScrollNotification,
-                    child: PageView(
-                      controller: _pageController,
-                      onPageChanged: _onPageChanged,
-                      children: _buildTabViews(context, l10n),
-                    ),
+                  child: Stack(
+                    children: [
+                      // Main scrollable content
+                      NotificationListener<ScrollNotification>(
+                        onNotification: _handleScrollNotification,
+                        child: PageView(
+                          controller: _pageController,
+                          onPageChanged: _onPageChanged,
+                          children: _buildTabViews(context, l10n),
+                        ),
+                      ),
+                      // Fade gradient at top - content fades as it scrolls under filter bar
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 24,
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  colorScheme.background,
+                                  colorScheme.background.withOpacity(0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

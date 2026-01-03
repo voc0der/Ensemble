@@ -572,57 +572,83 @@ class SearchScreenState extends State<SearchScreen> {
         ),
         // Results with swipeable pages
         Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _handleScrollNotification,
-            child: PageView.builder(
-              controller: _pageController,
-              onPageChanged: _onPageChanged,
-              itemCount: _getAvailableFilters().length,
-              itemBuilder: (context, pageIndex) {
-                final filters = _getAvailableFilters();
-                final filterForPage = filters[pageIndex];
+          child: Stack(
+            children: [
+              // Main scrollable content
+              NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: PageView.builder(
+                  controller: _pageController,
+                  onPageChanged: _onPageChanged,
+                  itemCount: _getAvailableFilters().length,
+                  itemBuilder: (context, pageIndex) {
+                    final filters = _getAvailableFilters();
+                    final filterForPage = filters[pageIndex];
 
-                // PERF: Use cached list items to avoid rebuilding during animation
-                final listItems = _cachedListItems[filterForPage] ??= _buildListItemsForFilter(
-                  filterForPage, artists, albums, tracks, playlists, audiobooks,
-                );
+                    // PERF: Use cached list items to avoid rebuilding during animation
+                    final listItems = _cachedListItems[filterForPage] ??= _buildListItemsForFilter(
+                      filterForPage, artists, albums, tracks, playlists, audiobooks,
+                    );
 
-                // PERF: Wrap each page in RepaintBoundary to isolate repaints during swipe
-                return RepaintBoundary(
-                  key: ValueKey('page_$filterForPage'),
-                  child: ListView.builder(
-                    // PERF: Use key to preserve scroll position per filter
-                    key: PageStorageKey('list_$filterForPage'),
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, BottomSpacing.navBarOnly),
-                    cacheExtent: 500,
-                    addAutomaticKeepAlives: false,
-                    // PERF: false because each tile already has RepaintBoundary
-                    addRepaintBoundaries: false,
-                    itemCount: listItems.length,
-                    itemBuilder: (context, index) {
-                      final item = listItems[index];
-                      final showTypeInSubtitle = filterForPage == 'all';
-                      switch (item.type) {
-                        case _ListItemType.header:
-                          return _buildSectionHeader(item.headerTitle!, item.headerCount!);
-                        case _ListItemType.artist:
-                          return _buildArtistTile(item.mediaItem! as Artist);
-                        case _ListItemType.album:
-                          return _buildAlbumTile(item.mediaItem! as Album, showType: showTypeInSubtitle);
-                        case _ListItemType.track:
-                          return _buildTrackTile(item.mediaItem! as Track, showType: showTypeInSubtitle);
-                        case _ListItemType.playlist:
-                          return _buildPlaylistTile(item.mediaItem! as Playlist, showType: showTypeInSubtitle);
-                        case _ListItemType.audiobook:
-                          return _buildAudiobookTile(item.mediaItem! as Audiobook, showType: showTypeInSubtitle);
-                        case _ListItemType.spacer:
-                          return const SizedBox(height: 24);
-                      }
-                    },
+                    // PERF: Wrap each page in RepaintBoundary to isolate repaints during swipe
+                    return RepaintBoundary(
+                      key: ValueKey('page_$filterForPage'),
+                      child: ListView.builder(
+                        // PERF: Use key to preserve scroll position per filter
+                        key: PageStorageKey('list_$filterForPage'),
+                        padding: EdgeInsets.fromLTRB(16, 16, 16, BottomSpacing.navBarOnly),
+                        cacheExtent: 500,
+                        addAutomaticKeepAlives: false,
+                        // PERF: false because each tile already has RepaintBoundary
+                        addRepaintBoundaries: false,
+                        itemCount: listItems.length,
+                        itemBuilder: (context, index) {
+                          final item = listItems[index];
+                          final showTypeInSubtitle = filterForPage == 'all';
+                          switch (item.type) {
+                            case _ListItemType.header:
+                              return _buildSectionHeader(item.headerTitle!, item.headerCount!);
+                            case _ListItemType.artist:
+                              return _buildArtistTile(item.mediaItem! as Artist);
+                            case _ListItemType.album:
+                              return _buildAlbumTile(item.mediaItem! as Album, showType: showTypeInSubtitle);
+                            case _ListItemType.track:
+                              return _buildTrackTile(item.mediaItem! as Track, showType: showTypeInSubtitle);
+                            case _ListItemType.playlist:
+                              return _buildPlaylistTile(item.mediaItem! as Playlist, showType: showTypeInSubtitle);
+                            case _ListItemType.audiobook:
+                              return _buildAudiobookTile(item.mediaItem! as Audiobook, showType: showTypeInSubtitle);
+                            case _ListItemType.spacer:
+                              return const SizedBox(height: 24);
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // Fade gradient at top - content fades as it scrolls under filter bar
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 24,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          colorScheme.background,
+                          colorScheme.background.withOpacity(0),
+                        ],
+                      ),
+                    ),
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
