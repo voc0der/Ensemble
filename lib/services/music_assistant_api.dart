@@ -603,9 +603,9 @@ class MusicAssistantAPI {
     int? offset,
   }) async {
     try {
-      _logger.log('🎙️ Getting episodes for podcast: $podcastId');
+      _logger.log('🎙️ Getting episodes for podcast: $podcastId, provider: $provider');
 
-      // Try to get podcast details which should include episodes
+      // Method 1: Try to get podcast details which should include episodes
       final response = await _sendCommand(
         'music/podcasts/get',
         args: {
@@ -614,22 +614,81 @@ class MusicAssistantAPI {
         },
       );
 
+      // Log full response structure for debugging
+      _logger.log('🎙️ Response keys: ${response.keys.toList()}');
+
       final result = response['result'] as Map<String, dynamic>?;
-      if (result == null) {
-        _logger.log('🎙️ Podcast details: result is null');
-        return [];
+      if (result != null) {
+        _logger.log('🎙️ Result keys: ${result.keys.toList()}');
+
+        // Check all possible keys for episodes
+        List<dynamic>? episodes;
+        for (final key in ['episodes', 'items', 'podcast_episodes', 'children', 'tracks']) {
+          if (result[key] is List && (result[key] as List).isNotEmpty) {
+            episodes = result[key] as List<dynamic>;
+            _logger.log('🎙️ Found episodes under key: $key (${episodes.length} items)');
+            break;
+          }
+        }
+
+        if (episodes != null && episodes.isNotEmpty) {
+          return episodes
+              .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
       }
 
-      // Episodes might be under different keys
-      final episodes = (result['episodes'] as List<dynamic>?) ??
-                       (result['items'] as List<dynamic>?) ??
-                       [];
+      // Method 2: Try browse endpoint with podcast URI
+      _logger.log('🎙️ No episodes in details, trying browse...');
+      final podcastUri = 'library://podcast/$podcastId';
+      final browseResponse = await _sendCommand(
+        'music/browse',
+        args: {'path': podcastUri},
+      );
 
-      _logger.log('🎙️ Found ${episodes.length} episodes');
+      final browseResult = browseResponse['result'] as List<dynamic>?;
+      if (browseResult != null && browseResult.isNotEmpty) {
+        _logger.log('🎙️ Browse found ${browseResult.length} items');
+        return browseResult
+            .where((item) => item is Map<String, dynamic>)
+            .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
 
-      return episodes
-          .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
-          .toList();
+      // Method 3: Try podcast_episodes library endpoint
+      _logger.log('🎙️ Trying podcast_episodes library...');
+      final episodesResponse = await _sendCommand(
+        'music/podcast_episodes/library_items',
+        args: {
+          if (limit != null) 'limit': limit,
+          if (offset != null) 'offset': offset,
+        },
+      );
+
+      final episodesItems = episodesResponse['items'] as List<dynamic>? ??
+                           episodesResponse['result'] as List<dynamic>?;
+      if (episodesItems != null && episodesItems.isNotEmpty) {
+        // Filter episodes by podcast ID
+        final filtered = episodesItems.where((item) {
+          if (item is Map<String, dynamic>) {
+            // Check if episode belongs to this podcast
+            final albumId = item['album']?['item_id'] as String?;
+            final parentId = item['parent_item_id'] as String?;
+            return albumId == podcastId || parentId == podcastId;
+          }
+          return false;
+        }).toList();
+
+        _logger.log('🎙️ Filtered ${filtered.length} episodes for podcast $podcastId');
+        if (filtered.isNotEmpty) {
+          return filtered
+              .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+      }
+
+      _logger.log('🎙️ No episodes found for podcast');
+      return [];
     } catch (e) {
       _logger.log('🎙️ Error getting podcast episodes: $e');
       return [];

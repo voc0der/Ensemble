@@ -2261,8 +2261,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     }
 
     // PERF: Request larger images from API but decode at appropriate size for memory
-    final apiImageSize = 512; // Request higher quality from API
-    final cacheSize = _podcastsViewMode == 'grid3' ? 200 : 300; // Memory decode size
+    final apiImageSize = 1024; // Request higher quality from API
+    final cacheSize = _podcastsViewMode == 'grid3' ? 300 : 400; // Memory decode size
 
     return RefreshIndicator(
       color: colorScheme.primary,
