@@ -720,45 +720,51 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         return Scaffold(
           backgroundColor: colorScheme.background,
           body: SafeArea(
-            child: Column(
+            child: Stack(
               children: [
-                // Filter row: [Media Type ▼] [Sub-categories...] [♥] [⊞]
-                _buildFilterRow(colorScheme, l10n),
-                // Connecting banner when showing cached data
-                // Hide when we have cached players - UI is functional during background reconnect
-                if (!isConnected && syncService.hasCache && !context.read<MusicAssistantProvider>().hasCachedPlayers)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    color: colorScheme.primaryContainer.withOpacity(0.5),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.primary,
-                          ),
+                Column(
+                  children: [
+                    // Two-row filter: Row 1 = Media types, Row 2 = Sub-categories
+                    _buildFilterRows(colorScheme, l10n),
+                    // Connecting banner when showing cached data
+                    // Hide when we have cached players - UI is functional during background reconnect
+                    if (!isConnected && syncService.hasCache && !context.read<MusicAssistantProvider>().hasCachedPlayers)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        color: colorScheme.primaryContainer.withOpacity(0.5),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              l10n.connecting,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          l10n.connecting,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                      ],
+                      ),
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        onPageChanged: _onPageChanged,
+                        children: _buildTabViews(context, l10n),
+                      ),
                     ),
-                  ),
-                Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    onPageChanged: _onPageChanged,
-                    children: _buildTabViews(context, l10n),
-                  ),
+                  ],
                 ),
+                // Floating action buttons for favorites and view mode
+                _buildFloatingButtons(colorScheme, l10n),
               ],
             ),
           ),
@@ -767,63 +773,42 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     );
   }
 
-  // ============ FILTER ROW ============
-  Widget _buildFilterRow(ColorScheme colorScheme, S l10n) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withOpacity(0.3),
-            width: 1,
+  // ============ FILTER ROWS ============
+  Widget _buildFilterRows(ColorScheme colorScheme, S l10n) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Row 1: Media type chips with secondaryContainer background
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: colorScheme.secondaryContainer,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: _buildMediaTypeChips(colorScheme, l10n),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          // Media type dropdown
-          _buildMediaTypeDropdown(colorScheme, l10n),
-          const SizedBox(width: 8),
-          // Sub-category chips (scrollable)
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: _buildCategoryChips(colorScheme, l10n),
-            ),
-          ),
-          // Action buttons
-          if (_selectedMediaType == LibraryMediaType.music || _selectedMediaType == LibraryMediaType.books) ...[
-            IconButton(
-              icon: Icon(
-                _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
-                color: _showFavoritesOnly ? Colors.red : colorScheme.onSurface.withOpacity(0.7),
-                size: 20,
+        // Row 2: Sub-category chips
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: colorScheme.outlineVariant.withOpacity(0.3),
+                width: 1,
               ),
-              onPressed: () => _toggleFavoritesMode(!_showFavoritesOnly),
-              tooltip: _showFavoritesOnly ? l10n.showAll : l10n.showFavoritesOnly,
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             ),
-          ],
-          IconButton(
-            icon: Icon(
-              _getViewModeIcon(_getCurrentViewMode()),
-              color: colorScheme.onSurface.withOpacity(0.7),
-              size: 20,
-            ),
-            onPressed: _cycleCurrentViewMode,
-            tooltip: l10n.changeView,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
-        ],
-      ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: _buildCategoryChips(colorScheme, l10n),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildMediaTypeDropdown(ColorScheme colorScheme, S l10n) {
+  Widget _buildMediaTypeChips(ColorScheme colorScheme, S l10n) {
     String getMediaTypeLabel(LibraryMediaType type) {
       switch (type) {
         case LibraryMediaType.music:
@@ -850,93 +835,75 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       }
     }
 
-    return Material(
-      color: colorScheme.primaryContainer,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: colorScheme.surface,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: LibraryMediaType.values.map((type) {
+        final isSelected = _selectedMediaType == type;
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: FilterChip(
+            selected: isSelected,
+            showCheckmark: false,
+            avatar: Icon(
+              getMediaTypeIcon(type),
+              size: 18,
+              color: isSelected
+                  ? colorScheme.onSecondaryContainer
+                  : colorScheme.onSurface.withOpacity(0.7),
             ),
-            builder: (context) => SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      l10n.selectLibrary,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                  ...LibraryMediaType.values.map((type) => ListTile(
-                    leading: Icon(
-                      getMediaTypeIcon(type),
-                      color: _selectedMediaType == type
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                    title: Text(
-                      getMediaTypeLabel(type),
-                      style: TextStyle(
-                        color: _selectedMediaType == type
-                            ? colorScheme.primary
-                            : colorScheme.onSurface,
-                        fontWeight: _selectedMediaType == type
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      ),
-                    ),
-                    trailing: _selectedMediaType == type
-                        ? Icon(Icons.check, color: colorScheme.primary)
-                        : null,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _changeMediaType(type);
-                    },
-                  )),
-                  const SizedBox(height: 8),
-                ],
-              ),
+            label: Text(getMediaTypeLabel(type)),
+            labelStyle: TextStyle(
+              color: isSelected
+                  ? colorScheme.onSecondaryContainer
+                  : colorScheme.onSurface.withOpacity(0.7),
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                getMediaTypeIcon(_selectedMediaType),
-                color: colorScheme.onPrimaryContainer,
-                size: 18,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                getMediaTypeLabel(_selectedMediaType),
-                style: TextStyle(
-                  color: colorScheme.onPrimaryContainer,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.arrow_drop_down,
-                color: colorScheme.onPrimaryContainer,
-                size: 20,
-              ),
-            ],
+            backgroundColor: colorScheme.surface.withOpacity(0.5),
+            selectedColor: colorScheme.primary.withOpacity(0.3),
+            side: BorderSide(
+              color: isSelected
+                  ? colorScheme.primary.withOpacity(0.5)
+                  : Colors.transparent,
+            ),
+            onSelected: (_) => _changeMediaType(type),
           ),
-        ),
+        );
+      }).toList(),
+    );
+  }
+
+  // Floating action buttons for favorites and view mode
+  Widget _buildFloatingButtons(ColorScheme colorScheme, S l10n) {
+    return Positioned(
+      right: 16,
+      bottom: BottomSpacing.withMiniPlayer + 16,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Favorites toggle (only for music and books)
+          if (_selectedMediaType == LibraryMediaType.music || _selectedMediaType == LibraryMediaType.books) ...[
+            FloatingActionButton.small(
+              heroTag: 'fab_favorites',
+              onPressed: () => _toggleFavoritesMode(!_showFavoritesOnly),
+              backgroundColor: _showFavoritesOnly ? Colors.red : colorScheme.surface,
+              foregroundColor: _showFavoritesOnly ? Colors.white : colorScheme.onSurface,
+              elevation: 2,
+              child: Icon(
+                _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          // View mode toggle
+          FloatingActionButton.small(
+            heroTag: 'fab_view_mode',
+            onPressed: _cycleCurrentViewMode,
+            backgroundColor: colorScheme.surface,
+            foregroundColor: colorScheme.onSurface,
+            elevation: 2,
+            child: Icon(_getViewModeIcon(_getCurrentViewMode())),
+          ),
+        ],
       ),
     );
   }
