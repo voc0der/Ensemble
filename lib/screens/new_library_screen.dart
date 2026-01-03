@@ -834,7 +834,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             child: _buildMediaTypeChips(colorScheme, l10n),
           ),
         ),
-        if (showLibraryTypeRow) const SizedBox(height: 8), // Space between rows
+        if (showLibraryTypeRow) const SizedBox(height: 12), // Space between rows
         // Row 2: Sub-category chips (left) + action buttons (right) - always visible
         SizedBox(
           height: _filterRowHeight,
