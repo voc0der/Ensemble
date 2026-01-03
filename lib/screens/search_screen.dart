@@ -559,9 +559,9 @@ class SearchScreenState extends State<SearchScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: SizedBox(
-            height: 44, // Match library screen filter row height
+            height: 36, // Match library screen filter row height
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               child: SingleChildScrollView(
                 controller: _filterScrollController,
                 scrollDirection: Axis.horizontal,
@@ -876,7 +876,7 @@ class SearchScreenState extends State<SearchScreen> {
               _animateToFilter(filter);
             },
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: Text(
                 getLabel(filter),
                 style: TextStyle(

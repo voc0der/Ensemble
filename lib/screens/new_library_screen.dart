@@ -79,6 +79,11 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   // Restoration: Remember selected tab across app restarts
   final RestorableInt _selectedTabIndex = RestorableInt(0);
 
+  // Scroll-to-hide filter bars
+  bool _isFilterBarVisible = true;
+  double _lastScrollOffset = 0;
+  static const double _scrollThreshold = 10.0;
+
   int get _tabCount {
     switch (_selectedMediaType) {
       case LibraryMediaType.music:
@@ -399,6 +404,30 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       _selectedCategoryIndex = index;
       _selectedTabIndex.value = index;
     });
+  }
+
+  /// Handle scroll notifications to hide/show filter bars
+  bool _handleScrollNotification(ScrollNotification notification) {
+    // Only respond to vertical scroll (not horizontal PageView swipe)
+    if (notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+
+    if (notification is ScrollUpdateNotification) {
+      final currentOffset = notification.metrics.pixels;
+      final delta = currentOffset - _lastScrollOffset;
+
+      if (delta.abs() > _scrollThreshold) {
+        final shouldShow = delta < 0 || currentOffset <= 0;
+        if (shouldShow != _isFilterBarVisible) {
+          setState(() {
+            _isFilterBarVisible = shouldShow;
+          });
+        }
+        _lastScrollOffset = currentOffset;
+      }
+    }
+    return false;
   }
 
   void _animateToCategory(int index) {
@@ -723,7 +752,15 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             child: Column(
               children: [
                 // Two-row filter: Row 1 = Media types, Row 2 = Sub-categories + action buttons
-                _buildFilterRows(colorScheme, l10n),
+                // Animates to hide when scrolling down
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  height: _isFilterBarVisible ? (_filterRowHeight * 2 + 8 + 16) : 0, // 2 rows + spacing + padding
+                  clipBehavior: Clip.hardEdge,
+                  decoration: const BoxDecoration(),
+                  child: _buildFilterRows(colorScheme, l10n),
+                ),
                 // Connecting banner when showing cached data
                 // Hide when we have cached players - UI is functional during background reconnect
                 if (!isConnected && syncService.hasCache && !context.read<MusicAssistantProvider>().hasCachedPlayers)
@@ -753,10 +790,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                     ),
                   ),
                 Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    onPageChanged: _onPageChanged,
-                    children: _buildTabViews(context, l10n),
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: _handleScrollNotification,
+                    child: PageView(
+                      controller: _pageController,
+                      onPageChanged: _onPageChanged,
+                      children: _buildTabViews(context, l10n),
+                    ),
                   ),
                 ),
               ],
@@ -768,8 +808,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   }
 
   // ============ FILTER ROWS ============
-  // Consistent height for filter rows (matches search screen)
-  static const double _filterRowHeight = 44.0;
+  // Consistent height for filter rows
+  static const double _filterRowHeight = 36.0;
 
   Widget _buildFilterRows(ColorScheme colorScheme, S l10n) {
     return Column(
@@ -783,30 +823,25 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             child: _buildMediaTypeChips(colorScheme, l10n),
           ),
         ),
+        const SizedBox(height: 8), // Space between rows
         // Row 2: Sub-category chips (left) + action buttons (right)
-        Container(
+        SizedBox(
           height: _filterRowHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: colorScheme.outlineVariant.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              // Left: category chips
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: _buildCategoryChips(colorScheme, l10n),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                // Left: category chips
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: _buildCategoryChips(colorScheme, l10n),
+                  ),
                 ),
-              ),
-              // Right: action buttons
-              _buildInlineActionButtons(colorScheme),
-            ],
+                // Right: action buttons
+                _buildInlineActionButtons(colorScheme),
+              ],
+            ),
           ),
         ),
       ],
