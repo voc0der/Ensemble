@@ -768,18 +768,25 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   }
 
   // ============ FILTER ROWS ============
+  // Consistent height for filter rows (matches search screen)
+  static const double _filterRowHeight = 44.0;
+
   Widget _buildFilterRows(ColorScheme colorScheme, S l10n) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Row 1: Media type chips (no full-width background)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: _buildMediaTypeChips(colorScheme, l10n),
+        // Row 1: Media type chips (justified across full width)
+        SizedBox(
+          height: _filterRowHeight,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: _buildMediaTypeChips(colorScheme, l10n),
+          ),
         ),
         // Row 2: Sub-category chips (left) + action buttons (right)
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          height: _filterRowHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
@@ -833,35 +840,33 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       }
     }
 
+    // Justify chips across full width
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: LibraryMediaType.values.map((type) {
         final isSelected = _selectedMediaType == type;
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: FilterChip(
-            selected: isSelected,
-            showCheckmark: false,
-            // Only show icon when selected
-            avatar: isSelected
-                ? Icon(
-                    getMediaTypeIcon(type),
-                    size: 18,
-                    color: colorScheme.onTertiaryContainer,
-                  )
-                : null,
-            label: Text(getMediaTypeLabel(type)),
-            labelStyle: TextStyle(
-              color: isSelected
-                  ? colorScheme.onTertiaryContainer
-                  : colorScheme.onSurface.withOpacity(0.7),
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            ),
-            backgroundColor: colorScheme.surfaceVariant.withOpacity(0.5),
-            selectedColor: colorScheme.tertiaryContainer,
-            side: BorderSide.none,
-            onSelected: (_) => _changeMediaType(type),
+        return FilterChip(
+          selected: isSelected,
+          showCheckmark: false,
+          // Only show icon when selected
+          avatar: isSelected
+              ? Icon(
+                  getMediaTypeIcon(type),
+                  size: 18,
+                  color: colorScheme.onTertiaryContainer,
+                )
+              : null,
+          label: Text(getMediaTypeLabel(type)),
+          labelStyle: TextStyle(
+            color: isSelected
+                ? colorScheme.onTertiaryContainer
+                : colorScheme.onSurface.withOpacity(0.7),
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
+          backgroundColor: colorScheme.surfaceVariant.withOpacity(0.5),
+          selectedColor: colorScheme.tertiaryContainer,
+          side: BorderSide.none,
+          onSelected: (_) => _changeMediaType(type),
         );
       }).toList(),
     );

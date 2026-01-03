@@ -555,14 +555,19 @@ class SearchScreenState extends State<SearchScreen> {
     // Column layout - filter bar above results, no overlay
     return Column(
       children: [
-        // Filter tabs - always visible
+        // Filter tabs - rounded container matching search bar width
         Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: SingleChildScrollView(
-            controller: _filterScrollController,
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildFilterSelector(colorScheme),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: SizedBox(
+            height: 44, // Match library screen filter row height
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SingleChildScrollView(
+                controller: _filterScrollController,
+                scrollDirection: Axis.horizontal,
+                child: _buildFilterSelector(colorScheme),
+              ),
+            ),
           ),
         ),
         // Results with swipeable pages
@@ -853,41 +858,39 @@ class SearchScreenState extends State<SearchScreen> {
       }
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: filters.map((filter) {
-          final isSelected = _activeFilter == filter;
-          return Material(
-            // Use theme-aware colors for light/dark mode support
-            color: isSelected
-                ? colorScheme.primaryContainer
-                : colorScheme.surfaceVariant.withOpacity(0.6),
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  _activeFilter = filter;
-                });
-                _animateToFilter(filter);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Text(
-                  getLabel(filter),
-                  style: TextStyle(
-                    color: isSelected
-                        ? colorScheme.onPrimaryContainer
-                        : colorScheme.onSurfaceVariant.withOpacity(0.8),
-                    fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  ),
+    // No ClipRRect here - parent container handles clipping with rounded corners
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: filters.map((filter) {
+        final isSelected = _activeFilter == filter;
+        return Material(
+          // Use theme-aware colors for light/dark mode support
+          color: isSelected
+              ? colorScheme.primaryContainer
+              : colorScheme.surfaceVariant.withOpacity(0.6),
+          child: InkWell(
+            onTap: () {
+              setState(() {
+                _activeFilter = filter;
+              });
+              _animateToFilter(filter);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Text(
+                getLabel(filter),
+                style: TextStyle(
+                  color: isSelected
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurfaceVariant.withOpacity(0.8),
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
             ),
-          );
-        }).toList(),
-      ),
+          ),
+        );
+      }).toList(),
     );
   }
 
