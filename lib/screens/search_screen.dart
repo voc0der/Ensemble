@@ -583,6 +583,8 @@ class SearchScreenState extends State<SearchScreen> {
                   controller: _pageController,
                   onPageChanged: _onPageChanged,
                   itemCount: _getAvailableFilters().length,
+                  // Faster settling so vertical scroll works sooner after swipe
+                  physics: const _FastPageScrollPhysics(),
                   itemBuilder: (context, pageIndex) {
                     final filters = _getAvailableFilters();
                     final filterForPage = filters[pageIndex];
@@ -1577,4 +1579,23 @@ class SearchScreenState extends State<SearchScreen> {
     final seconds = duration.inSeconds % 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
+}
+
+/// Fast settling physics for horizontal page swipes.
+/// Reduces the time the page animation takes to settle, so vertical scrolling
+/// within the page becomes responsive sooner after a horizontal swipe.
+class _FastPageScrollPhysics extends PageScrollPhysics {
+  const _FastPageScrollPhysics({super.parent});
+
+  @override
+  _FastPageScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _FastPageScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  SpringDescription get spring => const SpringDescription(
+    mass: 50,      // Lower mass = faster movement
+    stiffness: 500, // Higher stiffness = snappier
+    damping: 1.0,   // Critical damping for no overshoot
+  );
 }

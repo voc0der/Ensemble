@@ -925,6 +925,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                           controller: _pageController,
                           onPageChanged: _onPageChanged,
                           itemCount: _tabCount,
+                          // Faster settling so vertical scroll works sooner after swipe
+                          physics: const _FastPageScrollPhysics(),
                           itemBuilder: (context, index) => _buildTabAtIndex(context, l10n, index),
                         ),
                       ),
@@ -2951,4 +2953,22 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       ),
     );
   }
+}
+
+/// Custom PageScrollPhysics with faster spring for quicker settling
+/// This allows vertical scrolling to work sooner after a horizontal swipe
+class _FastPageScrollPhysics extends PageScrollPhysics {
+  const _FastPageScrollPhysics({super.parent});
+
+  @override
+  _FastPageScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _FastPageScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  SpringDescription get spring => const SpringDescription(
+    mass: 50,      // Lower mass = faster movement
+    stiffness: 500, // Higher stiffness = snappier
+    damping: 1.0,   // Critical damping for no overshoot
+  );
 }
