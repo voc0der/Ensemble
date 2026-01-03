@@ -70,6 +70,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   String _audiobooksViewMode = 'grid2'; // 'grid2', 'grid3', 'list'
   String _authorsViewMode = 'list'; // 'grid2', 'grid3', 'list'
   String _seriesViewMode = 'grid2'; // 'grid2', 'grid3'
+  String _radioViewMode = 'list'; // 'grid2', 'grid3', 'list'
   String _audiobooksSortOrder = 'alpha'; // 'alpha', 'year'
 
   // Author image cache
@@ -157,6 +158,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final audiobooksMode = await SettingsService.getLibraryAudiobooksViewMode();
     final audiobooksSortOrder = await SettingsService.getLibraryAudiobooksSortOrder();
     final seriesMode = await SettingsService.getLibrarySeriesViewMode();
+    final radioMode = await SettingsService.getLibraryRadioViewMode();
     if (mounted) {
       setState(() {
         _artistsViewMode = artistsMode;
@@ -166,6 +168,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         _audiobooksViewMode = audiobooksMode;
         _audiobooksSortOrder = audiobooksSortOrder;
         _seriesViewMode = seriesMode;
+        _radioViewMode = radioMode;
       });
     }
   }
@@ -289,6 +292,22 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     SettingsService.setLibrarySeriesViewMode(newMode);
   }
 
+  void _cycleRadioViewMode() {
+    String newMode;
+    switch (_radioViewMode) {
+      case 'list':
+        newMode = 'grid2';
+        break;
+      case 'grid2':
+        newMode = 'grid3';
+        break;
+      default:
+        newMode = 'list';
+    }
+    setState(() => _radioViewMode = newMode);
+    SettingsService.setLibraryRadioViewMode(newMode);
+  }
+
   IconData _getViewModeIcon(String mode) {
     switch (mode) {
       case 'list':
@@ -316,6 +335,11 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         default:
           return 'list';
       }
+    }
+
+    // Handle radio media type
+    if (_selectedMediaType == LibraryMediaType.radio) {
+      return _radioViewMode;
     }
 
     // Handle music media type
@@ -364,6 +388,12 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           _cycleSeriesViewMode();
           break;
       }
+      return;
+    }
+
+    // Handle radio media type
+    if (_selectedMediaType == LibraryMediaType.radio) {
+      _cycleRadioViewMode();
       return;
     }
 
@@ -2207,6 +2237,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   // ============ RADIO TAB ============
   Widget _buildRadioStationsTab(BuildContext context, S l10n) {
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final maProvider = context.watch<MusicAssistantProvider>();
     final radioStations = maProvider.radioStations;
     final isLoading = maProvider.isLoadingRadio;
@@ -2225,71 +2256,162 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.only(bottom: BottomSpacing.withMiniPlayer),
-      itemCount: radioStations.length,
-      itemBuilder: (context, index) {
-        final station = radioStations[index];
-        final imageUrl = maProvider.getImageUrl(station, size: 256);
+    // PERF: Use appropriate cache size based on view mode
+    final cacheSize = _radioViewMode == 'grid3' ? 200 : 256;
 
-        return ListTile(
-          leading: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: imageUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      width: 56,
-                      height: 56,
-                      color: colorScheme.surfaceVariant,
-                      child: Icon(MdiIcons.radio, color: colorScheme.onSurfaceVariant),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      width: 56,
-                      height: 56,
-                      color: colorScheme.surfaceVariant,
-                      child: Icon(MdiIcons.radio, color: colorScheme.onSurfaceVariant),
-                    ),
-                  )
-                : Container(
-                    width: 56,
-                    height: 56,
-                    color: colorScheme.surfaceVariant,
-                    child: Icon(MdiIcons.radio, color: colorScheme.onSurfaceVariant),
+    return RefreshIndicator(
+      color: colorScheme.primary,
+      backgroundColor: colorScheme.surface,
+      onRefresh: () => maProvider.loadRadioStations(),
+      child: _radioViewMode == 'list'
+          ? ListView.builder(
+              key: const PageStorageKey<String>('radio_stations_list'),
+              cacheExtent: 1000,
+              padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.withMiniPlayer),
+              itemCount: radioStations.length,
+              itemBuilder: (context, index) {
+                final station = radioStations[index];
+                final imageUrl = maProvider.getImageUrl(station, size: cacheSize);
+
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: imageUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            width: 56,
+                            height: 56,
+                            fit: BoxFit.cover,
+                            memCacheWidth: cacheSize,
+                            memCacheHeight: cacheSize,
+                            fadeInDuration: Duration.zero,
+                            fadeOutDuration: Duration.zero,
+                            placeholder: (context, url) => Container(
+                              width: 56,
+                              height: 56,
+                              color: colorScheme.surfaceVariant,
+                              child: Icon(MdiIcons.radio, color: colorScheme.onSurfaceVariant),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              width: 56,
+                              height: 56,
+                              color: colorScheme.surfaceVariant,
+                              child: Icon(MdiIcons.radio, color: colorScheme.onSurfaceVariant),
+                            ),
+                          )
+                        : Container(
+                            width: 56,
+                            height: 56,
+                            color: colorScheme.surfaceVariant,
+                            child: Icon(MdiIcons.radio, color: colorScheme.onSurfaceVariant),
+                          ),
                   ),
-          ),
-          title: Text(
-            station.name,
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
+                  title: Text(
+                    station.name,
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: station.metadata?['description'] != null
+                      ? Text(
+                          station.metadata!['description'] as String,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        )
+                      : null,
+                  onTap: () => _playRadioStation(maProvider, station),
+                );
+              },
+            )
+          : GridView.builder(
+              key: PageStorageKey<String>('radio_stations_grid_$_radioViewMode'),
+              cacheExtent: 1000,
+              padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: _radioViewMode == 'grid3' ? 3 : 2,
+                childAspectRatio: _radioViewMode == 'grid3' ? 0.75 : 0.80,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: radioStations.length,
+              itemBuilder: (context, index) {
+                final station = radioStations[index];
+                return _buildRadioCard(station, maProvider, cacheSize);
+              },
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: station.metadata?['description'] != null
-              ? Text(
-                  station.metadata!['description'] as String,
-                  style: TextStyle(
-                    color: colorScheme.onSurface.withOpacity(0.6),
-                    fontSize: 13,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : null,
-          onTap: () {
-            final selectedPlayer = maProvider.selectedPlayer;
-            if (selectedPlayer != null) {
-              maProvider.api?.playRadioStation(selectedPlayer.playerId, station);
-            }
-          },
-        );
-      },
     );
+  }
+
+  Widget _buildRadioCard(MediaItem station, MusicAssistantProvider maProvider, int cacheSize) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final imageUrl = maProvider.getImageUrl(station, size: cacheSize);
+
+    return GestureDetector(
+      onTap: () => _playRadioStation(maProvider, station),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          AspectRatio(
+            aspectRatio: 1.0,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                color: colorScheme.surfaceVariant,
+                child: imageUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        memCacheWidth: cacheSize,
+                        memCacheHeight: cacheSize,
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                        placeholder: (context, url) => const SizedBox(),
+                        errorWidget: (context, url, error) => Center(
+                          child: Icon(
+                            MdiIcons.radio,
+                            size: 48,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(
+                          MdiIcons.radio,
+                          size: 48,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            station.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w500,
+              height: 1.15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _playRadioStation(MusicAssistantProvider maProvider, MediaItem station) {
+    final selectedPlayer = maProvider.selectedPlayer;
+    if (selectedPlayer != null) {
+      maProvider.api?.playRadioStation(selectedPlayer.playerId, station);
+    }
   }
 
   // ============ ARTISTS TAB ============
