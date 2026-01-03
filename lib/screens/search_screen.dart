@@ -29,7 +29,7 @@ class SearchScreen extends StatefulWidget {
 }
 
 // Helper enum and class for ListView.builder item types
-enum _ListItemType { header, artist, album, track, playlist, audiobook, spacer }
+enum _ListItemType { header, artist, album, track, playlist, audiobook, radio, spacer }
 
 class _ListItem {
   final _ListItemType type;
@@ -68,6 +68,11 @@ class _ListItem {
         headerTitle = null,
         headerCount = null;
 
+  _ListItem.radio(this.mediaItem, {this.relevanceScore})
+      : type = _ListItemType.radio,
+        headerTitle = null,
+        headerCount = null;
+
   _ListItem.spacer()
       : type = _ListItemType.spacer,
         mediaItem = null,
@@ -89,6 +94,7 @@ class SearchScreenState extends State<SearchScreen> {
     'tracks': [],
     'playlists': [],
     'audiobooks': [],
+    'radios': [],
     'podcasts': [],
   };
   bool _isSearching = false;
@@ -129,6 +135,7 @@ class SearchScreenState extends State<SearchScreen> {
     if (_searchResults['tracks']?.isNotEmpty == true) filters.add('tracks');
     if (_searchResults['playlists']?.isNotEmpty == true) filters.add('playlists');
     if (_searchResults['audiobooks']?.isNotEmpty == true) filters.add('audiobooks');
+    if (_searchResults['radios']?.isNotEmpty == true) filters.add('radios');
     // Always show podcasts filter (placeholder until fully integrated)
     filters.add('podcasts');
     _cachedAvailableFilters = filters;
@@ -546,9 +553,10 @@ class SearchScreenState extends State<SearchScreen> {
     final tracks = _searchResults['tracks'] as List<MediaItem>? ?? [];
     final playlists = _searchResults['playlists'] as List<MediaItem>? ?? [];
     final audiobooks = _searchResults['audiobooks'] as List<MediaItem>? ?? [];
+    final radios = _searchResults['radios'] as List<MediaItem>? ?? [];
 
     final hasResults = artists.isNotEmpty || albums.isNotEmpty || tracks.isNotEmpty ||
-                       playlists.isNotEmpty || audiobooks.isNotEmpty;
+                       playlists.isNotEmpty || audiobooks.isNotEmpty || radios.isNotEmpty;
 
     if (!hasResults) {
       return EmptyState.search(context: context);
@@ -591,7 +599,7 @@ class SearchScreenState extends State<SearchScreen> {
 
                     // PERF: Use cached list items to avoid rebuilding during animation
                     final listItems = _cachedListItems[filterForPage] ??= _buildListItemsForFilter(
-                      filterForPage, artists, albums, tracks, playlists, audiobooks,
+                      filterForPage, artists, albums, tracks, playlists, audiobooks, radios,
                     );
 
                     // PERF: Wrap each page in RepaintBoundary to isolate repaints during swipe
@@ -622,6 +630,8 @@ class SearchScreenState extends State<SearchScreen> {
                               return _buildPlaylistTile(item.mediaItem! as Playlist, showType: showTypeInSubtitle);
                             case _ListItemType.audiobook:
                               return _buildAudiobookTile(item.mediaItem! as Audiobook, showType: showTypeInSubtitle);
+                            case _ListItemType.radio:
+                              return _buildRadioTile(item.mediaItem!, showType: showTypeInSubtitle);
                             case _ListItemType.spacer:
                               return const SizedBox(height: 24);
                           }
@@ -793,6 +803,7 @@ class SearchScreenState extends State<SearchScreen> {
     List<MediaItem> tracks,
     List<MediaItem> playlists,
     List<MediaItem> audiobooks,
+    List<MediaItem> radios,
   ) {
     final items = <_ListItem>[];
     final query = _searchController.text;
@@ -820,6 +831,10 @@ class SearchScreenState extends State<SearchScreen> {
       for (final audiobook in audiobooks) {
         final score = _calculateRelevanceScore(audiobook, query);
         scoredItems.add(_ListItem.audiobook(audiobook, relevanceScore: score));
+      }
+      for (final radio in radios) {
+        final score = _calculateRelevanceScore(radio, query);
+        scoredItems.add(_ListItem.radio(radio, relevanceScore: score));
       }
 
       final crossRefArtists = _extractCrossReferencedArtists(
@@ -867,6 +882,12 @@ class SearchScreenState extends State<SearchScreen> {
       }
     }
 
+    if (filter == 'radios' && radios.isNotEmpty) {
+      for (final radio in radios) {
+        items.add(_ListItem.radio(radio));
+      }
+    }
+
     return items;
   }
 
@@ -883,6 +904,7 @@ class SearchScreenState extends State<SearchScreen> {
         case 'tracks': return l10n.tracks;
         case 'playlists': return l10n.playlists;
         case 'audiobooks': return l10n.audiobooks;
+        case 'radios': return l10n.radio;
         case 'podcasts': return l10n.podcasts;
         default: return filter;
       }
@@ -1376,6 +1398,84 @@ class SearchScreenState extends State<SearchScreen> {
         },
       ),
     );
+  }
+
+  Widget _buildRadioTile(MediaItem radio, {bool showType = false}) {
+    final maProvider = context.read<MusicAssistantProvider>();
+    final imageUrl = maProvider.getImageUrl(radio, size: 128);
+    final colorScheme = Theme.of(context).colorScheme;
+    final subtitleText = showType ? S.of(context)!.radio : S.of(context)!.radio;
+
+    return RepaintBoundary(
+      child: ListTile(
+        key: ValueKey(radio.uri ?? radio.itemId),
+        leading: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceVariant,
+            borderRadius: BorderRadius.circular(8),
+            image: imageUrl != null
+                ? DecorationImage(
+                    image: CachedNetworkImageProvider(imageUrl),
+                    fit: BoxFit.cover,
+                  )
+                : null,
+          ),
+          child: imageUrl == null
+              ? Icon(Icons.radio_rounded, color: colorScheme.onSurfaceVariant)
+              : null,
+        ),
+        title: Text(
+          radio.name,
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          subtitleText,
+          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        onTap: () => _playRadioStation(radio),
+      ),
+    );
+  }
+
+  Future<void> _playRadioStation(MediaItem station) async {
+    final maProvider = context.read<MusicAssistantProvider>();
+
+    if (maProvider.selectedPlayer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(S.of(context)!.noPlayerSelected)),
+      );
+      return;
+    }
+
+    try {
+      await maProvider.api?.playRadioStation(
+        maProvider.selectedPlayer!.playerId,
+        station,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(S.of(context)!.playingRadioStation(station.name)),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to play radio station: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _playTrack(Track track) async {

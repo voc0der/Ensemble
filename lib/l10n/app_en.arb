@@ -660,6 +660,16 @@
     "description": "Radio button label"
   },
 
+  "playingRadioStation": "Playing {name}",
+  "@playingRadioStation": {
+    "description": "Status when playing radio station",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+
   "addedToQueue": "Added to queue",
   "@addedToQueue": {
     "description": "Confirmation when item added to queue"
