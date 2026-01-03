@@ -13,6 +13,7 @@ import '../constants/hero_tags.dart';
 import '../theme/theme_provider.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/common/disconnected_state.dart';
+import '../widgets/letter_scrollbar.dart';
 import '../services/settings_service.dart';
 import '../services/metadata_service.dart';
 import '../services/debug_logger.dart';
@@ -83,6 +84,14 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   bool _isFilterBarVisible = true;
   double _lastScrollOffset = 0;
   static const double _scrollThreshold = 10.0;
+
+  // Scroll controllers for letter scrollbar
+  final ScrollController _artistsScrollController = ScrollController();
+  final ScrollController _albumsScrollController = ScrollController();
+  final ScrollController _playlistsScrollController = ScrollController();
+  final ScrollController _authorsScrollController = ScrollController();
+  final ScrollController _audiobooksScrollController = ScrollController();
+  final ScrollController _seriesScrollController = ScrollController();
 
   int get _tabCount {
     switch (_selectedMediaType) {
@@ -448,6 +457,12 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   void dispose() {
     _pageController.dispose();
     _selectedTabIndex.dispose();
+    _artistsScrollController.dispose();
+    _albumsScrollController.dispose();
+    _playlistsScrollController.dispose();
+    _authorsScrollController.dispose();
+    _audiobooksScrollController.dispose();
+    _seriesScrollController.dispose();
     super.dispose();
   }
 
@@ -1094,35 +1109,41 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       color: colorScheme.primary,
       backgroundColor: colorScheme.surface,
       onRefresh: () => _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null),
-      child: _authorsViewMode == 'list'
-          ? ListView.builder(
-              key: const PageStorageKey<String>('books_authors_list'),
-              cacheExtent: 500,
-              addAutomaticKeepAlives: false,
-              addRepaintBoundaries: false,
-              itemCount: sortedAuthors.length,
-              padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.withMiniPlayer),
-              itemBuilder: (context, index) {
-                return _buildAuthorListTile(sortedAuthors[index], authorMap[sortedAuthors[index]]!, l10n);
-              },
-            )
-          : GridView.builder(
-              key: const PageStorageKey<String>('books_authors_grid'),
-              cacheExtent: 500,
-              addAutomaticKeepAlives: false,
-              addRepaintBoundaries: false,
-              padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _authorsViewMode == 'grid3' ? 3 : 2,
-                childAspectRatio: _authorsViewMode == 'grid3' ? 0.75 : 0.80, // Match music artists
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+      child: LetterScrollbar(
+        controller: _authorsScrollController,
+        items: sortedAuthors,
+        child: _authorsViewMode == 'list'
+            ? ListView.builder(
+                controller: _authorsScrollController,
+                key: const PageStorageKey<String>('books_authors_list'),
+                cacheExtent: 500,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: false,
+                itemCount: sortedAuthors.length,
+                padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.withMiniPlayer),
+                itemBuilder: (context, index) {
+                  return _buildAuthorListTile(sortedAuthors[index], authorMap[sortedAuthors[index]]!, l10n);
+                },
+              )
+            : GridView.builder(
+                controller: _authorsScrollController,
+                key: const PageStorageKey<String>('books_authors_grid'),
+                cacheExtent: 500,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: false,
+                padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: _authorsViewMode == 'grid3' ? 3 : 2,
+                  childAspectRatio: _authorsViewMode == 'grid3' ? 0.75 : 0.80, // Match music artists
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: sortedAuthors.length,
+                itemBuilder: (context, index) {
+                  return _buildAuthorCard(sortedAuthors[index], authorMap[sortedAuthors[index]]!, l10n);
+                },
               ),
-              itemCount: sortedAuthors.length,
-              itemBuilder: (context, index) {
-                return _buildAuthorCard(sortedAuthors[index], authorMap[sortedAuthors[index]]!, l10n);
-              },
-            ),
+      ),
     );
   }
 
@@ -1428,40 +1449,49 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       audiobooks.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     }
 
+    // Get book names for letter scrollbar (only useful when sorted alphabetically)
+    final audiobookNames = audiobooks.map((a) => a.name).toList();
+
     // Match music albums tab layout - no header, direct list/grid
     return RefreshIndicator(
       color: colorScheme.primary,
       backgroundColor: colorScheme.surface,
       onRefresh: () => _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null),
-      child: _audiobooksViewMode == 'list'
-          ? ListView.builder(
-              key: PageStorageKey<String>('all_books_list_${_showFavoritesOnly ? 'fav' : 'all'}'),
-              cacheExtent: 500,
-              addAutomaticKeepAlives: false,
-              addRepaintBoundaries: false,
-              itemCount: audiobooks.length,
-              padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.withMiniPlayer),
-              itemBuilder: (context, index) {
-                return _buildAudiobookListTile(context, audiobooks[index], maProvider);
-              },
-            )
-          : GridView.builder(
-              key: PageStorageKey<String>('all_books_grid_${_showFavoritesOnly ? 'fav' : 'all'}_$_audiobooksViewMode'),
-              cacheExtent: 500,
-              addAutomaticKeepAlives: false,
-              addRepaintBoundaries: false,
-              padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _audiobooksViewMode == 'grid3' ? 3 : 2,
-                childAspectRatio: _audiobooksViewMode == 'grid3' ? 0.70 : 0.75, // Match music albums
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+      child: LetterScrollbar(
+        controller: _audiobooksScrollController,
+        items: audiobookNames,
+        child: _audiobooksViewMode == 'list'
+            ? ListView.builder(
+                controller: _audiobooksScrollController,
+                key: PageStorageKey<String>('all_books_list_${_showFavoritesOnly ? 'fav' : 'all'}'),
+                cacheExtent: 500,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: false,
+                itemCount: audiobooks.length,
+                padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.withMiniPlayer),
+                itemBuilder: (context, index) {
+                  return _buildAudiobookListTile(context, audiobooks[index], maProvider);
+                },
+              )
+            : GridView.builder(
+                controller: _audiobooksScrollController,
+                key: PageStorageKey<String>('all_books_grid_${_showFavoritesOnly ? 'fav' : 'all'}_$_audiobooksViewMode'),
+                cacheExtent: 500,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: false,
+                padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: _audiobooksViewMode == 'grid3' ? 3 : 2,
+                  childAspectRatio: _audiobooksViewMode == 'grid3' ? 0.70 : 0.75, // Match music albums
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: audiobooks.length,
+                itemBuilder: (context, index) {
+                  return _buildAudiobookCard(context, audiobooks[index], maProvider);
+                },
               ),
-              itemCount: audiobooks.length,
-              itemBuilder: (context, index) {
-                return _buildAudiobookCard(context, audiobooks[index], maProvider);
-              },
-            ),
+      ),
     );
   }
 
@@ -1642,36 +1672,47 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       );
     }
 
+    // Sort series and get names for letter scrollbar
+    final sortedSeries = List<AudiobookSeries>.from(_series)
+      ..sort((a, b) => a.name.compareTo(b.name));
+    final seriesNames = sortedSeries.map((s) => s.name).toList();
+
     // Series view - supports grid2, grid3, and list modes
     return RefreshIndicator(
       onRefresh: _loadSeries,
-      child: _seriesViewMode == 'list'
-          ? ListView.builder(
-              key: const PageStorageKey<String>('series_list'),
-              cacheExtent: 500,
-              addAutomaticKeepAlives: false,
-              addRepaintBoundaries: false,
-              itemCount: _series.length,
-              padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.withMiniPlayer),
-              itemBuilder: (context, index) {
-                return _buildSeriesListTile(context, _series[index], maProvider, l10n);
-              },
-            )
-          : GridView.builder(
-              key: PageStorageKey<String>('series_grid_$_seriesViewMode'),
-              padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _seriesViewMode == 'grid3' ? 3 : 2,
-                childAspectRatio: _seriesViewMode == 'grid3' ? 0.70 : 0.75,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+      child: LetterScrollbar(
+        controller: _seriesScrollController,
+        items: seriesNames,
+        child: _seriesViewMode == 'list'
+            ? ListView.builder(
+                controller: _seriesScrollController,
+                key: const PageStorageKey<String>('series_list'),
+                cacheExtent: 500,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: false,
+                itemCount: sortedSeries.length,
+                padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.withMiniPlayer),
+                itemBuilder: (context, index) {
+                  return _buildSeriesListTile(context, sortedSeries[index], maProvider, l10n);
+                },
+              )
+            : GridView.builder(
+                controller: _seriesScrollController,
+                key: PageStorageKey<String>('series_grid_$_seriesViewMode'),
+                padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: _seriesViewMode == 'grid3' ? 3 : 2,
+                  childAspectRatio: _seriesViewMode == 'grid3' ? 0.70 : 0.75,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: sortedSeries.length,
+                itemBuilder: (context, index) {
+                  final series = sortedSeries[index];
+                  return _buildSeriesCard(context, series, maProvider, l10n, maxCoverGridSize: _seriesViewMode == 'grid3' ? 2 : 3);
+                },
               ),
-              itemCount: _series.length,
-              itemBuilder: (context, index) {
-                final series = _series[index];
-                return _buildSeriesCard(context, series, maProvider, l10n, maxCoverGridSize: _seriesViewMode == 'grid3' ? 2 : 3);
-              },
-            ),
+      ),
     );
   }
 
@@ -2144,45 +2185,56 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           );
         }
 
+        // Sort artists alphabetically for letter scrollbar
+        final sortedArtists = List<Artist>.from(artists)
+          ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+        final artistNames = sortedArtists.map((a) => a.name ?? '').toList();
+
         return RefreshIndicator(
           color: colorScheme.primary,
           backgroundColor: colorScheme.surface,
           onRefresh: () async => context.read<MusicAssistantProvider>().loadLibrary(),
-          child: _artistsViewMode == 'list'
-              ? ListView.builder(
-                  key: PageStorageKey<String>('library_artists_list_${_showFavoritesOnly ? 'fav' : 'all'}_$_artistsViewMode'),
-                  cacheExtent: 500,
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: false,
-                  itemCount: artists.length,
-                  padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.navBarOnly),
-                  itemBuilder: (context, index) {
-                    final artist = artists[index];
-                    return _buildArtistTile(
-                      context,
-                      artist,
-                      key: ValueKey(artist.uri ?? artist.itemId),
-                    );
-                  },
-                )
-              : GridView.builder(
-                  key: PageStorageKey<String>('library_artists_grid_${_showFavoritesOnly ? 'fav' : 'all'}_$_artistsViewMode'),
-                  cacheExtent: 500,
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: false,
-                  padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.navBarOnly),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: _artistsViewMode == 'grid3' ? 3 : 2,
-                    childAspectRatio: _artistsViewMode == 'grid3' ? 0.75 : 0.80,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
+          child: LetterScrollbar(
+            controller: _artistsScrollController,
+            items: artistNames,
+            child: _artistsViewMode == 'list'
+                ? ListView.builder(
+                    controller: _artistsScrollController,
+                    key: PageStorageKey<String>('library_artists_list_${_showFavoritesOnly ? 'fav' : 'all'}_$_artistsViewMode'),
+                    cacheExtent: 500,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: false,
+                    itemCount: sortedArtists.length,
+                    padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.navBarOnly),
+                    itemBuilder: (context, index) {
+                      final artist = sortedArtists[index];
+                      return _buildArtistTile(
+                        context,
+                        artist,
+                        key: ValueKey(artist.uri ?? artist.itemId),
+                      );
+                    },
+                  )
+                : GridView.builder(
+                    controller: _artistsScrollController,
+                    key: PageStorageKey<String>('library_artists_grid_${_showFavoritesOnly ? 'fav' : 'all'}_$_artistsViewMode'),
+                    cacheExtent: 500,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: false,
+                    padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.navBarOnly),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: _artistsViewMode == 'grid3' ? 3 : 2,
+                      childAspectRatio: _artistsViewMode == 'grid3' ? 0.75 : 0.80,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    itemCount: sortedArtists.length,
+                    itemBuilder: (context, index) {
+                      final artist = sortedArtists[index];
+                      return _buildArtistGridCard(context, artist);
+                    },
                   ),
-                  itemCount: artists.length,
-                  itemBuilder: (context, index) {
-                    final artist = artists[index];
-                    return _buildArtistGridCard(context, artist);
-                  },
-                ),
+          ),
         );
       },
     );
@@ -2329,45 +2381,56 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           );
         }
 
+        // Sort albums alphabetically for letter scrollbar
+        final sortedAlbums = List<Album>.from(albums)
+          ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+        final albumNames = sortedAlbums.map((a) => a.name ?? '').toList();
+
         return RefreshIndicator(
           color: colorScheme.primary,
           backgroundColor: colorScheme.surface,
           onRefresh: () async => context.read<MusicAssistantProvider>().loadLibrary(),
-          child: _albumsViewMode == 'list'
-              ? ListView.builder(
-                  key: PageStorageKey<String>('library_albums_list_${_showFavoritesOnly ? 'fav' : 'all'}_$_albumsViewMode'),
-                  cacheExtent: 500,
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: false,
-                  padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.navBarOnly),
-                  itemCount: albums.length,
-                  itemBuilder: (context, index) {
-                    final album = albums[index];
-                    return _buildAlbumListTile(context, album);
-                  },
-                )
-              : GridView.builder(
-                  key: PageStorageKey<String>('library_albums_grid_${_showFavoritesOnly ? 'fav' : 'all'}_$_albumsViewMode'),
-                  cacheExtent: 500,
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: false,
-                  padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.navBarOnly),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: _albumsViewMode == 'grid3' ? 3 : 2,
-                    childAspectRatio: _albumsViewMode == 'grid3' ? 0.70 : 0.75,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
+          child: LetterScrollbar(
+            controller: _albumsScrollController,
+            items: albumNames,
+            child: _albumsViewMode == 'list'
+                ? ListView.builder(
+                    controller: _albumsScrollController,
+                    key: PageStorageKey<String>('library_albums_list_${_showFavoritesOnly ? 'fav' : 'all'}_$_albumsViewMode'),
+                    cacheExtent: 500,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: false,
+                    padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.navBarOnly),
+                    itemCount: sortedAlbums.length,
+                    itemBuilder: (context, index) {
+                      final album = sortedAlbums[index];
+                      return _buildAlbumListTile(context, album);
+                    },
+                  )
+                : GridView.builder(
+                    controller: _albumsScrollController,
+                    key: PageStorageKey<String>('library_albums_grid_${_showFavoritesOnly ? 'fav' : 'all'}_$_albumsViewMode'),
+                    cacheExtent: 500,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: false,
+                    padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.navBarOnly),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: _albumsViewMode == 'grid3' ? 3 : 2,
+                      childAspectRatio: _albumsViewMode == 'grid3' ? 0.70 : 0.75,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    itemCount: sortedAlbums.length,
+                    itemBuilder: (context, index) {
+                      final album = sortedAlbums[index];
+                      return AlbumCard(
+                        key: ValueKey(album.uri ?? album.itemId),
+                        album: album,
+                        heroTagSuffix: 'library_grid',
+                      );
+                    },
                   ),
-                  itemCount: albums.length,
-                  itemBuilder: (context, index) {
-                    final album = albums[index];
-                    return AlbumCard(
-                      key: ValueKey(album.uri ?? album.itemId),
-                      album: album,
-                      heroTagSuffix: 'library_grid',
-                    );
-                  },
-                ),
+          ),
         );
       },
     );
@@ -2455,41 +2518,52 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       return EmptyState.playlists(context: context, onRefresh: () => _loadPlaylists());
     }
 
+    // Sort playlists alphabetically for letter scrollbar
+    final sortedPlaylists = List<Playlist>.from(_playlists)
+      ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+    final playlistNames = sortedPlaylists.map((p) => p.name ?? '').toList();
+
     return RefreshIndicator(
       color: colorScheme.primary,
       backgroundColor: colorScheme.surface,
       onRefresh: () => _loadPlaylists(favoriteOnly: _showFavoritesOnly ? true : null),
-      child: _playlistsViewMode == 'list'
-          ? ListView.builder(
-              key: PageStorageKey<String>('library_playlists_list_${_showFavoritesOnly ? 'fav' : 'all'}_$_playlistsViewMode'),
-              cacheExtent: 500,
-              addAutomaticKeepAlives: false,
-              addRepaintBoundaries: false,
-              itemCount: _playlists.length,
-              padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.navBarOnly),
-              itemBuilder: (context, index) {
-                final playlist = _playlists[index];
-                return _buildPlaylistTile(context, playlist, l10n);
-              },
-            )
-          : GridView.builder(
-              key: PageStorageKey<String>('library_playlists_grid_${_showFavoritesOnly ? 'fav' : 'all'}_$_playlistsViewMode'),
-              cacheExtent: 500,
-              addAutomaticKeepAlives: false,
-              addRepaintBoundaries: false,
-              padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.navBarOnly),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _playlistsViewMode == 'grid3' ? 3 : 2,
-                childAspectRatio: _playlistsViewMode == 'grid3' ? 0.75 : 0.80,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+      child: LetterScrollbar(
+        controller: _playlistsScrollController,
+        items: playlistNames,
+        child: _playlistsViewMode == 'list'
+            ? ListView.builder(
+                controller: _playlistsScrollController,
+                key: PageStorageKey<String>('library_playlists_list_${_showFavoritesOnly ? 'fav' : 'all'}_$_playlistsViewMode'),
+                cacheExtent: 500,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: false,
+                itemCount: sortedPlaylists.length,
+                padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: BottomSpacing.navBarOnly),
+                itemBuilder: (context, index) {
+                  final playlist = sortedPlaylists[index];
+                  return _buildPlaylistTile(context, playlist, l10n);
+                },
+              )
+            : GridView.builder(
+                controller: _playlistsScrollController,
+                key: PageStorageKey<String>('library_playlists_grid_${_showFavoritesOnly ? 'fav' : 'all'}_$_playlistsViewMode'),
+                cacheExtent: 500,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: false,
+                padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.navBarOnly),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: _playlistsViewMode == 'grid3' ? 3 : 2,
+                  childAspectRatio: _playlistsViewMode == 'grid3' ? 0.75 : 0.80,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: sortedPlaylists.length,
+                itemBuilder: (context, index) {
+                  final playlist = sortedPlaylists[index];
+                  return _buildPlaylistGridCard(context, playlist, l10n);
+                },
               ),
-              itemCount: _playlists.length,
-              itemBuilder: (context, index) {
-                final playlist = _playlists[index];
-                return _buildPlaylistGridCard(context, playlist, l10n);
-              },
-            ),
+      ),
     );
   }
 
