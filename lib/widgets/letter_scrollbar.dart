@@ -196,8 +196,10 @@ class _LetterScrollbarState extends State<LetterScrollbar> {
 
                 return Stack(
                   children: [
-                    // Thumb that tracks scroll position
-                    Positioned(
+                    // Thumb that tracks scroll position - use AnimatedPositioned for smooth motion
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 50),
+                      curve: Curves.linear,
                       top: thumbTop,
                       right: 4,
                       child: AnimatedContainer(
