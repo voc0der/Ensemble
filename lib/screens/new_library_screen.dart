@@ -93,6 +93,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   // Restoration: Remember selected tab across app restarts
   final RestorableInt _selectedTabIndex = RestorableInt(0);
+  // PERF: Separate ValueNotifier for efficient UI updates (RestorableInt doesn't implement ValueListenable)
+  final ValueNotifier<int> _tabIndexNotifier = ValueNotifier<int>(0);
 
   // Scroll-to-hide filter bars
   bool _isFilterBarVisible = true;
@@ -127,6 +129,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   @override
   void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
     registerForRestoration(_selectedTabIndex, 'selected_tab_index');
+    // Sync ValueNotifier with restored value
+    _tabIndexNotifier.value = _selectedTabIndex.value;
     // Apply restored tab index after PageController is created
     if (_selectedTabIndex.value < _tabCount) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -398,6 +402,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     // Reset to first category when media type changes
     if (_selectedTabIndex.value >= _tabCount) {
       _selectedTabIndex.value = 0;
+      _tabIndexNotifier.value = 0;
     }
     // Jump to the selected category without animation
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -417,6 +422,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       _selectedMediaType = type;
     });
     _selectedTabIndex.value = 0; // Reset to first category
+    _tabIndexNotifier.value = 0;
     _resetCategoryIndex();
     // Load audiobooks when switching to books tab
     if (type == LibraryMediaType.books) {
@@ -439,9 +445,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   }
 
   void _onPageChanged(int index) {
-    // Only update ValueNotifier - no setState needed
-    // ValueListenableBuilder will rebuild only the filter chips
+    // Update both: RestorableInt for persistence, ValueNotifier for UI
+    // No setState needed - ValueListenableBuilder will rebuild only the filter chips
     _selectedTabIndex.value = index;
+    _tabIndexNotifier.value = index;
   }
 
   /// Handle scroll notifications to hide/show filter bars
@@ -491,8 +498,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         curve: Curves.easeOutCubic,
       );
     }
-    // Only update ValueNotifier - ValueListenableBuilder handles chip rebuild
+    // Update both for persistence and UI
     _selectedTabIndex.value = index;
+    _tabIndexNotifier.value = index;
   }
 
   @override
@@ -500,6 +508,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     _colorExtractionDebounce?.cancel();
     _pageController.dispose();
     _selectedTabIndex.dispose();
+    _tabIndexNotifier.dispose();
     _artistsScrollController.dispose();
     _albumsScrollController.dispose();
     _playlistsScrollController.dispose();
@@ -983,7 +992,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: ValueListenableBuilder<int>(
-                      valueListenable: _selectedTabIndex,
+                      valueListenable: _tabIndexNotifier,
                       builder: (context, selectedIndex, _) {
                         return _buildCategoryChips(colorScheme, l10n, selectedIndex);
                       },
