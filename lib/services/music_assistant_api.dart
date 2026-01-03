@@ -605,9 +605,9 @@ class MusicAssistantAPI {
     try {
       _logger.log('🎙️ Getting episodes for podcast: $podcastId, provider: $provider');
 
-      // Method 1: Try to get podcast details which might include episodes
+      // Use the correct endpoint: music/podcasts/podcast_episodes
       final response = await _sendCommand(
-        'music/podcasts/get',
+        'music/podcasts/podcast_episodes',
         args: {
           'item_id': podcastId,
           if (provider != null) 'provider_instance_id_or_domain': provider,
@@ -616,153 +616,13 @@ class MusicAssistantAPI {
 
       _logger.log('🎙️ Response keys: ${response.keys.toList()}');
 
-      final result = response['result'] as Map<String, dynamic>?;
-      if (result != null) {
-        _logger.log('🎙️ Result keys: ${result.keys.toList()}');
-        _logger.log('🎙️ total_episodes: ${result['total_episodes']}');
-
-        // Check for episodes in response
-        List<dynamic>? episodes;
-        for (final key in ['episodes', 'items', 'podcast_episodes', 'children', 'tracks']) {
-          if (result[key] is List && (result[key] as List).isNotEmpty) {
-            episodes = result[key] as List<dynamic>;
-            _logger.log('🎙️ Found episodes under key: $key (${episodes.length} items)');
-            break;
-          }
-        }
-
-        if (episodes != null && episodes.isNotEmpty) {
-          return episodes
-              .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
-
-        // Check metadata for episodes
-        final metadata = result['metadata'] as Map<String, dynamic>?;
-        if (metadata != null) {
-          _logger.log('🎙️ Metadata keys: ${metadata.keys.toList()}');
-          for (final key in ['episodes', 'items', 'podcast_episodes']) {
-            if (metadata[key] is List && (metadata[key] as List).isNotEmpty) {
-              episodes = metadata[key] as List<dynamic>;
-              _logger.log('🎙️ Found episodes in metadata.$key (${episodes.length} items)');
-              return episodes
-                  .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
-                  .toList();
-            }
-          }
-        }
-
-        // Try using provider_mappings to get from source provider
-        final providerMappings = result['provider_mappings'] as List<dynamic>?;
-        if (providerMappings != null && providerMappings.isNotEmpty) {
-          _logger.log('🎙️ Provider mappings: ${providerMappings.length}');
-          for (final mapping in providerMappings) {
-            if (mapping is Map<String, dynamic>) {
-              final providerInstance = mapping['provider_instance'] as String?;
-              final mappingItemId = mapping['item_id'] as String?;
-              _logger.log('🎙️ Mapping: provider=$providerInstance, item_id=$mappingItemId');
-
-              if (providerInstance != null && mappingItemId != null) {
-                // Try to get podcast from source provider with full details
-                try {
-                  final providerResponse = await _sendCommand(
-                    'music/podcasts/get',
-                    args: {
-                      'item_id': mappingItemId,
-                      'provider_instance_id_or_domain': providerInstance,
-                    },
-                  );
-                  final providerResult = providerResponse['result'] as Map<String, dynamic>?;
-                  if (providerResult != null) {
-                    _logger.log('🎙️ Provider result keys: ${providerResult.keys.toList()}');
-                    for (final key in ['episodes', 'items', 'podcast_episodes']) {
-                      if (providerResult[key] is List && (providerResult[key] as List).isNotEmpty) {
-                        episodes = providerResult[key] as List<dynamic>;
-                        _logger.log('🎙️ Found ${episodes.length} episodes from provider');
-                        return episodes
-                            .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
-                            .toList();
-                      }
-                    }
-                  }
-                } catch (e) {
-                  _logger.log('🎙️ Provider fetch failed: $e');
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Method 2: Try browse endpoint with podcast URI from response
-      _logger.log('🎙️ No episodes in details, trying browse...');
-
-      // Use the podcast's actual URI from the response, not constructed
-      final podcastActualUri = result?['uri'] as String?;
-      _logger.log('🎙️ Podcast actual URI: $podcastActualUri');
-
-      if (podcastActualUri != null && podcastActualUri.isNotEmpty) {
-        final browseResponse = await _sendCommand(
-          'music/browse',
-          args: {'path': podcastActualUri},
-        );
-
-        final browseResult = browseResponse['result'] as List<dynamic>?;
-        if (browseResult != null && browseResult.isNotEmpty) {
-          _logger.log('🎙️ Browse (actual URI) found ${browseResult.length} items');
-
-          // Filter out folder navigation items (like "..")
-          final episodeItems = browseResult.where((item) {
-            if (item is Map<String, dynamic>) {
-              final mediaType = item['media_type'] as String?;
-              final name = item['name'] as String?;
-              return mediaType != 'folder' && name != '..';
-            }
-            return false;
-          }).toList();
-
-          if (episodeItems.isNotEmpty) {
-            _logger.log('🎙️ Found ${episodeItems.length} actual episodes');
-            final firstItem = episodeItems.first as Map<String, dynamic>;
-            _logger.log('🎙️ First episode keys: ${firstItem.keys.toList()}');
-            _logger.log('🎙️ First episode name: ${firstItem['name']}');
-            _logger.log('🎙️ First episode uri: ${firstItem['uri']}');
-
-            return _parseBrowseEpisodes(episodeItems);
-          }
-        }
-      }
-
-      // Method 3: Try podcast_episodes library endpoint
-      _logger.log('🎙️ Trying podcast_episodes library...');
-      final episodesResponse = await _sendCommand(
-        'music/podcast_episodes/library_items',
-        args: {
-          if (limit != null) 'limit': limit,
-          if (offset != null) 'offset': offset,
-        },
-      );
-
-      final episodesItems = episodesResponse['items'] as List<dynamic>? ??
-                           episodesResponse['result'] as List<dynamic>?;
-      if (episodesItems != null && episodesItems.isNotEmpty) {
-        // Filter episodes by podcast ID
-        final filtered = episodesItems.where((item) {
-          if (item is Map<String, dynamic>) {
-            // Check if episode belongs to this podcast
-            final albumId = item['album']?['item_id'] as String?;
-            final parentId = item['parent_item_id'] as String?;
-            return albumId == podcastId || parentId == podcastId;
-          }
-          return false;
-        }).toList();
-
-        _logger.log('🎙️ Filtered ${filtered.length} episodes for podcast $podcastId');
-        if (filtered.isNotEmpty) {
-          return filtered
-              .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
+      // Response should be a list of episodes
+      final episodes = response['result'] as List<dynamic>?;
+      if (episodes != null && episodes.isNotEmpty) {
+        _logger.log('🎙️ Found ${episodes.length} episodes');
+        return episodes
+            .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
+            .toList();
       }
 
       _logger.log('🎙️ No episodes found for podcast');
