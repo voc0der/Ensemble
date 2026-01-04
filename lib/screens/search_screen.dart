@@ -2638,35 +2638,40 @@ class SearchScreenState extends State<SearchScreen> {
       }
     }
 
-    try {
-      final success = await maProvider.addToLibrary(
-        mediaType: mediaTypeKey,
-        provider: actualProvider,
-        itemId: actualItemId,
+    // OPTIMISTIC UPDATE: Update UI immediately, don't wait for API
+    final itemKey = '${item.mediaType.name}:${item.itemId}';
+    _addedToLibrary.add(itemKey);
+    _removedFromLibrary.remove(itemKey);
+    setState(() {});
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(S.of(context)!.addedToLibrary),
+          duration: const Duration(seconds: 1),
+        ),
       );
-
-      if (success && mounted) {
-        // Track locally so UI updates immediately
-        final itemKey = '${item.mediaType.name}:${item.itemId}';
-        _addedToLibrary.add(itemKey);
-        _removedFromLibrary.remove(itemKey);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(S.of(context)!.addedToLibrary),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-        setState(() {});
-      }
-    } catch (e) {
-      _logger.log('Error adding to library: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add to library: $e')),
-        );
-      }
     }
+
+    // Fire and forget - API call happens in background
+    // Even if it times out, MA usually processes it successfully
+    maProvider.addToLibrary(
+      mediaType: mediaTypeKey,
+      provider: actualProvider,
+      itemId: actualItemId,
+    ).catchError((e) {
+      _logger.log('Error adding to library: $e');
+      // Only revert on actual errors, not timeouts (MA usually succeeds anyway)
+      if (!e.toString().contains('timeout')) {
+        _addedToLibrary.remove(itemKey);
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to add to library')),
+          );
+        }
+      }
+    });
   }
 
   /// Remove media item from library
@@ -2694,34 +2699,38 @@ class SearchScreenState extends State<SearchScreen> {
       return;
     }
 
-    try {
-      final success = await maProvider.removeFromLibrary(
-        mediaType: mediaTypeKey,
-        libraryItemId: libraryItemId,
+    // OPTIMISTIC UPDATE: Update UI immediately, don't wait for API
+    final itemKey = '${item.mediaType.name}:${item.itemId}';
+    _removedFromLibrary.add(itemKey);
+    _addedToLibrary.remove(itemKey);
+    setState(() {});
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(S.of(context)!.removedFromLibrary),
+          duration: const Duration(seconds: 1),
+        ),
       );
-
-      if (success && mounted) {
-        // Track locally so UI updates immediately
-        final itemKey = '${item.mediaType.name}:${item.itemId}';
-        _removedFromLibrary.add(itemKey);
-        _addedToLibrary.remove(itemKey);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(S.of(context)!.removedFromLibrary),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-        setState(() {});
-      }
-    } catch (e) {
-      _logger.log('Error removing from library: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to remove from library: $e')),
-        );
-      }
     }
+
+    // Fire and forget - API call happens in background
+    maProvider.removeFromLibrary(
+      mediaType: mediaTypeKey,
+      libraryItemId: libraryItemId,
+    ).catchError((e) {
+      _logger.log('Error removing from library: $e');
+      // Only revert on actual errors, not timeouts
+      if (!e.toString().contains('timeout')) {
+        _removedFromLibrary.remove(itemKey);
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to remove from library')),
+          );
+        }
+      }
+    });
   }
 
   /// Play artist radio on current player
