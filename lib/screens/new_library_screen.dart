@@ -2281,8 +2281,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               itemCount: podcasts.length,
               itemBuilder: (context, index) {
                 final podcast = podcasts[index];
-                // Use getPodcastImageUrl for better quality (uses episode covers)
-                final imageUrl = maProvider.getPodcastImageUrl(podcast);
+                // Use stable URL for hero animation consistency
+                // The iTunes cache can change URLs mid-session causing hero mismatches
+                final imageUrl = maProvider.getPodcastImageUrl(podcast, useStableUrl: true);
 
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -2301,8 +2302,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                                 width: 56,
                                 height: 56,
                                 fit: BoxFit.cover,
-                                memCacheWidth: cacheSize,
-                                memCacheHeight: cacheSize,
+                                // No memCacheWidth - decode at native resolution for smooth hero
                                 fadeInDuration: Duration.zero,
                                 fadeOutDuration: Duration.zero,
                                 placeholder: (_, __) => const SizedBox(),
@@ -2362,8 +2362,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildPodcastCard(MediaItem podcast, MusicAssistantProvider maProvider, int cacheSize) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    // Use getPodcastImageUrl for better quality (uses episode covers)
-    final imageUrl = maProvider.getPodcastImageUrl(podcast);
+    // Use stable URL for hero animation consistency
+    final imageUrl = maProvider.getPodcastImageUrl(podcast, useStableUrl: true);
 
     return GestureDetector(
       onTap: () => _openPodcastDetails(podcast, maProvider, imageUrl),
@@ -2383,8 +2383,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                       ? CachedNetworkImage(
                           imageUrl: imageUrl,
                           fit: BoxFit.cover,
-                          memCacheWidth: cacheSize,
-                          memCacheHeight: cacheSize,
+                          // No memCacheWidth - decode at native resolution for smooth hero
                           fadeInDuration: Duration.zero,
                           fadeOutDuration: Duration.zero,
                           placeholder: (_, __) => const SizedBox(),
@@ -2446,7 +2445,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final podcastsToCache = podcasts.take(10);
 
     for (final podcast in podcastsToCache) {
-      final imageUrl = maProvider.getPodcastImageUrl(podcast, size: 256);
+      // Use stable URL to match what's displayed in library
+      final imageUrl = maProvider.getPodcastImageUrl(podcast, useStableUrl: true);
       if (imageUrl != null) {
         // Use CachedNetworkImageProvider to warm the cache
         precacheImage(
