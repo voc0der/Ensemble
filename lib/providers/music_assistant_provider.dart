@@ -3941,6 +3941,7 @@ class MusicAssistantProvider with ChangeNotifier {
         limit: limit ?? LibraryConstants.maxLibraryItems,
         offset: offset,
         search: search,
+        albumArtistsOnly: false, // Show ALL library artists, not just those with albums
       );
 
       _isLoading = false;

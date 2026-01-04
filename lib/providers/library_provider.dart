@@ -139,7 +139,7 @@ class LibraryProvider with ChangeNotifier {
       notifyListeners();
 
       final results = await Future.wait([
-        _api!.getArtists(limit: LibraryConstants.maxLibraryItems),
+        _api!.getArtists(limit: LibraryConstants.maxLibraryItems, albumArtistsOnly: false),
         _api!.getAlbums(limit: LibraryConstants.maxLibraryItems),
         _api!.getTracks(limit: LibraryConstants.maxLibraryItems),
       ]);
@@ -170,6 +170,7 @@ class LibraryProvider with ChangeNotifier {
         limit: limit ?? LibraryConstants.maxLibraryItems,
         offset: offset,
         search: search,
+        albumArtistsOnly: false, // Show ALL library artists, not just those with albums
       );
 
       _isLoading = false;

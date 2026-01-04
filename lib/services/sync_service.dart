@@ -153,7 +153,7 @@ class SyncService with ChangeNotifier {
       // Fetch fresh data from MA API (in parallel for speed)
       final results = await Future.wait([
         api.getAlbums(limit: 1000),
-        api.getArtists(limit: 1000),
+        api.getArtists(limit: 1000, albumArtistsOnly: false),
         api.getAudiobooks(limit: 1000),
         api.getPlaylists(limit: 1000),
       ]);
