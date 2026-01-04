@@ -119,6 +119,10 @@ class SearchScreenState extends State<SearchScreen> {
   String? _expandedPodcastId; // Podcast ID for expanded quick actions
   bool _hasSearchText = false; // PERF: Track separately to avoid rebuild on every keystroke
 
+  // Track library changes locally since item data doesn't update immediately
+  final Set<String> _addedToLibrary = {};
+  final Set<String> _removedFromLibrary = {};
+
   // PERF: Cache list items per filter to avoid rebuilding during PageView animation
   Map<String, List<_ListItem>> _cachedListItems = {};
   // PERF: Cache available filters to avoid recalculating during build
@@ -2583,7 +2587,15 @@ class SearchScreenState extends State<SearchScreen> {
   }
 
   /// Check if a media item is in the library
+  /// Uses local tracking to reflect changes made in this session
   bool _isInLibrary(MediaItem item) {
+    final itemKey = '${item.mediaType.name}:${item.itemId}';
+
+    // Check local state first (overrides server state for this session)
+    if (_addedToLibrary.contains(itemKey)) return true;
+    if (_removedFromLibrary.contains(itemKey)) return false;
+
+    // Fall back to server state
     if (item.provider == 'library') return true;
     return item.providerMappings?.any((m) => m.providerInstance == 'library') ?? false;
   }
@@ -2634,14 +2646,17 @@ class SearchScreenState extends State<SearchScreen> {
       );
 
       if (success && mounted) {
+        // Track locally so UI updates immediately
+        final itemKey = '${item.mediaType.name}:${item.itemId}';
+        _addedToLibrary.add(itemKey);
+        _removedFromLibrary.remove(itemKey);
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(S.of(context)!.addedToLibrary),
             duration: const Duration(seconds: 1),
           ),
         );
-        // Trigger a re-search to update the library status
-        // For now just update UI optimistically by rebuilding
         setState(() {});
       }
     } catch (e) {
@@ -2686,13 +2701,17 @@ class SearchScreenState extends State<SearchScreen> {
       );
 
       if (success && mounted) {
+        // Track locally so UI updates immediately
+        final itemKey = '${item.mediaType.name}:${item.itemId}';
+        _removedFromLibrary.add(itemKey);
+        _addedToLibrary.remove(itemKey);
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(S.of(context)!.removedFromLibrary),
             duration: const Duration(seconds: 1),
           ),
         );
-        // Trigger a re-search to update the library status
         setState(() {});
       }
     } catch (e) {
