@@ -1700,6 +1700,11 @@ class MusicAssistantAPI {
                   .toList() ??
               [];
 
+          final podcasts = (result['podcasts'] as List<dynamic>?)
+                  ?.map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
+                  .toList() ??
+              [];
+
           // Deduplicate results by name
           // MA returns both library items and provider items for the same content
           // Prefer library items (provider='library') as they have all provider mappings
@@ -1710,16 +1715,52 @@ class MusicAssistantAPI {
             'playlists': _deduplicateResults(playlists),
             'audiobooks': _deduplicateResults(audiobooks),
             'radios': _deduplicateResults(radios),
+            'podcasts': _deduplicateResults(podcasts),
           };
         } catch (e) {
           _logger.log('Error searching: $e');
-          return <String, List<MediaItem>>{'artists': [], 'albums': [], 'tracks': [], 'playlists': [], 'audiobooks': [], 'radios': []};
+          return <String, List<MediaItem>>{'artists': [], 'albums': [], 'tracks': [], 'playlists': [], 'audiobooks': [], 'radios': [], 'podcasts': []};
         }
       },
     ).catchError((e) {
       _logger.log('Error searching after retries: $e');
-      return <String, List<MediaItem>>{'artists': [], 'albums': [], 'tracks': [], 'playlists': [], 'audiobooks': [], 'radios': []};
+      return <String, List<MediaItem>>{'artists': [], 'albums': [], 'tracks': [], 'playlists': [], 'audiobooks': [], 'radios': [], 'podcasts': []};
     });
+  }
+
+  /// Search for podcasts globally (across all providers)
+  Future<List<MediaItem>> searchPodcasts(String query, {int limit = 25}) async {
+    try {
+      _logger.log('🎙️ Searching podcasts for: $query');
+      final response = await _sendCommand(
+        'music/search',
+        args: {
+          'search_query': query,
+          'media_types': ['podcast'],
+          'limit': limit,
+        },
+      );
+
+      final result = response['result'] as Map<String, dynamic>?;
+      if (result == null) {
+        _logger.log('🎙️ Podcast search: no result');
+        return [];
+      }
+
+      // Podcast results might be under 'podcasts' or 'podcast' key
+      final podcasts = (result['podcasts'] as List<dynamic>?) ??
+                       (result['podcast'] as List<dynamic>?) ??
+                       [];
+
+      _logger.log('🎙️ Podcast search found ${podcasts.length} results');
+
+      return podcasts
+          .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      _logger.log('🎙️ Error searching podcasts: $e');
+      return [];
+    }
   }
 
   /// Deduplicate search results by name (case-insensitive)

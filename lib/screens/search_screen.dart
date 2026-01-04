@@ -19,6 +19,7 @@ import 'album_details_screen.dart';
 import 'artist_details_screen.dart';
 import 'playlist_details_screen.dart';
 import 'audiobook_detail_screen.dart';
+import 'podcast_detail_screen.dart';
 import '../l10n/app_localizations.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -29,7 +30,7 @@ class SearchScreen extends StatefulWidget {
 }
 
 // Helper enum and class for ListView.builder item types
-enum _ListItemType { header, artist, album, track, playlist, audiobook, radio, spacer }
+enum _ListItemType { header, artist, album, track, playlist, audiobook, radio, podcast, spacer }
 
 class _ListItem {
   final _ListItemType type;
@@ -70,6 +71,11 @@ class _ListItem {
 
   _ListItem.radio(this.mediaItem, {this.relevanceScore})
       : type = _ListItemType.radio,
+        headerTitle = null,
+        headerCount = null;
+
+  _ListItem.podcast(this.mediaItem, {this.relevanceScore})
+      : type = _ListItemType.podcast,
         headerTitle = null,
         headerCount = null;
 
@@ -136,8 +142,7 @@ class SearchScreenState extends State<SearchScreen> {
     if (_searchResults['playlists']?.isNotEmpty == true) filters.add('playlists');
     if (_searchResults['audiobooks']?.isNotEmpty == true) filters.add('audiobooks');
     if (_searchResults['radios']?.isNotEmpty == true) filters.add('radios');
-    // Always show podcasts filter (placeholder until fully integrated)
-    filters.add('podcasts');
+    if (_searchResults['podcasts']?.isNotEmpty == true) filters.add('podcasts');
     _cachedAvailableFilters = filters;
     return filters;
   }
@@ -334,11 +339,40 @@ class SearchScreenState extends State<SearchScreen> {
         }
       }
 
+      // Search for podcasts: combine library filtering + global search
+      // 1. Filter from library podcasts
+      final libraryPodcasts = provider.podcasts
+          .where((podcast) => podcast.name.toLowerCase().contains(queryLower))
+          .toList();
+
+      // 2. Also search globally via API (for providers like iTunes)
+      List<MediaItem> globalPodcasts = [];
+      if (!_libraryOnly) {
+        try {
+          globalPodcasts = await provider.api?.searchPodcasts(query) ?? [];
+        } catch (e) {
+          _logger.log('Global podcast search failed: $e');
+        }
+      }
+
+      // 3. Combine and deduplicate by name
+      final allPodcasts = <String, MediaItem>{};
+      for (final podcast in libraryPodcasts) {
+        allPodcasts[podcast.name.toLowerCase()] = podcast;
+      }
+      for (final podcast in globalPodcasts) {
+        final key = podcast.name.toLowerCase();
+        if (!allPodcasts.containsKey(key)) {
+          allPodcasts[key] = podcast;
+        }
+      }
+
       if (mounted) {
         setState(() {
           _searchResults = {
             ...results,
             'radios': allRadios.values.toList(),
+            'podcasts': allPodcasts.values.toList(),
           };
           _isSearching = false;
           _hasSearched = true;
@@ -587,9 +621,11 @@ class SearchScreenState extends State<SearchScreen> {
     final playlists = _searchResults['playlists'] as List<MediaItem>? ?? [];
     final audiobooks = _searchResults['audiobooks'] as List<MediaItem>? ?? [];
     final radios = _searchResults['radios'] as List<MediaItem>? ?? [];
+    final podcasts = _searchResults['podcasts'] as List<MediaItem>? ?? [];
 
     final hasResults = artists.isNotEmpty || albums.isNotEmpty || tracks.isNotEmpty ||
-                       playlists.isNotEmpty || audiobooks.isNotEmpty || radios.isNotEmpty;
+                       playlists.isNotEmpty || audiobooks.isNotEmpty || radios.isNotEmpty ||
+                       podcasts.isNotEmpty;
 
     if (!hasResults) {
       return EmptyState.search(context: context);
@@ -632,7 +668,7 @@ class SearchScreenState extends State<SearchScreen> {
 
                     // PERF: Use cached list items to avoid rebuilding during animation
                     final listItems = _cachedListItems[filterForPage] ??= _buildListItemsForFilter(
-                      filterForPage, artists, albums, tracks, playlists, audiobooks, radios,
+                      filterForPage, artists, albums, tracks, playlists, audiobooks, radios, podcasts,
                     );
 
                     // PERF: Wrap each page in RepaintBoundary to isolate repaints during swipe
@@ -654,7 +690,7 @@ class SearchScreenState extends State<SearchScreen> {
                             case _ListItemType.header:
                               return _buildSectionHeader(item.headerTitle!, item.headerCount!);
                             case _ListItemType.artist:
-                              return _buildArtistTile(item.mediaItem! as Artist);
+                              return _buildArtistTile(item.mediaItem! as Artist, showType: showTypeInSubtitle);
                             case _ListItemType.album:
                               return _buildAlbumTile(item.mediaItem! as Album, showType: showTypeInSubtitle);
                             case _ListItemType.track:
@@ -665,6 +701,8 @@ class SearchScreenState extends State<SearchScreen> {
                               return _buildAudiobookTile(item.mediaItem! as Audiobook, showType: showTypeInSubtitle);
                             case _ListItemType.radio:
                               return _buildRadioTile(item.mediaItem!, showType: showTypeInSubtitle);
+                            case _ListItemType.podcast:
+                              return _buildPodcastTile(item.mediaItem!, showType: showTypeInSubtitle);
                             case _ListItemType.spacer:
                               return const SizedBox(height: 24);
                           }
@@ -837,6 +875,7 @@ class SearchScreenState extends State<SearchScreen> {
     List<MediaItem> playlists,
     List<MediaItem> audiobooks,
     List<MediaItem> radios,
+    List<MediaItem> podcasts,
   ) {
     final items = <_ListItem>[];
     final query = _searchController.text;
@@ -868,6 +907,10 @@ class SearchScreenState extends State<SearchScreen> {
       for (final radio in radios) {
         final score = _calculateRelevanceScore(radio, query);
         scoredItems.add(_ListItem.radio(radio, relevanceScore: score));
+      }
+      for (final podcast in podcasts) {
+        final score = _calculateRelevanceScore(podcast, query);
+        scoredItems.add(_ListItem.podcast(podcast, relevanceScore: score));
       }
 
       final crossRefArtists = _extractCrossReferencedArtists(
@@ -918,6 +961,12 @@ class SearchScreenState extends State<SearchScreen> {
     if (filter == 'radios' && radios.isNotEmpty) {
       for (final radio in radios) {
         items.add(_ListItem.radio(radio));
+      }
+    }
+
+    if (filter == 'podcasts' && podcasts.isNotEmpty) {
+      for (final podcast in podcasts) {
+        items.add(_ListItem.podcast(podcast));
       }
     }
 
@@ -998,7 +1047,7 @@ class SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildArtistTile(Artist artist) {
+  Widget _buildArtistTile(Artist artist, {bool showType = false}) {
     final colorScheme = Theme.of(context).colorScheme;
     final maProvider = context.read<MusicAssistantProvider>();
     final imageUrl = maProvider.getImageUrl(artist, size: 256);
@@ -1027,10 +1076,12 @@ class SearchScreenState extends State<SearchScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(
-          S.of(context)!.artist,
-          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-        ),
+        subtitle: showType
+            ? _buildTypePill('artist', colorScheme)
+            : Text(
+                S.of(context)!.artist,
+                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+              ),
         onTap: () {
           // Update adaptive colors before navigation
           updateAdaptiveColorsFromImage(context, imageUrl);
@@ -1053,9 +1104,6 @@ class SearchScreenState extends State<SearchScreen> {
     final maProvider = context.read<MusicAssistantProvider>();
     final imageUrl = maProvider.getImageUrl(album, size: 128);
     final colorScheme = Theme.of(context).colorScheme;
-    final subtitleText = showType
-        ? '${album.artistsString} • ${S.of(context)!.albumSingular}'
-        : album.artistsString;
 
     // Use 'search' suffix to avoid hero tag conflicts with library cards
     const heroSuffix = '_search';
@@ -1103,12 +1151,27 @@ class SearchScreenState extends State<SearchScreen> {
           tag: HeroTags.artistName + albumId + heroSuffix,
           child: Material(
             color: Colors.transparent,
-            child: Text(
-              subtitleText,
-              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: showType
+                ? Row(
+                    children: [
+                      _buildTypePill('album', colorScheme),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          album.artistsString,
+                          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    album.artistsString,
+                    style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
           ),
         ),
         onTap: () {
@@ -1135,9 +1198,6 @@ class SearchScreenState extends State<SearchScreen> {
         ? maProvider.getImageUrl(track.album!, size: 128)
         : null;
     final colorScheme = Theme.of(context).colorScheme;
-    final subtitleText = showType
-        ? '${track.artistsString} • ${S.of(context)!.trackSingular}'
-        : track.artistsString;
     final trackId = track.uri ?? track.itemId;
     final isExpanded = _expandedTrackId == trackId;
 
@@ -1173,12 +1233,27 @@ class SearchScreenState extends State<SearchScreen> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            subtitle: Text(
-              subtitleText,
-              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            subtitle: showType
+                ? Row(
+                    children: [
+                      _buildTypePill('track', colorScheme),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          track.artistsString,
+                          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    track.artistsString,
+                    style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
             trailing: track.duration != null
                 ? Text(
                     _formatDuration(track.duration!),
@@ -1291,9 +1366,6 @@ class SearchScreenState extends State<SearchScreen> {
     final maProvider = context.read<MusicAssistantProvider>();
     final imageUrl = maProvider.getImageUrl(playlist, size: 128);
     final colorScheme = Theme.of(context).colorScheme;
-    final subtitleText = showType
-        ? (playlist.owner != null ? '${playlist.owner} • ${S.of(context)!.playlist}' : S.of(context)!.playlist)
-        : (playlist.owner ?? S.of(context)!.playlist);
 
     return RepaintBoundary(
       child: ListTile(
@@ -1324,12 +1396,29 @@ class SearchScreenState extends State<SearchScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(
-          subtitleText,
-          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        subtitle: showType
+            ? Row(
+                children: [
+                  _buildTypePill('playlist', colorScheme),
+                  if (playlist.owner != null) ...[
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        playlist.owner!,
+                        style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            : Text(
+                playlist.owner ?? S.of(context)!.playlist,
+                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
         trailing: playlist.trackCount != null
             ? Text(
                 S.of(context)!.trackCount(playlist.trackCount!),
@@ -1357,9 +1446,6 @@ class SearchScreenState extends State<SearchScreen> {
     final imageUrl = maProvider.getImageUrl(audiobook, size: 128);
     final colorScheme = Theme.of(context).colorScheme;
     final authorText = audiobook.authors?.map((a) => a.name).join(', ') ?? S.of(context)!.unknownAuthor;
-    final subtitleText = showType
-        ? '$authorText • ${S.of(context)!.audiobookSingular}'
-        : authorText;
 
     // Use 'search' suffix to avoid hero tag conflicts with library cards
     const heroSuffix = '_search';
@@ -1403,12 +1489,27 @@ class SearchScreenState extends State<SearchScreen> {
             ),
           ),
         ),
-        subtitle: Text(
-          subtitleText,
-          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        subtitle: showType
+            ? Row(
+                children: [
+                  _buildTypePill('audiobook', colorScheme),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      authorText,
+                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              )
+            : Text(
+                authorText,
+                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
         trailing: audiobook.duration != null
             ? Text(
                 _formatDuration(audiobook.duration!),
@@ -1437,7 +1538,6 @@ class SearchScreenState extends State<SearchScreen> {
     final maProvider = context.read<MusicAssistantProvider>();
     final imageUrl = maProvider.getImageUrl(radio, size: 128);
     final colorScheme = Theme.of(context).colorScheme;
-    final subtitleText = showType ? S.of(context)!.radio : S.of(context)!.radio;
 
     return RepaintBoundary(
       child: ListTile(
@@ -1468,13 +1568,90 @@ class SearchScreenState extends State<SearchScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(
-          subtitleText,
-          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+        subtitle: showType
+            ? _buildTypePill('radio', colorScheme)
+            : Text(
+                S.of(context)!.radio,
+                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+        onTap: () => _playRadioStation(radio),
+      ),
+    );
+  }
+
+  Widget _buildPodcastTile(MediaItem podcast, {bool showType = false}) {
+    final maProvider = context.read<MusicAssistantProvider>();
+    final imageUrl = maProvider.getPodcastImageUrl(podcast, size: 128);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Use 'search' suffix to avoid hero tag conflicts with library cards
+    const heroSuffix = '_search';
+    final podcastId = podcast.uri ?? podcast.itemId;
+
+    return RepaintBoundary(
+      child: ListTile(
+        key: ValueKey(podcastId),
+        leading: Hero(
+          tag: HeroTags.podcastCover + podcastId + heroSuffix,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: imageUrl != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 128,
+                      memCacheHeight: 128,
+                      fadeInDuration: Duration.zero,
+                      fadeOutDuration: Duration.zero,
+                      placeholder: (_, __) => Icon(Icons.podcasts_rounded, color: colorScheme.onSurfaceVariant),
+                      errorWidget: (_, __, ___) => Icon(Icons.podcasts_rounded, color: colorScheme.onSurfaceVariant),
+                    ),
+                  )
+                : Icon(Icons.podcasts_rounded, color: colorScheme.onSurfaceVariant),
+          ),
+        ),
+        title: Text(
+          podcast.name,
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        onTap: () => _playRadioStation(radio),
+        subtitle: showType
+            ? _buildTypePill('podcast', colorScheme)
+            : Text(
+                S.of(context)!.podcast,
+                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+        onTap: () {
+          // Update adaptive colors before navigation
+          updateAdaptiveColorsFromImage(context, imageUrl);
+          Navigator.push(
+            context,
+            FadeSlidePageRoute(
+              child: PodcastDetailScreen(
+                podcast: podcast,
+                heroTagSuffix: 'search',
+                initialImageUrl: imageUrl,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1711,6 +1888,106 @@ class SearchScreenState extends State<SearchScreen> {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  /// Build a colored type pill for media type identification in search results
+  Widget _buildTypePill(String type, ColorScheme colorScheme) {
+    Color backgroundColor;
+    Color textColor;
+    String label;
+
+    switch (type) {
+      case 'track':
+        backgroundColor = Colors.blue.shade100;
+        textColor = Colors.blue.shade800;
+        label = S.of(context)!.trackSingular;
+        break;
+      case 'album':
+        backgroundColor = Colors.purple.shade100;
+        textColor = Colors.purple.shade800;
+        label = S.of(context)!.albumSingular;
+        break;
+      case 'artist':
+        backgroundColor = Colors.pink.shade100;
+        textColor = Colors.pink.shade800;
+        label = S.of(context)!.artist;
+        break;
+      case 'playlist':
+        backgroundColor = Colors.teal.shade100;
+        textColor = Colors.teal.shade800;
+        label = S.of(context)!.playlist;
+        break;
+      case 'audiobook':
+        backgroundColor = Colors.orange.shade100;
+        textColor = Colors.orange.shade800;
+        label = S.of(context)!.audiobookSingular;
+        break;
+      case 'radio':
+        backgroundColor = Colors.red.shade100;
+        textColor = Colors.red.shade800;
+        label = S.of(context)!.radio;
+        break;
+      case 'podcast':
+        backgroundColor = Colors.green.shade100;
+        textColor = Colors.green.shade800;
+        label = S.of(context)!.podcast;
+        break;
+      default:
+        backgroundColor = colorScheme.surfaceVariant;
+        textColor = colorScheme.onSurfaceVariant;
+        label = type;
+    }
+
+    // For dark mode, use darker variants
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark) {
+      switch (type) {
+        case 'track':
+          backgroundColor = Colors.blue.shade900.withOpacity(0.5);
+          textColor = Colors.blue.shade200;
+          break;
+        case 'album':
+          backgroundColor = Colors.purple.shade900.withOpacity(0.5);
+          textColor = Colors.purple.shade200;
+          break;
+        case 'artist':
+          backgroundColor = Colors.pink.shade900.withOpacity(0.5);
+          textColor = Colors.pink.shade200;
+          break;
+        case 'playlist':
+          backgroundColor = Colors.teal.shade900.withOpacity(0.5);
+          textColor = Colors.teal.shade200;
+          break;
+        case 'audiobook':
+          backgroundColor = Colors.orange.shade900.withOpacity(0.5);
+          textColor = Colors.orange.shade200;
+          break;
+        case 'radio':
+          backgroundColor = Colors.red.shade900.withOpacity(0.5);
+          textColor = Colors.red.shade200;
+          break;
+        case 'podcast':
+          backgroundColor = Colors.green.shade900.withOpacity(0.5);
+          textColor = Colors.green.shade200;
+          break;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
   }
 }
 
