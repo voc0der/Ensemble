@@ -69,20 +69,32 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
       bool success;
 
       if (newState) {
-        // Add to library
-        String actualProvider = widget.podcast.provider;
-        String actualItemId = widget.podcast.itemId;
+        // Add to library - MUST use non-library provider
+        String? actualProvider;
+        String? actualItemId;
 
         if (widget.podcast.providerMappings != null && widget.podcast.providerMappings!.isNotEmpty) {
-          final mapping = widget.podcast.providerMappings!.firstWhere(
-            (m) => m.available && m.providerInstance != 'library',
-            orElse: () => widget.podcast.providerMappings!.firstWhere(
-              (m) => m.available,
-              orElse: () => widget.podcast.providerMappings!.first,
-            ),
-          );
-          actualProvider = mapping.providerDomain;
-          actualItemId = mapping.itemId;
+          // For adding to library, we MUST use a non-library provider
+          final nonLibraryMapping = widget.podcast.providerMappings!.where(
+            (m) => m.providerInstance != 'library' && m.providerDomain != 'library',
+          ).firstOrNull;
+
+          if (nonLibraryMapping != null) {
+            actualProvider = nonLibraryMapping.providerDomain;
+            actualItemId = nonLibraryMapping.itemId;
+          }
+        }
+
+        // Fallback to item's own provider if no non-library mapping found
+        if (actualProvider == null || actualItemId == null) {
+          if (widget.podcast.provider != 'library') {
+            actualProvider = widget.podcast.provider;
+            actualItemId = widget.podcast.itemId;
+          } else {
+            // Item is library-only, can't add
+            _logger.log('Cannot add to library: podcast is library-only');
+            return;
+          }
         }
 
         _logger.log('Adding podcast to library: provider=$actualProvider, itemId=$actualItemId');

@@ -2592,22 +2592,38 @@ class SearchScreenState extends State<SearchScreen> {
   Future<void> _addToLibrary(MediaItem item, String mediaTypeKey) async {
     final maProvider = context.read<MusicAssistantProvider>();
 
-    // Get provider info for adding
-    String actualProvider = item.provider;
-    String actualItemId = item.itemId;
+    // Get provider info for adding - MUST use non-library provider
+    String? actualProvider;
+    String? actualItemId;
 
     if (item.providerMappings != null && item.providerMappings!.isNotEmpty) {
-      // Prefer non-library provider for adding
-      final mapping = item.providerMappings!.firstWhere(
-        (m) => m.available && m.providerInstance != 'library',
-        orElse: () => item.providerMappings!.firstWhere(
-          (m) => m.available,
-          orElse: () => item.providerMappings!.first,
-        ),
-      );
-      // Use providerDomain (e.g., "spotify") not providerInstance (e.g., "spotify--xyz")
-      actualProvider = mapping.providerDomain;
-      actualItemId = mapping.itemId;
+      // For adding to library, we MUST use a non-library provider
+      // Availability doesn't matter - we just need the external provider's ID
+      final nonLibraryMapping = item.providerMappings!.where(
+        (m) => m.providerInstance != 'library' && m.providerDomain != 'library',
+      ).firstOrNull;
+
+      if (nonLibraryMapping != null) {
+        // Use providerDomain (e.g., "spotify") not providerInstance (e.g., "spotify--xyz")
+        actualProvider = nonLibraryMapping.providerDomain;
+        actualItemId = nonLibraryMapping.itemId;
+      }
+    }
+
+    // Fallback to item's own provider if no non-library mapping found
+    if (actualProvider == null || actualItemId == null) {
+      if (item.provider != 'library') {
+        actualProvider = item.provider;
+        actualItemId = item.itemId;
+      } else {
+        // Item is library-only, can't add
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Item is already in library')),
+          );
+        }
+        return;
+      }
     }
 
     try {

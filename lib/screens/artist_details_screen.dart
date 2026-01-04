@@ -261,20 +261,32 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
       bool success;
 
       if (newState) {
-        // Add to library
-        String actualProvider = widget.artist.provider;
-        String actualItemId = widget.artist.itemId;
+        // Add to library - MUST use non-library provider
+        String? actualProvider;
+        String? actualItemId;
 
         if (widget.artist.providerMappings != null && widget.artist.providerMappings!.isNotEmpty) {
-          final mapping = widget.artist.providerMappings!.firstWhere(
-            (m) => m.available && m.providerInstance != 'library',
-            orElse: () => widget.artist.providerMappings!.firstWhere(
-              (m) => m.available,
-              orElse: () => widget.artist.providerMappings!.first,
-            ),
-          );
-          actualProvider = mapping.providerDomain;
-          actualItemId = mapping.itemId;
+          // For adding to library, we MUST use a non-library provider
+          final nonLibraryMapping = widget.artist.providerMappings!.where(
+            (m) => m.providerInstance != 'library' && m.providerDomain != 'library',
+          ).firstOrNull;
+
+          if (nonLibraryMapping != null) {
+            actualProvider = nonLibraryMapping.providerDomain;
+            actualItemId = nonLibraryMapping.itemId;
+          }
+        }
+
+        // Fallback to item's own provider if no non-library mapping found
+        if (actualProvider == null || actualItemId == null) {
+          if (widget.artist.provider != 'library') {
+            actualProvider = widget.artist.provider;
+            actualItemId = widget.artist.itemId;
+          } else {
+            // Item is library-only, can't add
+            _logger.log('Cannot add to library: artist is library-only');
+            return;
+          }
         }
 
         _logger.log('Adding artist to library: provider=$actualProvider, itemId=$actualItemId');
