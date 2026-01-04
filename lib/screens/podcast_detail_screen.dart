@@ -288,7 +288,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
         backgroundColor: colorScheme.surface,
         body: LayoutBuilder(
           builder: (context, constraints) {
-            final coverSize = (constraints.maxWidth * 0.6).clamp(180.0, 280.0);
+            final coverSize = (constraints.maxWidth * 0.7).clamp(200.0, 320.0);
             final expandedHeight = coverSize + 70;
 
             return CustomScrollView(
@@ -312,43 +312,33 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                         const SizedBox(height: 60),
                         Hero(
                           tag: HeroTags.podcastCover + (widget.podcast.uri ?? widget.podcast.itemId) + _heroTagSuffix,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              width: coverSize,
-                              height: coverSize,
+                          child: Container(
+                            width: coverSize,
+                            height: coverSize,
+                            decoration: BoxDecoration(
                               color: colorScheme.surfaceContainerHighest,
-                              child: imageUrl != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: imageUrl,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                              image: imageUrl != null
+                                  ? DecorationImage(
+                                      image: CachedNetworkImageProvider(imageUrl),
                                       fit: BoxFit.cover,
-                                      memCacheWidth: 256,
-                                      memCacheHeight: 256,
-                                      fadeInDuration: Duration.zero,
-                                      fadeOutDuration: Duration.zero,
-                                      placeholder: (_, __) => Center(
-                                        child: Icon(
-                                          MdiIcons.podcast,
-                                          size: coverSize * 0.4,
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                      errorWidget: (_, __, ___) => Center(
-                                        child: Icon(
-                                          MdiIcons.podcast,
-                                          size: coverSize * 0.4,
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
                                     )
-                                  : Center(
-                                      child: Icon(
-                                        MdiIcons.podcast,
-                                        size: coverSize * 0.4,
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
+                                  : null,
                             ),
+                            child: imageUrl == null
+                                ? Icon(
+                                    MdiIcons.podcast,
+                                    size: coverSize * 0.43,
+                                    color: colorScheme.onSurfaceVariant,
+                                  )
+                                : null,
                           ),
                         ),
                       ],

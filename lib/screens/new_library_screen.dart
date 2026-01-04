@@ -2378,7 +2378,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             child: Hero(
               tag: HeroTags.podcastCover + (podcast.uri ?? podcast.itemId) + '_library',
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
                   color: colorScheme.surfaceVariant,
                   child: imageUrl != null

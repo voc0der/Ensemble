@@ -848,7 +848,16 @@ class SearchScreenState extends State<SearchScreen> {
       if (!foundCreatorMatch && nameLower.contains(queryLower)) {
         // Multi-word query that matches in name suggests creator/host name
         if (queryLower.contains(' ')) {
-          score += 10; // Strong signal: multi-word query in podcast name
+          // Calculate how prominent the query is in the name
+          // e.g., "Louis Theroux Interviews" with query "Louis Theroux" = 14/23 = ~60%
+          final prominence = queryLower.length / nameLower.length;
+          if (prominence >= 0.5) {
+            score += 15; // Query is >50% of name - very strong signal
+          } else if (prominence >= 0.3) {
+            score += 12; // Query is 30-50% of name - strong signal
+          } else {
+            score += 8; // Query in name but less prominent
+          }
         } else {
           score += 5; // Single word match
         }
