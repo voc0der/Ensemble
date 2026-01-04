@@ -293,21 +293,10 @@ class MusicAssistantAPI {
       // Handle event
       final eventType = data['event'] as String?;
       if (eventType != null) {
-        _logger.log('Event received: $eventType');
-
         // Get the object_id (player_id for player events)
         final objectId = data['object_id'] as String?;
         final eventData = data['data'] as Map<String, dynamic>? ?? {};
 
-        // Debug: Log full data for player events
-        if (eventType == 'player_added' || eventType == 'player_updated' || eventType == 'builtin_player') {
-           _logger.log('Event data: ${jsonEncode(eventData)} (player_id: $objectId)');
-        }
-
-        // Debug: Log media_item events to understand structure
-        if (eventType == 'media_item_added' || eventType == 'media_item_deleted' || eventType == 'media_item_updated') {
-           _logger.log('📦 Media event data: ${jsonEncode(eventData)} (object_id: $objectId)');
-        }
 
         // Include object_id in event data so listeners can filter by player
         final enrichedData = {
@@ -533,7 +522,6 @@ class MusicAssistantAPI {
   /// Search for radio stations globally (across all providers like TuneIn)
   Future<List<MediaItem>> searchRadioStations(String query, {int limit = 25}) async {
     try {
-      _logger.log('📻 Searching radio stations for: $query');
       final response = await _sendCommand(
         'music/search',
         args: {
@@ -544,23 +532,18 @@ class MusicAssistantAPI {
       );
 
       final result = response['result'] as Map<String, dynamic>?;
-      if (result == null) {
-        _logger.log('📻 Radio search: no result');
-        return [];
-      }
+      if (result == null) return [];
 
       // Radio results might be under 'radios' or 'radio' key
       final radios = (result['radios'] as List<dynamic>?) ??
                      (result['radio'] as List<dynamic>?) ??
                      [];
 
-      _logger.log('📻 Radio search found ${radios.length} results');
-
       return radios
           .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      _logger.log('📻 Error searching radio stations: $e');
+      _logger.log('Error searching radio stations: $e');
       return [];
     }
   }
@@ -574,7 +557,6 @@ class MusicAssistantAPI {
     bool? favoriteOnly,
   }) async {
     try {
-      _logger.log('🎙️ Getting podcasts...');
       final response = await _sendCommand(
         'music/podcasts/library_items',
         args: {
@@ -585,18 +567,13 @@ class MusicAssistantAPI {
       );
 
       final items = response['items'] as List<dynamic>? ?? response['result'] as List<dynamic>?;
-      if (items == null) {
-        _logger.log('🎙️ Podcasts: result is null');
-        return [];
-      }
-
-      _logger.log('🎙️ Found ${items.length} podcasts');
+      if (items == null) return [];
 
       return items
           .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      _logger.log('🎙️ Error getting podcasts: $e');
+      _logger.log('Error getting podcasts: $e');
       return [];
     }
   }
@@ -608,9 +585,6 @@ class MusicAssistantAPI {
     int? offset,
   }) async {
     try {
-      _logger.log('🎙️ Getting episodes for podcast: $podcastId, provider: $provider');
-
-      // Use the correct endpoint: music/podcasts/podcast_episodes
       final response = await _sendCommand(
         'music/podcasts/podcast_episodes',
         args: {
@@ -619,21 +593,16 @@ class MusicAssistantAPI {
         },
       );
 
-      _logger.log('🎙️ Response keys: ${response.keys.toList()}');
-
-      // Response should be a list of episodes
       final episodes = response['result'] as List<dynamic>?;
       if (episodes != null && episodes.isNotEmpty) {
-        _logger.log('🎙️ Found ${episodes.length} episodes');
         return episodes
             .map((item) => MediaItem.fromJson(item as Map<String, dynamic>))
             .toList();
       }
 
-      _logger.log('🎙️ No episodes found for podcast');
       return [];
     } catch (e) {
-      _logger.log('🎙️ Error getting podcast episodes: $e');
+      _logger.log('Error getting podcast episodes: $e');
       return [];
     }
   }
@@ -653,7 +622,6 @@ class MusicAssistantAPI {
 
     // No podcast image, try to get first episode's image
     try {
-      _logger.log('🎙️ No podcast cover, fetching episode cover for: ${podcast.name}');
       final episodes = await getPodcastEpisodes(
         podcast.itemId,
         provider: podcast.provider,
@@ -663,12 +631,11 @@ class MusicAssistantAPI {
         final firstEpisode = episodes.first;
         final episodeImage = getImageUrl(firstEpisode, size: size);
         if (episodeImage != null) {
-          _logger.log('🎙️ Using episode cover for podcast: ${podcast.name}');
           return episodeImage;
         }
       }
     } catch (e) {
-      _logger.log('🎙️ Error fetching episode cover: $e');
+      // Fall through to return podcast image
     }
 
     // Fall back to podcast image even if it might be low quality
@@ -732,10 +699,6 @@ class MusicAssistantAPI {
         uri = 'library://podcast_episode/${episode.itemId}';
       }
 
-      _logger.log('🎙️ Playing podcast episode: ${episode.name}');
-      _logger.log('🎙️ Episode URI: $uri');
-      _logger.log('🎙️ Episode itemId: ${episode.itemId}');
-
       await _sendCommand(
         'player_queues/play_media',
         args: {
@@ -745,7 +708,7 @@ class MusicAssistantAPI {
         },
       );
     } catch (e) {
-      _logger.log('🎙️ Error playing podcast episode: $e');
+      _logger.log('Error playing podcast episode: $e');
       rethrow;
     }
   }
@@ -763,7 +726,6 @@ class MusicAssistantAPI {
 
       // If specific libraries are enabled, use browse API for filtering
       if (enabledLibraries != null && enabledLibraries.isNotEmpty) {
-        _logger.log('📚 Using browse API for library filtering (${enabledLibraries.length} libraries enabled)');
         return await _getAudiobooksFromBrowse(enabledLibraries, favoriteOnly: favoriteOnly);
       }
 
@@ -776,8 +738,6 @@ class MusicAssistantAPI {
         if (authorId != null) 'author_id': authorId,
       };
 
-      _logger.log('📚 Calling music/audiobooks/library_items with args: $args');
-
       final response = await _sendCommand(
         'music/audiobooks/library_items',
         args: args,
@@ -785,65 +745,21 @@ class MusicAssistantAPI {
 
       // Check for error in response
       if (response.containsKey('error_code')) {
-        _logger.log('📚 ERROR: ${response['error_code']} - ${response['details']}');
         return [];
       }
 
       final items = response['result'] as List<dynamic>?;
-      if (items == null) {
-        _logger.log('📚 Audiobooks: result is null');
-        return [];
-      }
-
-      _logger.log('📚 Audiobooks: found ${items.length} items from API');
-
-      // Log first item's structure including metadata to find chapters/series
-      if (items.isNotEmpty) {
-        final firstItem = items.first as Map<String, dynamic>;
-        _logger.log('📚 First item keys: ${firstItem.keys.toList()}');
-        _logger.log('📚 First item name: ${firstItem['name']}, media_type: ${firstItem['media_type']}');
-
-        // Log metadata contents - this is where chapters/series info likely lives
-        if (firstItem.containsKey('metadata')) {
-          final metadata = firstItem['metadata'] as Map<String, dynamic>?;
-          if (metadata != null) {
-            _logger.log('📚 METADATA keys: ${metadata.keys.toList()}');
-            for (final key in metadata.keys) {
-              final value = metadata[key];
-              if (value is List) {
-                _logger.log('📚   metadata[$key] (List, ${value.length}): ${value.take(2)}');
-              } else if (value is Map) {
-                _logger.log('📚   metadata[$key] (Map): ${(value as Map).keys.toList()}');
-              } else if (value != null) {
-                _logger.log('📚   metadata[$key]: $value');
-              }
-            }
-          }
-        }
-
-        // Check for chapters at top level too
-        if (firstItem.containsKey('chapters')) {
-          _logger.log('📚 CHAPTERS at top level: ${firstItem['chapters']}');
-        }
-      }
+      if (items == null) return [];
 
       final audiobooks = <Audiobook>[];
-      final parseErrors = <String>[];
-
       for (int i = 0; i < items.length; i++) {
         try {
           final book = Audiobook.fromJson(items[i] as Map<String, dynamic>);
           audiobooks.add(book);
         } catch (e) {
-          parseErrors.add('Item $i: $e');
+          // Skip items that fail to parse
         }
       }
-
-      if (parseErrors.isNotEmpty) {
-        _logger.log('📚 Parse errors (${parseErrors.length}): ${parseErrors.take(3).join(", ")}');
-      }
-
-      _logger.log('📚 Successfully parsed ${audiobooks.length}/${items.length} audiobooks');
       return audiobooks;
     } catch (e, stack) {
       _logger.log('Error getting audiobooks: $e');
@@ -1635,60 +1551,38 @@ class MusicAssistantAPI {
   /// Remove item from favorites
   /// Requires the library_item_id (the numeric ID in the MA library)
   Future<void> removeFromFavorites(String mediaType, int libraryItemId) async {
-    try {
-      _logger.log('Removing from favorites: mediaType=$mediaType, libraryItemId=$libraryItemId');
-
-      await _sendCommand(
-        'music/favorites/remove_item',
-        args: {
-          'media_type': mediaType,
-          'library_item_id': libraryItemId,
-        },
-      );
-    } catch (e) {
-      _logger.log('Error removing from favorites: $e');
-      rethrow;
-    }
+    await _sendCommand(
+      'music/favorites/remove_item',
+      args: {
+        'media_type': mediaType,
+        'library_item_id': libraryItemId,
+      },
+    );
   }
 
   // Library
   /// Add item to library using URI format
   /// The item parameter should be a URI like "spotify://artist/4tZwfgrHOc3mvqYlEYSvVi"
   Future<void> addItemToLibrary(String mediaType, String itemId, String provider) async {
-    try {
-      // Build the URI for the item
-      final uri = '$provider://$mediaType/$itemId';
-      _logger.log('Adding to library: $uri');
-
-      await _sendCommand(
-        'music/library/add_item',
-        args: {
-          'item': uri,
-        },
-      );
-    } catch (e) {
-      _logger.log('Error adding to library: $e');
-      rethrow;
-    }
+    final uri = '$provider://$mediaType/$itemId';
+    await _sendCommand(
+      'music/library/add_item',
+      args: {
+        'item': uri,
+      },
+    );
   }
 
   /// Remove item from library
   /// Requires the library_item_id (the numeric ID in the MA library)
   Future<void> removeItemFromLibrary(String mediaType, int libraryItemId) async {
-    try {
-      _logger.log('Removing from library: mediaType=$mediaType, libraryItemId=$libraryItemId');
-
-      await _sendCommand(
-        'music/library/remove_item',
-        args: {
-          'media_type': mediaType,
-          'library_item_id': libraryItemId,
-        },
-      );
-    } catch (e) {
-      _logger.log('Error removing from library: $e');
-      rethrow;
-    }
+    await _sendCommand(
+      'music/library/remove_item',
+      args: {
+        'media_type': mediaType,
+        'library_item_id': libraryItemId,
+      },
+    );
   }
 
   // Search

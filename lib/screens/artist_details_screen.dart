@@ -254,7 +254,6 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
           throw Exception('Could not determine library ID for this artist');
         }
 
-        _logger.log('Removing artist from favorites: libraryItemId=$libraryItemId');
         success = await maProvider.removeFromFavorites(
           mediaType: 'artist',
           libraryItemId: libraryItemId,
@@ -364,7 +363,6 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
           return;
         }
 
-        _logger.log('Removing artist from library: libraryItemId=$libraryItemId');
         success = await maProvider.removeFromLibrary(
           mediaType: 'artist',
           libraryItemId: libraryItemId,

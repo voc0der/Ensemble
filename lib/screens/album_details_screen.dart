@@ -174,7 +174,6 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
           throw Exception('Could not determine library ID for this album');
         }
 
-        _logger.log('Removing from favorites: libraryItemId=$libraryItemId');
         success = await maProvider.removeFromFavorites(
           mediaType: 'album',
           libraryItemId: libraryItemId,
@@ -280,7 +279,6 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
           return;
         }
 
-        _logger.log('Removing album from library: libraryItemId=$libraryItemId');
         success = await maProvider.removeFromLibrary(
           mediaType: 'album',
           libraryItemId: libraryItemId,

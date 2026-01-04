@@ -731,14 +731,12 @@ class MusicAssistantProvider with ChangeNotifier {
         _handleMediaItemAddedEvent,
         onError: (error) => _logger.log('Media item added event stream error: $error'),
       );
-      _logger.log('📡 Subscribed to media_item_added events');
 
       _mediaItemDeletedEventSubscription?.cancel();
       _mediaItemDeletedEventSubscription = _api!.mediaItemDeletedEvents.listen(
         _handleMediaItemDeletedEvent,
         onError: (error) => _logger.log('Media item deleted event stream error: $error'),
       );
-      _logger.log('📡 Subscribed to media_item_deleted events');
 
       await _api!.connect();
       notifyListeners();
@@ -1214,22 +1212,11 @@ class MusicAssistantProvider with ChangeNotifier {
 
     if (mediaType == 'artist') {
       final before = _artists.length;
-      _logger.log('🔍 Looking for artist with libraryId=$libraryIdStr in ${_artists.length} artists');
-      // Debug: log first few artists to understand structure
-      if (_artists.isNotEmpty) {
-        final sample = _artists.take(3);
-        for (final a in sample) {
-          _logger.log('  Sample artist: ${a.name}, provider=${a.provider}, itemId=${a.itemId}, mappings=${a.providerMappings?.length ?? 0}');
-        }
-      }
       // Create new list to trigger Selector rebuilds (reference equality)
       _artists = _artists.where((a) =>
         !matchesLibraryId(a.provider, a.itemId, a.providerMappings)
       ).toList();
       updated = _artists.length != before;
-      if (!updated) {
-        _logger.log('⚠️ Artist with libraryId=$libraryIdStr not found in local cache');
-      }
     } else if (mediaType == 'album') {
       final before = _albums.length;
       _albums = _albums.where((a) =>
@@ -1270,25 +1257,19 @@ class MusicAssistantProvider with ChangeNotifier {
       if (!isConnected || _api == null) return;
 
       try {
-        _logger.log('🔄 Refreshing $mediaType library after change...');
         if (mediaType == 'artist') {
           _artists = await _api!.getArtists(
             limit: LibraryConstants.maxLibraryItems,
             albumArtistsOnly: false,
           );
-          _logger.log('✅ Refreshed artists: ${_artists.length} items');
         } else if (mediaType == 'album') {
           _albums = await _api!.getAlbums(limit: LibraryConstants.maxLibraryItems);
-          _logger.log('✅ Refreshed albums: ${_albums.length} items');
         } else if (mediaType == 'track') {
           _tracks = await _api!.getTracks(limit: LibraryConstants.maxLibraryItems);
-          _logger.log('✅ Refreshed tracks: ${_tracks.length} items');
         } else if (mediaType == 'radio') {
           _radioStations = await _api!.getRadioStations(limit: 100);
-          _logger.log('✅ Refreshed radio stations: ${_radioStations.length} items');
         } else if (mediaType == 'podcast') {
           _podcasts = await _api!.getPodcasts(limit: 100);
-          _logger.log('✅ Refreshed podcasts: ${_podcasts.length} items');
         }
         notifyListeners();
       } catch (e) {
@@ -2148,21 +2129,9 @@ class MusicAssistantProvider with ChangeNotifier {
   /// This handles the case where addToLibrary API call times out but the item was actually added
   void _handleMediaItemAddedEvent(Map<String, dynamic> event) {
     try {
-      _logger.log('📥 Media item added event received: $event');
       final mediaType = event['media_type'] as String?;
-      _logger.log('📥 Media item added: type=$mediaType');
-
-      // Invalidate search cache so new searches show updated library status
       _cacheService.invalidateSearchCache();
-
-      // Refresh the appropriate library list
-      if (mediaType != null) {
-        _scheduleLibraryRefresh(mediaType);
-      } else {
-        // If no media_type, refresh all common types
-        _logger.log('📥 No media_type in event, refreshing artist library');
-        _scheduleLibraryRefresh('artist');
-      }
+      _scheduleLibraryRefresh(mediaType ?? 'artist');
     } catch (e) {
       _logger.log('Error handling media item added event: $e');
     }
@@ -2172,21 +2141,9 @@ class MusicAssistantProvider with ChangeNotifier {
   /// This ensures UI updates even if removeFromLibrary API call times out
   void _handleMediaItemDeletedEvent(Map<String, dynamic> event) {
     try {
-      _logger.log('🗑️ Media item deleted event received: $event');
       final mediaType = event['media_type'] as String?;
-      _logger.log('🗑️ Media item deleted: type=$mediaType');
-
-      // Invalidate search cache so new searches show updated library status
       _cacheService.invalidateSearchCache();
-
-      // Refresh the appropriate library list
-      if (mediaType != null) {
-        _scheduleLibraryRefresh(mediaType);
-      } else {
-        // If no media_type, refresh all common types
-        _logger.log('🗑️ No media_type in event, refreshing artist library');
-        _scheduleLibraryRefresh('artist');
-      }
+      _scheduleLibraryRefresh(mediaType ?? 'artist');
     } catch (e) {
       _logger.log('Error handling media item deleted event: $e');
     }
@@ -4212,8 +4169,6 @@ class MusicAssistantProvider with ChangeNotifier {
       notifyListeners();
 
       _radioStations = await _api!.getRadioStations(limit: 100);
-
-      _logger.log('📻 Loaded ${_radioStations.length} radio stations');
       _isLoadingRadio = false;
       notifyListeners();
     } catch (e) {

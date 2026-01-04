@@ -123,7 +123,6 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
           return;
         }
 
-        _logger.log('Removing podcast from library: libraryItemId=$libraryItemId');
         success = await maProvider.removeFromLibrary(
           mediaType: 'podcast',
           libraryItemId: libraryItemId,

@@ -170,7 +170,6 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
           throw Exception('Could not determine library ID for this audiobook');
         }
 
-        _logger.log('Removing audiobook from favorites: libraryItemId=$libraryItemId');
         success = await maProvider.removeFromFavorites(
           mediaType: 'audiobook',
           libraryItemId: libraryItemId,
