@@ -1918,9 +1918,17 @@ class MusicAssistantProvider with ChangeNotifier {
               !existingTrack.name.contains(' - ');
           final existingHasImage = existingTrack?.metadata?['images'] != null;
           final newHasImage = metadata != null;
+          final newHasAlbum = albumName != null;
+          final existingHasAlbum = existingTrack?.album != null;
+
+          // For podcasts, album info is crucial (it's the podcast name)
+          // If new track has album but existing doesn't, prefer new or merge
+          final isPodcastUri = uri != null && (uri.contains('podcast_episode') || uri.contains('podcast/'));
 
           // Keep existing if it has proper artist OR has image that new one lacks
-          final keepExisting = existingHasProperArtist || (existingHasImage && !newHasImage);
+          // BUT for podcasts, if new has album and existing doesn't, we need that album data
+          final keepExisting = (existingHasProperArtist || (existingHasImage && !newHasImage))
+              && !(isPodcastUri && newHasAlbum && !existingHasAlbum);
 
           if (!keepExisting) {
             _cacheService.setCachedTrackForPlayer(playerId, trackFromEvent);
@@ -1937,14 +1945,32 @@ class MusicAssistantProvider with ChangeNotifier {
               _cacheService.setCachedTrackForPlayer(computedSendspinId, trackFromEvent);
               _logger.log('📋 Also cached under computed Sendspin ID: $computedSendspinId');
             }
+          } else if (isPodcastUri && newHasAlbum && existingTrack != null && !existingHasAlbum) {
+            // Merge: keep existing but add album from new track
+            final mergedTrack = Track(
+              itemId: existingTrack.itemId,
+              provider: existingTrack.provider,
+              name: existingTrack.name,
+              uri: existingTrack.uri,
+              duration: existingTrack.duration,
+              artists: existingTrack.artists,
+              album: trackFromEvent.album, // Take album from new track
+              metadata: existingTrack.metadata,
+            );
+            _cacheService.setCachedTrackForPlayer(playerId, mergedTrack);
+            _logger.log('📋 Merged album info into existing track for $playerName: ${albumName}');
           } else {
             _logger.log('📋 Skipped caching for $playerName - already have better data (artist: $existingHasProperArtist, image: $existingHasImage)');
           }
 
           // For selected player, _updatePlayerState() is already called above which fetches queue data
-          // Only update _currentTrack here if we don't have it yet (initial load)
-          if (_selectedPlayer != null && playerId == _selectedPlayer!.playerId && _currentTrack == null) {
-            _currentTrack = trackFromEvent;
+          // Only update _currentTrack here if we don't have it yet OR if we have better album data for podcasts
+          final shouldUpdateCurrentTrack = _selectedPlayer != null &&
+              playerId == _selectedPlayer!.playerId &&
+              (_currentTrack == null || (isPodcastUri && newHasAlbum && _currentTrack?.album == null));
+          if (shouldUpdateCurrentTrack) {
+            _currentTrack = _cacheService.getCachedTrackForPlayer(playerId) ?? trackFromEvent;
+            _logger.log('📋 Updated _currentTrack for podcast with album: ${_currentTrack?.album?.name}');
           }
 
           notifyListeners();
