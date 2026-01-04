@@ -958,6 +958,51 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
+  // ============================================================================
+  // LIBRARY MANAGEMENT
+  // ============================================================================
+
+  /// Add item to library
+  /// Returns true if action was executed successfully
+  Future<bool> addToLibrary({
+    required String mediaType,
+    required String itemId,
+    required String provider,
+  }) async {
+    if (isConnected && _api != null) {
+      try {
+        await _api!.addItemToLibrary(mediaType, itemId, provider);
+        return true;
+      } catch (e) {
+        _logger.log('❌ Failed to add to library: $e');
+        return false;
+      }
+    } else {
+      _logger.log('❌ Cannot add to library while offline');
+      return false;
+    }
+  }
+
+  /// Remove item from library
+  /// Returns true if action was executed successfully
+  Future<bool> removeFromLibrary({
+    required String mediaType,
+    required int libraryItemId,
+  }) async {
+    if (isConnected && _api != null) {
+      try {
+        await _api!.removeItemFromLibrary(mediaType, libraryItemId);
+        return true;
+      } catch (e) {
+        _logger.log('❌ Failed to remove from library: $e');
+        return false;
+      }
+    } else {
+      _logger.log('❌ Cannot remove from library while offline');
+      return false;
+    }
+  }
+
   Future<void> disconnect() async {
     _playerStateTimer?.cancel();
     _playerStateTimer = null;

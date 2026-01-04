@@ -1165,6 +1165,17 @@ class SearchScreenState extends State<SearchScreen> {
                 S.of(context)!.artist,
                 style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
               ),
+        trailing: !_isInLibrary(artist)
+            ? IconButton(
+                icon: Icon(
+                  Icons.library_add,
+                  size: 22,
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                ),
+                tooltip: S.of(context)!.addToLibrary,
+                onPressed: () => _addToLibrary(artist, 'artist'),
+              )
+            : null,
         onTap: () {
           // Update adaptive colors before navigation
           updateAdaptiveColorsFromImage(context, imageUrl);
@@ -1257,6 +1268,17 @@ class SearchScreenState extends State<SearchScreen> {
                   ),
           ),
         ),
+        trailing: !album.inLibrary
+            ? IconButton(
+                icon: Icon(
+                  Icons.library_add,
+                  size: 22,
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                ),
+                tooltip: S.of(context)!.addToLibrary,
+                onPressed: () => _addToLibrary(album, 'album'),
+              )
+            : null,
         onTap: () {
           // Update adaptive colors before navigation
           updateAdaptiveColorsFromImage(context, imageUrl);
@@ -1502,12 +1524,29 @@ class SearchScreenState extends State<SearchScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-        trailing: playlist.trackCount != null
-            ? Text(
-                S.of(context)!.trackCount(playlist.trackCount!),
-                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontSize: 12),
-              )
-            : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (playlist.trackCount != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(
+                  S.of(context)!.trackCount(playlist.trackCount!),
+                  style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontSize: 12),
+                ),
+              ),
+            if (!_isInLibrary(playlist))
+              IconButton(
+                icon: Icon(
+                  Icons.library_add,
+                  size: 22,
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                ),
+                tooltip: S.of(context)!.addToLibrary,
+                onPressed: () => _addToLibrary(playlist, 'playlist'),
+              ),
+          ],
+        ),
         onTap: () {
           Navigator.push(
             context,
@@ -1593,12 +1632,29 @@ class SearchScreenState extends State<SearchScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-        trailing: audiobook.duration != null
-            ? Text(
-                _formatDuration(audiobook.duration!),
-                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontSize: 12),
-              )
-            : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (audiobook.duration != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(
+                  _formatDuration(audiobook.duration!),
+                  style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontSize: 12),
+                ),
+              ),
+            if (!_isInLibrary(audiobook))
+              IconButton(
+                icon: Icon(
+                  Icons.library_add,
+                  size: 22,
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                ),
+                tooltip: S.of(context)!.addToLibrary,
+                onPressed: () => _addToLibrary(audiobook, 'audiobook'),
+              ),
+          ],
+        ),
         onTap: () {
           // Update adaptive colors before navigation
           updateAdaptiveColorsFromImage(context, imageUrl);
@@ -1662,6 +1718,17 @@ class SearchScreenState extends State<SearchScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+        trailing: !_isInLibrary(radio)
+            ? IconButton(
+                icon: Icon(
+                  Icons.library_add,
+                  size: 22,
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                ),
+                tooltip: S.of(context)!.addToLibrary,
+                onPressed: () => _addToLibrary(radio, 'radio'),
+              )
+            : null,
         onTap: () => _playRadioStation(radio),
       ),
     );
@@ -1727,6 +1794,17 @@ class SearchScreenState extends State<SearchScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+        trailing: !_isInLibrary(podcast)
+            ? IconButton(
+                icon: Icon(
+                  Icons.library_add,
+                  size: 22,
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                ),
+                tooltip: S.of(context)!.addToLibrary,
+                onPressed: () => _addToLibrary(podcast, 'podcast'),
+              )
+            : null,
         onTap: () {
           // Update adaptive colors before navigation
           updateAdaptiveColorsFromImage(context, imageUrl);
@@ -1968,6 +2046,61 @@ class SearchScreenState extends State<SearchScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to update favorite: $e')),
+        );
+      }
+    }
+  }
+
+  /// Check if a media item is in the library
+  bool _isInLibrary(MediaItem item) {
+    if (item.provider == 'library') return true;
+    return item.providerMappings?.any((m) => m.providerInstance == 'library') ?? false;
+  }
+
+  /// Add media item to library
+  Future<void> _addToLibrary(MediaItem item, String mediaTypeKey) async {
+    final maProvider = context.read<MusicAssistantProvider>();
+
+    // Get provider info for adding
+    String actualProvider = item.provider;
+    String actualItemId = item.itemId;
+
+    if (item.providerMappings != null && item.providerMappings!.isNotEmpty) {
+      // Prefer non-library provider for adding
+      final mapping = item.providerMappings!.firstWhere(
+        (m) => m.available && m.providerInstance != 'library',
+        orElse: () => item.providerMappings!.firstWhere(
+          (m) => m.available,
+          orElse: () => item.providerMappings!.first,
+        ),
+      );
+      actualProvider = mapping.providerInstance;
+      actualItemId = mapping.itemId;
+    }
+
+    try {
+      final success = await maProvider.addToLibrary(
+        mediaType: mediaTypeKey,
+        provider: actualProvider,
+        itemId: actualItemId,
+      );
+
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(S.of(context)!.addedToLibrary),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+        // Trigger a re-search to update the library status
+        // For now just update UI optimistically by rebuilding
+        setState(() {});
+      }
+    } catch (e) {
+      _logger.log('Error adding to library: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add to library: $e')),
         );
       }
     }

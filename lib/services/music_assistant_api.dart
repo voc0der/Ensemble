@@ -1646,6 +1646,46 @@ class MusicAssistantAPI {
     }
   }
 
+  // Library
+  /// Add item to library using URI format
+  /// The item parameter should be a URI like "spotify://artist/4tZwfgrHOc3mvqYlEYSvVi"
+  Future<void> addItemToLibrary(String mediaType, String itemId, String provider) async {
+    try {
+      // Build the URI for the item
+      final uri = '$provider://$mediaType/$itemId';
+      _logger.log('Adding to library: $uri');
+
+      await _sendCommand(
+        'music/library/add_item',
+        args: {
+          'item': uri,
+        },
+      );
+    } catch (e) {
+      _logger.log('Error adding to library: $e');
+      rethrow;
+    }
+  }
+
+  /// Remove item from library
+  /// Requires the library_item_id (the numeric ID in the MA library)
+  Future<void> removeItemFromLibrary(String mediaType, int libraryItemId) async {
+    try {
+      _logger.log('Removing from library: mediaType=$mediaType, libraryItemId=$libraryItemId');
+
+      await _sendCommand(
+        'music/library/remove_item',
+        args: {
+          'media_type': mediaType,
+          'library_item_id': libraryItemId,
+        },
+      );
+    } catch (e) {
+      _logger.log('Error removing from library: $e');
+      rethrow;
+    }
+  }
+
   // Search
   /// Search across all providers (Spotify, etc.) and library
   /// Set libraryOnly to true to search only local library
