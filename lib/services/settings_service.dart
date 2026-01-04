@@ -83,6 +83,9 @@ class SettingsService {
   static const String _keyHasUsedPlayerReveal = 'has_used_player_reveal'; // Track if user has pulled to reveal players
   static const String _keyHasCompletedOnboarding = 'has_completed_onboarding'; // Track if user has seen welcome screen
 
+  // Podcast Cover Cache (iTunes URLs for high-res artwork)
+  static const String _keyPodcastCoverCache = 'podcast_cover_cache';
+
   static Future<String?> getServerUrl() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyServerUrl);
@@ -807,5 +810,34 @@ class SettingsService {
   static Future<void> setHasCompletedOnboarding(bool completed) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyHasCompletedOnboarding, completed);
+  }
+
+  // Podcast Cover Cache (iTunes URLs for high-res artwork)
+  // Stored as JSON: {"podcastId": "itunesUrl", ...}
+
+  /// Get cached podcast cover URLs (iTunes high-res)
+  static Future<Map<String, String>> getPodcastCoverCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString(_keyPodcastCoverCache);
+    if (json == null) return {};
+    try {
+      final decoded = jsonDecode(json) as Map<String, dynamic>;
+      return decoded.map((key, value) => MapEntry(key, value as String));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Save podcast cover cache
+  static Future<void> setPodcastCoverCache(Map<String, String> cache) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyPodcastCoverCache, jsonEncode(cache));
+  }
+
+  /// Add a single podcast cover to cache (for incremental updates)
+  static Future<void> addPodcastCoverToCache(String podcastId, String url) async {
+    final cache = await getPodcastCoverCache();
+    cache[podcastId] = url;
+    await setPodcastCoverCache(cache);
   }
 }

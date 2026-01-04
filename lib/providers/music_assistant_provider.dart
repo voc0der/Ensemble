@@ -434,6 +434,9 @@ class MusicAssistantProvider with ChangeNotifier {
     // Load cached home rows from database for instant discover/recent display
     await _cacheService.loadHomeRowsFromDatabase();
 
+    // Load podcast cover cache (iTunes URLs) for instant high-res display
+    await _loadPodcastCoverCache();
+
     // Initialize offline action queue
     await OfflineActionQueue.instance.initialize();
 
@@ -545,6 +548,19 @@ class MusicAssistantProvider with ChangeNotifier {
       }
     } catch (e) {
       _logger.log('⚠️ Error loading library from cache: $e');
+    }
+  }
+
+  /// Load podcast cover cache (iTunes URLs) from storage for instant high-res display
+  Future<void> _loadPodcastCoverCache() async {
+    try {
+      final cache = await SettingsService.getPodcastCoverCache();
+      if (cache.isNotEmpty) {
+        _podcastCoverCache.addAll(cache);
+        _logger.log('📦 Loaded ${cache.length} podcast covers from cache (instant high-res)');
+      }
+    } catch (e) {
+      _logger.log('⚠️ Error loading podcast cover cache: $e');
     }
   }
 
@@ -3756,13 +3772,13 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   /// Load high-resolution podcast covers from iTunes in background
-  /// iTunes provides 1400x1400 artwork for most podcasts
+  /// iTunes provides 800x800 artwork for most podcasts (reduced from 1400 for efficiency)
   Future<void> _loadPodcastCoversInBackground() async {
     if (_api == null) return;
 
     for (final podcast in _podcasts) {
       try {
-        // Skip if already cached
+        // Skip if already cached (either in memory or loaded from persistence)
         if (_podcastCoverCache.containsKey(podcast.itemId)) continue;
 
         // Try iTunes for high-res artwork
@@ -3771,6 +3787,10 @@ class MusicAssistantProvider with ChangeNotifier {
         if (itunesArtwork != null) {
           _podcastCoverCache[podcast.itemId] = itunesArtwork;
           _logger.log('🎙️ Cached iTunes artwork for ${podcast.name}');
+
+          // Persist to storage for instant display on next launch
+          SettingsService.addPodcastCoverToCache(podcast.itemId, itunesArtwork);
+
           notifyListeners();
         }
       } catch (e) {
@@ -3866,20 +3886,15 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   /// Get best available podcast cover URL
-  /// Checks the episode cover cache first (for higher quality covers)
-  /// Falls back to the podcast's own image if no cached cover exists
-  ///
-  /// Set [useStableUrl] to true for hero animations - this ensures the same URL
-  /// is always returned (ignores iTunes cache which can change asynchronously)
-  String? getPodcastImageUrl(MediaItem podcast, {int size = 256, bool useStableUrl = false}) {
-    // For hero animations, always use the stable imageproxy URL
-    // The iTunes cache can change URLs mid-session causing hero mismatches
-    if (!useStableUrl) {
-      final cachedUrl = _podcastCoverCache[podcast.itemId];
-      if (cachedUrl != null) {
-        return cachedUrl;
-      }
+  /// Returns cached iTunes URL (800x800) if available, otherwise falls back to MA imageproxy
+  /// The cache is persisted to storage and loaded on app start for instant high-res display
+  String? getPodcastImageUrl(MediaItem podcast, {int size = 256}) {
+    // Return cached iTunes URL if available (persisted across app launches)
+    final cachedUrl = _podcastCoverCache[podcast.itemId];
+    if (cachedUrl != null) {
+      return cachedUrl;
     }
+    // Fall back to MA imageproxy (will be replaced once iTunes fetch completes)
     return _api?.getImageUrl(podcast, size: size);
   }
 

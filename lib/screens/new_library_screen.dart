@@ -2281,9 +2281,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               itemCount: podcasts.length,
               itemBuilder: (context, index) {
                 final podcast = podcasts[index];
-                // Use stable URL for hero animation consistency
-                // The iTunes cache can change URLs mid-session causing hero mismatches
-                final imageUrl = maProvider.getPodcastImageUrl(podcast, useStableUrl: true);
+                // iTunes URL from persisted cache (loaded on app start for instant high-res)
+                final imageUrl = maProvider.getPodcastImageUrl(podcast);
 
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -2362,8 +2361,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildPodcastCard(MediaItem podcast, MusicAssistantProvider maProvider, int cacheSize) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    // Use stable URL for hero animation consistency
-    final imageUrl = maProvider.getPodcastImageUrl(podcast, useStableUrl: true);
+    // iTunes URL from persisted cache (loaded on app start for instant high-res)
+    final imageUrl = maProvider.getPodcastImageUrl(podcast);
 
     return GestureDetector(
       onTap: () => _openPodcastDetails(podcast, maProvider, imageUrl),
@@ -2445,8 +2444,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final podcastsToCache = podcasts.take(10);
 
     for (final podcast in podcastsToCache) {
-      // Use stable URL to match what's displayed in library
-      final imageUrl = maProvider.getPodcastImageUrl(podcast, useStableUrl: true);
+      // iTunes URL from persisted cache
+      final imageUrl = maProvider.getPodcastImageUrl(podcast);
       if (imageUrl != null) {
         // Use CachedNetworkImageProvider to warm the cache
         precacheImage(

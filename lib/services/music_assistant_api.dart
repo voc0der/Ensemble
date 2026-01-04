@@ -2971,10 +2971,10 @@ class MusicAssistantAPI {
       }
 
       if (artworkUrl != null) {
-        // Bump to highest resolution (1400x1400)
+        // Use 800x800 - good quality without being excessive (was 1400x1400)
         artworkUrl = artworkUrl
-            .replaceAll('600x600', '1400x1400')
-            .replaceAll('100x100', '1400x1400');
+            .replaceAll('600x600', '800x800')
+            .replaceAll('100x100', '800x800');
         _logger.log('🎨 Found iTunes artwork for "$podcastName": $artworkUrl');
       }
 
