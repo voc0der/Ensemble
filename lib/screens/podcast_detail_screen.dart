@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import '../models/media_item.dart';
+import '../models/track.dart';
 import '../providers/music_assistant_provider.dart';
 import '../widgets/global_player_overlay.dart';
 import '../widgets/player_picker_sheet.dart';
@@ -35,6 +36,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
   List<MediaItem> _episodes = [];
   bool _isLoadingEpisodes = false;
   bool _isDescriptionExpanded = false;
+  String? _expandedEpisodeId; // Track which episode is expanded for actions
 
   String get _heroTagSuffix => widget.heroTagSuffix != null ? '_${widget.heroTagSuffix}' : '';
 
@@ -89,6 +91,12 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
 
         if (mounted) {
           _logger.log('🎙️ Loaded ${episodes.length} episodes for ${widget.podcast.name}');
+          // Debug: Log first episode metadata to see available fields
+          if (episodes.isNotEmpty) {
+            final first = episodes.first;
+            _logger.log('🎙️ First episode metadata keys: ${first.metadata?.keys.toList()}');
+            _logger.log('🎙️ First episode metadata: ${first.metadata}');
+          }
           setState(() {
             _episodes = episodes;
           });
@@ -161,6 +169,82 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
       return '${hours}h ${minutes}m';
     }
     return '${minutes} min';
+  }
+
+  /// Format release date from episode metadata
+  /// Tries various common field names for publication date
+  String? _formatReleaseDate(Map<String, dynamic>? metadata) {
+    if (metadata == null) return null;
+
+    // Try various common field names for publication date
+    dynamic dateValue = metadata['published'] ??
+        metadata['pub_date'] ??
+        metadata['release_date'] ??
+        metadata['aired'] ??
+        metadata['timestamp'];
+
+    if (dateValue == null) return null;
+
+    try {
+      DateTime? date;
+      if (dateValue is String) {
+        date = DateTime.tryParse(dateValue);
+      } else if (dateValue is int) {
+        // Unix timestamp
+        date = DateTime.fromMillisecondsSinceEpoch(dateValue * 1000);
+      }
+
+      if (date != null) {
+        // Format as "Jan 15, 2024"
+        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return '${months[date.month - 1]} ${date.day}, ${date.year}';
+      }
+    } catch (e) {
+      _logger.log('🎙️ Error parsing release date: $e');
+    }
+
+    return null;
+  }
+
+  /// Add episode to queue on current player
+  Future<void> _addToQueue(MediaItem episode) async {
+    final maProvider = context.read<MusicAssistantProvider>();
+    final selectedPlayer = maProvider.selectedPlayer;
+
+    if (selectedPlayer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(S.of(context)!.noPlayerSelected)),
+      );
+      return;
+    }
+
+    try {
+      // Convert MediaItem to Track for queue addition
+      final track = Track(
+        itemId: episode.itemId,
+        provider: episode.provider,
+        name: episode.name,
+        uri: episode.uri,
+        duration: episode.duration,
+        metadata: episode.metadata,
+      );
+      await maProvider.addTrackToQueue(selectedPlayer.playerId, track);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(S.of(context)!.addedToQueue),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      _logger.log('🎙️ Error adding episode to queue: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(S.of(context)!.failedToAddToQueue(e.toString()))),
+        );
+      }
+    }
   }
 
   @override
@@ -395,55 +479,176 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                         final episode = _episodes[index];
                         final episodeDescription = episode.metadata?['description'] as String?;
                         final duration = episode.duration;
+                        final episodeId = episode.uri ?? episode.itemId;
+                        final isExpanded = _expandedEpisodeId == episodeId;
+                        final episodeImageUrl = maProvider.getImageUrl(episode, size: 256);
 
-                        return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          leading: Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              MdiIcons.play,
-                              color: colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                          title: Text(
-                            episode.name,
-                            style: textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (episodeDescription != null && episodeDescription.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  episodeDescription,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurface.withOpacity(0.6),
-                                  ),
+                        // Try to get release date from metadata
+                        final releaseDate = _formatReleaseDate(episode.metadata);
+
+                        return Column(
+                          children: [
+                            InkWell(
+                              onTap: () => _playEpisode(episode),
+                              onLongPress: () {
+                                setState(() {
+                                  _expandedEpisodeId = isExpanded ? null : episodeId;
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Episode cover (bigger than before)
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        width: 72,
+                                        height: 72,
+                                        color: colorScheme.surfaceContainerHighest,
+                                        child: episodeImageUrl != null
+                                            ? CachedNetworkImage(
+                                                imageUrl: episodeImageUrl,
+                                                fit: BoxFit.cover,
+                                                fadeInDuration: Duration.zero,
+                                                fadeOutDuration: Duration.zero,
+                                                placeholder: (_, __) => Icon(
+                                                  MdiIcons.podcast,
+                                                  size: 32,
+                                                  color: colorScheme.onSurfaceVariant,
+                                                ),
+                                                errorWidget: (_, __, ___) => Icon(
+                                                  MdiIcons.podcast,
+                                                  size: 32,
+                                                  color: colorScheme.onSurfaceVariant,
+                                                ),
+                                              )
+                                            : Icon(
+                                                MdiIcons.podcast,
+                                                size: 32,
+                                                color: colorScheme.onSurfaceVariant,
+                                              ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    // Episode info
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            episode.name,
+                                            style: textTheme.titleSmall?.copyWith(
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (episodeDescription != null && episodeDescription.isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              episodeDescription,
+                                              maxLines: isExpanded ? 100 : 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: textTheme.bodySmall?.copyWith(
+                                                color: colorScheme.onSurface.withOpacity(0.6),
+                                              ),
+                                            ),
+                                          ],
+                                          const SizedBox(height: 6),
+                                          // Duration and release date row
+                                          Row(
+                                            children: [
+                                              if (duration != null && duration > Duration.zero) ...[
+                                                Icon(
+                                                  Icons.access_time,
+                                                  size: 14,
+                                                  color: colorScheme.onSurface.withOpacity(0.5),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  _formatDuration(duration),
+                                                  style: textTheme.bodySmall?.copyWith(
+                                                    color: colorScheme.onSurface.withOpacity(0.5),
+                                                  ),
+                                                ),
+                                              ],
+                                              if (duration != null && duration > Duration.zero && releaseDate != null)
+                                                Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                  child: Text(
+                                                    '•',
+                                                    style: textTheme.bodySmall?.copyWith(
+                                                      color: colorScheme.onSurface.withOpacity(0.5),
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (releaseDate != null)
+                                                Text(
+                                                  releaseDate,
+                                                  style: textTheme.bodySmall?.copyWith(
+                                                    color: colorScheme.onSurface.withOpacity(0.5),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                              if (duration != null && duration > Duration.zero) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  _formatDuration(duration),
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurface.withOpacity(0.5),
-                                  ),
+                              ),
+                            ),
+                            // Expanded action buttons
+                            AnimatedCrossFade(
+                              firstChild: const SizedBox.shrink(),
+                              secondChild: Padding(
+                                padding: const EdgeInsets.only(left: 100, right: 16, bottom: 12),
+                                child: Row(
+                                  children: [
+                                    // Play button
+                                    FilledButton.tonal(
+                                      onPressed: () => _playEpisode(episode),
+                                      style: FilledButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.play_arrow, size: 20),
+                                          const SizedBox(width: 6),
+                                          Text(S.of(context)!.play),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Add to queue button
+                                    FilledButton.tonal(
+                                      onPressed: () => _addToQueue(episode),
+                                      style: FilledButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      ),
+                                      child: const Icon(Icons.playlist_add, size: 20),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Play on... button
+                                    FilledButton.tonal(
+                                      onPressed: () => _showPlayOnMenu(context, episode),
+                                      style: FilledButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      ),
+                                      child: const Icon(Icons.speaker_group_outlined, size: 20),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ],
-                          ),
-                          onTap: () => _playEpisode(episode),
+                              ),
+                              crossFadeState: isExpanded
+                                  ? CrossFadeState.showSecond
+                                  : CrossFadeState.showFirst,
+                              duration: const Duration(milliseconds: 200),
+                            ),
+                          ],
                         );
                       },
                       childCount: _episodes.length,
