@@ -705,7 +705,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: colorScheme.surface,
+        backgroundColor: colorScheme.background,
         body: LayoutBuilder(
           builder: (context, constraints) {
             // Responsive cover size: 70% of screen width, clamped between 160-280 (smaller for circular artist image)
@@ -717,7 +717,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
             SliverAppBar(
               expandedHeight: expandedHeight,
               pinned: true,
-              backgroundColor: colorScheme.surface,
+              backgroundColor: colorScheme.background,
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: () {

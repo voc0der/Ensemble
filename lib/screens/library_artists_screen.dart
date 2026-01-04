@@ -18,7 +18,7 @@ class LibraryArtistsScreen extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -66,7 +66,7 @@ class LibraryArtistsScreen extends StatelessWidget {
 
     return RefreshIndicator(
       color: colorScheme.primary,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       onRefresh: () async {
         await context.read<MusicAssistantProvider>().loadLibrary();
       },

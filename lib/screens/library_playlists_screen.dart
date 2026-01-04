@@ -50,7 +50,7 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -89,7 +89,7 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
 
     return RefreshIndicator(
       color: colorScheme.primary,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       onRefresh: _loadPlaylists,
       child: ListView.builder(
         itemCount: _playlists.length,

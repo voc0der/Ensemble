@@ -486,7 +486,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final needsAuth = _detectedAuthStrategy != null && _detectedAuthStrategy!.name != 'none';
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 78.0),

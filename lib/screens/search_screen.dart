@@ -424,7 +424,7 @@ class SearchScreenState extends State<SearchScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -735,7 +735,7 @@ class SearchScreenState extends State<SearchScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          colorScheme.surface,
+                          colorScheme.background,
                           colorScheme.surface.withOpacity(0),
                         ],
                       ),
@@ -2212,30 +2212,26 @@ class SearchScreenState extends State<SearchScreen> {
             key: ValueKey(podcastId),
             leading: Hero(
               tag: HeroTags.podcastCover + podcastId + heroSuffix,
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceVariant,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: imageUrl != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: CachedNetworkImage(
+              // Match library/detail pattern: ClipRRect(16) → Container → CachedNetworkImage
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  color: colorScheme.surfaceContainerHighest,
+                  child: imageUrl != null
+                      ? CachedNetworkImage(
                           imageUrl: imageUrl,
                           width: 48,
                           height: 48,
                           fit: BoxFit.cover,
-                          memCacheWidth: 256,
-                          memCacheHeight: 256,
                           fadeInDuration: Duration.zero,
                           fadeOutDuration: Duration.zero,
-                          placeholder: (_, __) => Icon(Icons.podcasts_rounded, color: colorScheme.onSurfaceVariant),
+                          placeholder: (_, __) => const SizedBox(),
                           errorWidget: (_, __, ___) => Icon(Icons.podcasts_rounded, color: colorScheme.onSurfaceVariant),
-                        ),
-                      )
-                    : Icon(Icons.podcasts_rounded, color: colorScheme.onSurfaceVariant),
+                        )
+                      : Icon(Icons.podcasts_rounded, color: colorScheme.onSurfaceVariant),
+                ),
               ),
             ),
             title: Text(

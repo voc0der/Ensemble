@@ -930,7 +930,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         // Only show disconnected state if we have no cached data at all
         if (!isConnected && !syncService.hasCache) {
           return Scaffold(
-            backgroundColor: colorScheme.surface,
+            backgroundColor: colorScheme.background,
             appBar: AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
@@ -954,7 +954,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         }
 
         return Scaffold(
-          backgroundColor: colorScheme.surface,
+          backgroundColor: colorScheme.background,
           body: SafeArea(
             child: Column(
               children: [
@@ -1017,7 +1017,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  colorScheme.surface,
+                                  colorScheme.background,
                                   colorScheme.surface.withOpacity(0),
                                 ],
                               ),
@@ -1160,7 +1160,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               width: 36,
               height: 36,
               child: Material(
-                color: _showFavoritesOnly ? Colors.red : colorScheme.surface,
+                color: _showFavoritesOnly ? Colors.red : colorScheme.background,
                 elevation: 2,
                 shadowColor: Colors.black26,
                 shape: const CircleBorder(),
@@ -1181,7 +1181,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           width: 36,
           height: 36,
           child: Material(
-            color: colorScheme.surface,
+            color: colorScheme.background,
             elevation: 2,
             shadowColor: Colors.black26,
             shape: const CircleBorder(),
@@ -1334,7 +1334,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     // Match music artists tab layout - no header, direct list/grid
     return RefreshIndicator(
       color: colorScheme.primary,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       onRefresh: () => _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null),
       child: LetterScrollbar(
         controller: _authorsScrollController,
@@ -1677,7 +1677,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     // Match music albums tab layout - no header, direct list/grid
     return RefreshIndicator(
       color: colorScheme.primary,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       onRefresh: () => _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null),
       child: LetterScrollbar(
         controller: _audiobooksScrollController,
@@ -2288,7 +2288,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
     return RefreshIndicator(
       color: colorScheme.primary,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       onRefresh: () => maProvider.loadPodcasts(),
       child: LetterScrollbar(
         controller: _podcastsScrollController,
@@ -2513,7 +2513,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
     return RefreshIndicator(
       color: colorScheme.primary,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       onRefresh: () => maProvider.loadRadioStations(),
       child: LetterScrollbar(
         controller: _radioScrollController,
@@ -2713,7 +2713,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
         return RefreshIndicator(
           color: colorScheme.primary,
-          backgroundColor: colorScheme.surface,
+          backgroundColor: colorScheme.background,
           onRefresh: () async => context.read<MusicAssistantProvider>().loadLibrary(),
           child: LetterScrollbar(
             controller: _artistsScrollController,
@@ -2913,7 +2913,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
         return RefreshIndicator(
           color: colorScheme.primary,
-          backgroundColor: colorScheme.surface,
+          backgroundColor: colorScheme.background,
           onRefresh: () async => context.read<MusicAssistantProvider>().loadLibrary(),
           child: LetterScrollbar(
             controller: _albumsScrollController,
@@ -3052,7 +3052,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     // PERF: Use pre-sorted lists (sorted once on load)
     return RefreshIndicator(
       color: colorScheme.primary,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       onRefresh: () => _loadPlaylists(favoriteOnly: _showFavoritesOnly ? true : null),
       child: LetterScrollbar(
         controller: _playlistsScrollController,
@@ -3251,7 +3251,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     // PERF: Use pre-sorted list (sorted once on load)
     return RefreshIndicator(
       color: colorScheme.primary,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       onRefresh: _loadFavoriteTracks,
       child: ListView.builder(
         key: const PageStorageKey<String>('library_tracks_list'),

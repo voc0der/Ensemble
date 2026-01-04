@@ -118,7 +118,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -194,7 +194,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
                 RefreshIndicator(
                   onRefresh: _onRefresh,
                   color: colorScheme.primary,
-                  backgroundColor: colorScheme.surface,
+                  backgroundColor: colorScheme.background,
                   child: _buildConnectedView(context, maProvider),
                 ),
                 // Connecting banner overlay (doesn't affect layout)
