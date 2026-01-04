@@ -3756,7 +3756,7 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   /// Load higher-quality podcast covers from episodes in background
-  /// This runs after initial podcast load to avoid blocking the UI
+  /// Only used as fallback when podcast itself has no cover image
   Future<void> _loadPodcastCoversInBackground() async {
     if (_api == null) return;
 
@@ -3765,7 +3765,16 @@ class MusicAssistantProvider with ChangeNotifier {
         // Skip if already cached
         if (_podcastCoverCache.containsKey(podcast.itemId)) continue;
 
-        // Get episodes for this podcast (just first one is enough)
+        // Check if podcast already has its own cover - if so, don't override
+        final podcastOwnImage = _api!.getImageUrl(podcast, size: 1024);
+        if (podcastOwnImage != null) {
+          // Podcast has its own cover, no need to fetch from episodes
+          continue;
+        }
+
+        // Podcast has no cover - try to get one from the first episode
+        _logger.log('🎙️ Podcast "${podcast.name}" has no cover, fetching from episodes...');
+
         final episodes = await _api!.getPodcastEpisodes(
           podcast.itemId,
           provider: podcast.provider,
@@ -3777,7 +3786,7 @@ class MusicAssistantProvider with ChangeNotifier {
 
           if (episodeImage != null) {
             _podcastCoverCache[podcast.itemId] = episodeImage;
-            _logger.log('🎙️ Cached episode cover for ${podcast.name}');
+            _logger.log('🎙️ Using episode cover for ${podcast.name} (podcast had no cover)');
             notifyListeners(); // Update UI with new cover
           }
         }
