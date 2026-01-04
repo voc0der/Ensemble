@@ -2817,6 +2817,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                     artist: artist,
                     radius: size / 2,
                     imageSize: cacheSize,
+                    heroTag: HeroTags.artistImage + (artist.uri ?? artist.itemId) + '_library_grid',
                   ),
                 );
               },
