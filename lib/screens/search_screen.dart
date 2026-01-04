@@ -2702,7 +2702,7 @@ class SearchScreenState extends State<SearchScreen> {
     }
 
     try {
-      await maProvider.playRadio(player.playerId, artist);
+      await maProvider.playArtistRadio(player.playerId, artist);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
