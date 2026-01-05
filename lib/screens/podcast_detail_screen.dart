@@ -355,11 +355,14 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final maProvider = context.watch<MusicAssistantProvider>();
-    // CRITICAL: Use initialImageUrl for hero animation consistency
-    // The library passes the same URL it uses for display, ensuring cache hit
-    // Only fall back to provider URL if initialImageUrl is null
-    final imageUrl = widget.initialImageUrl ?? maProvider.getPodcastImageUrl(widget.podcast);
+    // CRITICAL FIX: Use select() instead of watch() to prevent rebuilds during Hero animation
+    // watch() rebuilds on ANY provider change (library updates, etc.) causing animation jank
+    // select() only rebuilds when the specific podcast image URL changes
+    final providerImageUrl = context.select<MusicAssistantProvider, String?>(
+      (provider) => provider.getPodcastImageUrl(widget.podcast),
+    );
+    // Use initialImageUrl for seamless hero animation (same URL as source)
+    final imageUrl = widget.initialImageUrl ?? providerImageUrl;
 
     final adaptiveTheme = context.select<ThemeProvider, bool>(
       (provider) => provider.adaptiveTheme,
@@ -431,6 +434,9 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                                   ? CachedNetworkImage(
                                       imageUrl: imageUrl,
                                       fit: BoxFit.cover,
+                                      // Match source memCacheWidth for smooth Hero animation
+                                      memCacheWidth: 256,
+                                      memCacheHeight: 256,
                                       fadeInDuration: Duration.zero,
                                       fadeOutDuration: Duration.zero,
                                       placeholder: (_, __) => Center(

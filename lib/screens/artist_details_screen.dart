@@ -69,12 +69,13 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
         if (mounted) {
           _loadArtistImage();
           // Note: _extractColors is called by _loadArtistImage after image loads
+
+          // CRITICAL FIX: Delay adding provider listener until AFTER Hero animation
+          // Adding it immediately causes rebuilds during animation (jank)
+          _maProvider = context.read<MusicAssistantProvider>();
+          _maProvider?.addListener(_onProviderChanged);
         }
       });
-
-      // Listen to provider changes to update library status
-      _maProvider = context.read<MusicAssistantProvider>();
-      _maProvider?.addListener(_onProviderChanged);
     });
   }
 
@@ -742,8 +743,12 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                             ? CachedNetworkImage(
                                 imageUrl: imageUrl,
                                 fit: BoxFit.cover,
+                                // Match source memCacheWidth for smooth Hero animation
+                                memCacheWidth: 256,
+                                memCacheHeight: 256,
                                 fadeInDuration: Duration.zero,
                                 fadeOutDuration: Duration.zero,
+                                placeholder: (_, __) => const SizedBox(),
                                 errorWidget: (_, __, ___) => Icon(
                                   Icons.person_rounded,
                                   size: coverSize * 0.5,

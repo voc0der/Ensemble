@@ -31,6 +31,7 @@ class _AudiobookRowState extends State<AudiobookRow> with AutomaticKeepAliveClie
   late Future<List<Audiobook>> _audiobooksFuture;
   List<Audiobook>? _cachedAudiobooks;
   bool _hasLoaded = false;
+  bool _hasPrecachedAudiobooks = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -45,9 +46,35 @@ class _AudiobookRowState extends State<AudiobookRow> with AutomaticKeepAliveClie
     if (!_hasLoaded) {
       _audiobooksFuture = widget.loadAudiobooks().then((audiobooks) {
         _cachedAudiobooks = audiobooks;
+        // Pre-cache images for smooth Hero animations
+        _precacheAudiobookImages(audiobooks);
         return audiobooks;
       });
       _hasLoaded = true;
+    }
+  }
+
+  /// Pre-cache audiobook images so Hero animations are smooth on first tap
+  void _precacheAudiobookImages(List<Audiobook> audiobooks) {
+    if (!mounted || _hasPrecachedAudiobooks) return;
+    _hasPrecachedAudiobooks = true;
+
+    final maProvider = context.read<MusicAssistantProvider>();
+
+    // Only precache first ~10 visible items
+    final audiobooksToCache = audiobooks.take(10);
+
+    for (final audiobook in audiobooksToCache) {
+      final imageUrl = maProvider.api?.getImageUrl(audiobook, size: 256);
+      if (imageUrl != null) {
+        precacheImage(
+          CachedNetworkImageProvider(imageUrl),
+          context,
+        ).catchError((_) {
+          // Silently ignore precache errors
+          return false;
+        });
+      }
     }
   }
 

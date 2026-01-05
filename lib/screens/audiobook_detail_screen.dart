@@ -512,6 +512,9 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
                               ? CachedNetworkImage(
                                   imageUrl: imageUrl,
                                   fit: BoxFit.cover,
+                                  // Match source memCacheWidth for smooth Hero animation
+                                  memCacheWidth: 256,
+                                  memCacheHeight: 256,
                                   fadeInDuration: Duration.zero,
                                   fadeOutDuration: Duration.zero,
                                   placeholder: (_, __) => Center(

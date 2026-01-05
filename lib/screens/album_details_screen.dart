@@ -832,35 +832,50 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                   const SizedBox(height: 60),
                   GestureDetector(
                     onTap: () => _showFullscreenArt(imageUrl),
-                    child: Hero(
-                      tag: HeroTags.albumCover + (widget.album.uri ?? widget.album.itemId) + _heroTagSuffix,
-                      child: Container(
-                        width: coverSize,
-                        height: coverSize,
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceVariant,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                          image: imageUrl != null
-                              ? DecorationImage(
-                                  image: CachedNetworkImageProvider(imageUrl),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
+                    // Shadow container (outside Hero for correct clipping)
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Hero(
+                        tag: HeroTags.albumCover + (widget.album.uri ?? widget.album.itemId) + _heroTagSuffix,
+                        // FIXED: Match source structure - ClipRRect(12) → Container → CachedNetworkImage
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: coverSize,
+                            height: coverSize,
+                            color: colorScheme.surfaceVariant,
+                            child: imageUrl != null
+                                ? CachedNetworkImage(
+                                    imageUrl: imageUrl,
+                                    fit: BoxFit.cover,
+                                    // Match source memCacheWidth for smooth Hero
+                                    memCacheWidth: 256,
+                                    memCacheHeight: 256,
+                                    fadeInDuration: Duration.zero,
+                                    fadeOutDuration: Duration.zero,
+                                    placeholder: (_, __) => const SizedBox(),
+                                    errorWidget: (_, __, ___) => Icon(
+                                      Icons.album_rounded,
+                                      size: coverSize * 0.43,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.album_rounded,
+                                    size: coverSize * 0.43,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                          ),
                         ),
-                        child: imageUrl == null
-                            ? Icon(
-                                Icons.album_rounded,
-                                size: coverSize * 0.43,
-                                color: colorScheme.onSurfaceVariant,
-                              )
-                            : null,
                       ),
                     ),
                   ),

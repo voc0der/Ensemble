@@ -2323,7 +2323,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                                 width: 56,
                                 height: 56,
                                 fit: BoxFit.cover,
-                                // No memCacheWidth - decode at native resolution for smooth hero
+                                // FIXED: Add memCacheWidth to ensure consistent decode size for smooth Hero
+                                memCacheWidth: 256,
+                                memCacheHeight: 256,
                                 fadeInDuration: Duration.zero,
                                 fadeOutDuration: Duration.zero,
                                 placeholder: (_, __) => const SizedBox(),
@@ -2406,7 +2408,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                       ? CachedNetworkImage(
                           imageUrl: imageUrl,
                           fit: BoxFit.cover,
-                          // No memCacheWidth - decode at native resolution for smooth hero
+                          // FIXED: Add memCacheWidth to ensure consistent decode size for smooth Hero
+                          memCacheWidth: 256,
+                          memCacheHeight: 256,
                           fadeInDuration: Duration.zero,
                           fadeOutDuration: Duration.zero,
                           placeholder: (_, __) => const SizedBox(),
