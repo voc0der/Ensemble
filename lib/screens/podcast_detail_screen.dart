@@ -617,7 +617,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                         final duration = episode.duration;
                         final episodeId = episode.uri ?? episode.itemId;
                         final isExpanded = _expandedEpisodeId == episodeId;
-                        final episodeImageUrl = maProvider.getImageUrl(episode, size: 256);
+                        final episodeImageUrl = context.read<MusicAssistantProvider>().getImageUrl(episode, size: 256);
 
                         // Try to get release date from metadata
                         final releaseDate = _formatReleaseDate(episode.metadata);
