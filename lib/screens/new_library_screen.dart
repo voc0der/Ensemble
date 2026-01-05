@@ -2699,22 +2699,26 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             : allArtists.toList();
 
         // Filter to only show artists that have albums in library
+        String? _debugInfo;
         if (_showOnlyArtistsWithAlbums) {
           final artistNamesWithAlbums = <String>{};
+          int albumsWithArtists = 0;
+          int albumsWithoutArtists = 0;
           for (final album in allAlbums) {
-            if (album.artists != null) {
+            if (album.artists != null && album.artists!.isNotEmpty) {
+              albumsWithArtists++;
               for (final artist in album.artists!) {
                 artistNamesWithAlbums.add(artist.name.toLowerCase());
               }
+            } else {
+              albumsWithoutArtists++;
             }
           }
-          debugPrint('🎨 Filter enabled: ${artists.length} artists, ${allAlbums.length} albums, ${artistNamesWithAlbums.length} artist names with albums');
-          debugPrint('🎨 Artist names with albums: $artistNamesWithAlbums');
           final beforeCount = artists.length;
           artists = artists.where((a) =>
             artistNamesWithAlbums.contains(a.name.toLowerCase())
           ).toList();
-          debugPrint('🎨 Filtered from $beforeCount to ${artists.length} artists');
+          _debugInfo = 'DEBUG:\nTotal artists: $beforeCount\nTotal albums: ${allAlbums.length}\nAlbums with artists: $albumsWithArtists\nAlbums without artists: $albumsWithoutArtists\nUnique artist names from albums: ${artistNamesWithAlbums.length}\nFiltered to: ${artists.length} artists\n\nFirst 10 artist names from albums:\n${artistNamesWithAlbums.take(10).join('\n')}';
         }
 
         if (artists.isEmpty) {
@@ -2737,15 +2741,47 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
         final artistNames = sortedArtists.map((a) => a.name ?? '').toList();
 
-        return RefreshIndicator(
-          color: colorScheme.primary,
-          backgroundColor: colorScheme.background,
-          onRefresh: () async => context.read<MusicAssistantProvider>().loadLibrary(),
-          child: LetterScrollbar(
-            controller: _artistsScrollController,
-            items: artistNames,
-            onDragStateChanged: _onLetterScrollbarDragChanged,
-            child: _artistsViewMode == 'list'
+        return Column(
+          children: [
+            // DEBUG: Temporary banner to show filter info
+            if (_debugInfo != null)
+              GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Filter Debug Info'),
+                      content: SelectableText(_debugInfo!),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  color: Colors.orange,
+                  child: const Text(
+                    'TAP HERE for debug info',
+                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            Expanded(
+              child: RefreshIndicator(
+                color: colorScheme.primary,
+                backgroundColor: colorScheme.background,
+                onRefresh: () async => context.read<MusicAssistantProvider>().loadLibrary(),
+                child: LetterScrollbar(
+                  controller: _artistsScrollController,
+                  items: artistNames,
+                  onDragStateChanged: _onLetterScrollbarDragChanged,
+                  child: _artistsViewMode == 'list'
                 ? ListView.builder(
                     controller: _artistsScrollController,
                     key: PageStorageKey<String>('library_artists_list_${_showFavoritesOnly ? 'fav' : 'all'}_$_artistsViewMode'),
@@ -2782,7 +2818,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                       return _buildArtistGridCard(context, artist);
                     },
                   ),
-          ),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
