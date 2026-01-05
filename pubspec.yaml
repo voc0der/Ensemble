@@ -1,7 +1,7 @@
 name: ensemble
 description: A minimalistic Music Assistant client built with Flutter
 publish_to: 'none'
-version: 2.8.3-beta+40
+version: 2.8.4-beta+41
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

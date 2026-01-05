@@ -2416,17 +2416,22 @@ class MusicAssistantProvider with ChangeNotifier {
               _logger.log('📻 Found artist from artists array: $artistName');
             }
 
-            // Check for stream_title which might contain "Artist - Title" format
+            // Check for stream_title which contains the actual now-playing metadata
+            // For radio, stream_title has "Artist - Title" format from the stream's ICY metadata
             final streamTitle = currentMedia['stream_title'] as String?;
-            if (streamTitle != null && streamTitle.contains(' - ') && artistName == null) {
-              final parts = streamTitle.split(' - ');
-              if (parts.length >= 2) {
-                artistName = parts[0].trim();
-                // If trackTitle is still the default or matches the stream_title, update it too
-                if (trackTitle == 'Unknown Track' || trackTitle == streamTitle) {
+            if (streamTitle != null && streamTitle.isNotEmpty) {
+              if (streamTitle.contains(' - ')) {
+                // Parse "Artist - Title" format
+                final parts = streamTitle.split(' - ');
+                if (parts.length >= 2) {
+                  artistName = parts[0].trim();
                   trackTitle = parts.sublist(1).join(' - ').trim();
+                  _logger.log('📻 Parsed from stream_title: artist=$artistName, title=$trackTitle');
                 }
-                _logger.log('📻 Parsed artist from stream_title: $artistName, title: $trackTitle');
+              } else {
+                // No separator, use stream_title as the title
+                trackTitle = streamTitle;
+                _logger.log('📻 Using stream_title as title: $trackTitle');
               }
             }
           }
@@ -2554,15 +2559,19 @@ class MusicAssistantProvider with ChangeNotifier {
           }
         }
 
-        // Check for stream_title with "Artist - Title" format
+        // Check for stream_title which contains the actual now-playing metadata
         final streamTitle = currentMedia['stream_title'] as String?;
-        if (streamTitle != null && streamTitle.contains(' - ') && artist == null) {
-          final parts = streamTitle.split(' - ');
-          if (parts.length >= 2) {
-            artist = parts[0].trim();
-            if (title == 'Unknown Track' || title == streamTitle) {
+        if (streamTitle != null && streamTitle.isNotEmpty) {
+          if (streamTitle.contains(' - ')) {
+            // Parse "Artist - Title" format
+            final parts = streamTitle.split(' - ');
+            if (parts.length >= 2) {
+              artist = parts[0].trim();
               title = parts.sublist(1).join(' - ').trim();
             }
+          } else {
+            // No separator, use stream_title as the title
+            title = streamTitle;
           }
         }
       }
