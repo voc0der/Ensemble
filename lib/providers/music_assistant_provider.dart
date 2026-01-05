@@ -2458,14 +2458,19 @@ class MusicAssistantProvider with ChangeNotifier {
 
           // Only cache if we don't already have better data from queue
           final existingTrack = _cacheService.getCachedTrackForPlayer(playerId);
+          // Check if existing track has proper artist (not Unknown Artist and not empty)
+          final existingArtist = existingTrack?.artistsString;
           final existingHasProperArtist = existingTrack != null &&
-              existingTrack.artistsString != 'Unknown Artist' &&
-              !existingTrack.name.contains(' - ');
+              existingArtist != null &&
+              existingArtist != 'Unknown Artist' &&
+              existingArtist.trim().isNotEmpty;
           final existingHasImage = existingTrack?.metadata?['images'] != null;
           final newHasImage = metadata != null;
           final newHasAlbum = albumName != null;
           final existingHasAlbum = existingTrack?.album != null;
-          final newHasProperArtist = artistName != 'Unknown Artist';
+          // Check if new data has proper artist AND title (not malformed like "- Something")
+          final newTitleIsMalformed = trackTitle.startsWith('- ') || trackTitle.trim().isEmpty;
+          final newHasProperArtist = artistName != 'Unknown Artist' && !newTitleIsMalformed;
 
           // For podcasts, album info is crucial (it's the podcast name)
           // If new track has album but existing doesn't, prefer new or merge
@@ -2474,6 +2479,11 @@ class MusicAssistantProvider with ChangeNotifier {
           // For radio streams, always update when we have new metadata (song changes frequently)
           // This ensures radio artist/title changes are reflected immediately
           final isRadioUri = uri != null && (uri.contains('library://radio/') || uri.contains('/radio/'));
+
+          // Log metadata quality comparison for debugging radio
+          if (isRadioUri) {
+            _logger.log('📻 Radio metadata check: existing="${existingTrack?.name}" by "$existingArtist" (proper: $existingHasProperArtist), new="$trackTitle" by "$artistName" (proper: $newHasProperArtist, malformed: $newTitleIsMalformed)');
+          }
 
           // Keep existing if it has proper artist OR has image that new one lacks
           // BUT for podcasts, if new has album and existing doesn't, we need that album data
