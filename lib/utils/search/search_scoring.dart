@@ -233,7 +233,7 @@ class SearchScorer {
       if (narratorLower.contains(nq.withoutStopwords)) {
         bonus += _config.narratorFieldBonus;
       }
-    } else if (item is Podcast || item.mediaType == MediaType.podcast) {
+    } else if (item.mediaType == MediaType.podcast || item.mediaType == MediaType.podcastEpisode) {
       bonus += _scorePodcastFields(item, nq);
     }
 
