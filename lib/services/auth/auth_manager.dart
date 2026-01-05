@@ -100,7 +100,8 @@ class AuthManager {
         host.startsWith('172.31.') ||
         host == 'localhost' ||
         host.startsWith('127.') ||
-        host.endsWith('.local');
+        host.endsWith('.local') ||
+        host.endsWith('.ts.net');
   }
 
   /// Try to detect auth strategy for a given URL
