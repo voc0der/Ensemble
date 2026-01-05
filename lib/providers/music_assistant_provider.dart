@@ -109,6 +109,10 @@ class MusicAssistantProvider with ChangeNotifier {
   // Empty list means all providers are allowed
   List<String> _providerFilter = [];
 
+  // Player filter: list of allowed player IDs from MA user settings
+  // Empty list means all players are allowed
+  List<String> _playerFilter = [];
+
   // ============================================================================
   // GETTERS
   // ============================================================================
@@ -181,6 +185,24 @@ class MusicAssistantProvider with ChangeNotifier {
     };
   }
 
+  /// Player filter from MA user settings (empty = all players allowed)
+  List<String> get playerFilter => _playerFilter;
+
+  /// Whether player filtering is active
+  bool get hasPlayerFilter => _playerFilter.isNotEmpty;
+
+  /// Check if a player should be visible based on player filter
+  bool isPlayerAllowedByFilter(Player player) {
+    if (_playerFilter.isEmpty) return true;
+    return _playerFilter.contains(player.playerId);
+  }
+
+  /// Filter a list of players based on player filter
+  List<Player> filterPlayers(List<Player> players) {
+    if (_playerFilter.isEmpty) return players;
+    return players.where(isPlayerAllowedByFilter).toList();
+  }
+
   /// Whether library is syncing in background
   bool get isSyncing => SyncService.instance.isSyncing;
 
@@ -196,13 +218,17 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   /// Available players - loads from cache for instant UI display
+  /// Filtered by player_filter if active
   List<Player> get availablePlayers {
     if (_availablePlayers.isEmpty && _cacheService.hasCachedPlayers) {
       _availablePlayers = _cacheService.getCachedPlayers()!;
       _logger.log('⚡ Loaded ${_availablePlayers.length} players from cache (lazy)');
     }
-    return _availablePlayers;
+    return filterPlayers(_availablePlayers);
   }
+
+  /// Raw unfiltered players list (for internal use)
+  List<Player> get availablePlayersUnfiltered => _availablePlayers;
 
   /// Check if a player should show the "manually synced" indicator (yellow border)
   /// Returns true for BOTH the leader AND children of a manually created sync group
@@ -886,6 +912,21 @@ class MusicAssistantProvider with ChangeNotifier {
       } else {
         _providerFilter = [];
         _logger.log('🔓 No provider filter in user settings');
+      }
+
+      // Capture player filter (empty list = all players allowed)
+      final playerFilterRaw = userInfo['player_filter'];
+      if (playerFilterRaw is List) {
+        _playerFilter = playerFilterRaw.cast<String>().toList();
+        if (_playerFilter.isNotEmpty) {
+          _logger.log('🔒 Player filter active: ${_playerFilter.length} players allowed');
+          _logger.log('   Allowed: ${_playerFilter.join(", ")}');
+        } else {
+          _logger.log('🔓 No player filter - all players visible');
+        }
+      } else {
+        _playerFilter = [];
+        _logger.log('🔓 No player filter in user settings');
       }
     } catch (e) {
       _logger.log('⚠️ Could not fetch user settings (non-fatal): $e');
