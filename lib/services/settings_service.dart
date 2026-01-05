@@ -35,6 +35,7 @@ class SettingsService {
   static const String _keyShowFavoriteAlbums = 'show_favorite_albums';
   static const String _keyShowFavoriteArtists = 'show_favorite_artists';
   static const String _keyShowFavoriteTracks = 'show_favorite_tracks';
+  static const String _keyShowOnlyArtistsWithAlbums = 'show_only_artists_with_albums'; // Library artists filter
   static const String _keyHomeRowOrder = 'home_row_order'; // JSON list of row IDs
 
   // Default row order
@@ -487,6 +488,17 @@ class SettingsService {
   static Future<void> setShowFavoriteTracks(bool show) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyShowFavoriteTracks, show);
+  }
+
+  // Library Artists Filter - show only artists that have albums in library
+  static Future<bool> getShowOnlyArtistsWithAlbums() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyShowOnlyArtistsWithAlbums) ?? false;
+  }
+
+  static Future<void> setShowOnlyArtistsWithAlbums(bool show) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowOnlyArtistsWithAlbums, show);
   }
 
   // Home Row Order

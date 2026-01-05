@@ -49,6 +49,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   bool _isLoadingTracks = false;
   bool _isLoadingAudiobooks = false;
   bool _showFavoritesOnly = false;
+  bool _showOnlyArtistsWithAlbums = false;
 
   // PERF: Pre-sorted lists - computed once on data load, not on every build
   List<Playlist> _sortedPlaylists = [];
@@ -166,6 +167,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final seriesMode = await SettingsService.getLibrarySeriesViewMode();
     final radioMode = await SettingsService.getLibraryRadioViewMode();
     final podcastsMode = await SettingsService.getLibraryPodcastsViewMode();
+    final showOnlyArtistsWithAlbums = await SettingsService.getShowOnlyArtistsWithAlbums();
     if (mounted) {
       setState(() {
         _artistsViewMode = artistsMode;
@@ -177,6 +179,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         _seriesViewMode = seriesMode;
         _radioViewMode = radioMode;
         _podcastsViewMode = podcastsMode;
+        _showOnlyArtistsWithAlbums = showOnlyArtistsWithAlbums;
       });
     }
   }
@@ -2679,11 +2682,11 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   // ============ ARTISTS TAB ============
   Widget _buildArtistsTab(BuildContext context, S l10n) {
-    // Use Selector for targeted rebuilds - only rebuild when artists or loading state changes
-    return Selector<MusicAssistantProvider, (List<Artist>, bool)>(
-      selector: (_, provider) => (provider.artists, provider.isLoading),
+    // Use Selector for targeted rebuilds - only rebuild when artists, albums, or loading state changes
+    return Selector<MusicAssistantProvider, (List<Artist>, List<Album>, bool)>(
+      selector: (_, provider) => (provider.artists, provider.albums, provider.isLoading),
       builder: (context, data, _) {
-        final (allArtists, isLoading) = data;
+        final (allArtists, allAlbums, isLoading) = data;
         final colorScheme = Theme.of(context).colorScheme;
 
         if (isLoading) {
@@ -2691,9 +2694,24 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         }
 
         // Filter by favorites if enabled
-        final artists = _showFavoritesOnly
+        var artists = _showFavoritesOnly
             ? allArtists.where((a) => a.favorite == true).toList()
-            : allArtists;
+            : allArtists.toList();
+
+        // Filter to only show artists that have albums in library
+        if (_showOnlyArtistsWithAlbums) {
+          final artistNamesWithAlbums = <String>{};
+          for (final album in allAlbums) {
+            if (album.artists != null) {
+              for (final artist in album.artists!) {
+                artistNamesWithAlbums.add(artist.name.toLowerCase());
+              }
+            }
+          }
+          artists = artists.where((a) =>
+            artistNamesWithAlbums.contains(a.name.toLowerCase())
+          ).toList();
+        }
 
         if (artists.isEmpty) {
           if (_showFavoritesOnly) {

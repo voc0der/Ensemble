@@ -43,6 +43,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _smartSortPlayers = false;
   // Hint settings
   bool _showHints = true;
+  // Library settings
+  bool _showOnlyArtistsWithAlbums = false;
 
   @override
   void initState() {
@@ -94,6 +96,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Load hint settings
     final showHints = await SettingsService.getShowHints();
 
+    // Load library settings
+    final showOnlyArtistsWithAlbums = await SettingsService.getShowOnlyArtistsWithAlbums();
+
     if (mounted) {
       setState(() {
         _showRecentAlbums = showRecent;
@@ -111,6 +116,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _preferLocalPlayer = preferLocal;
         _smartSortPlayers = smartSort;
         _showHints = showHints;
+        _showOnlyArtistsWithAlbums = showOnlyArtistsWithAlbums;
       });
     }
   }
@@ -737,6 +743,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (value) {
                   setState(() => _showHints = value);
                   SettingsService.setShowHints(value);
+                },
+                activeColor: colorScheme.primary,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Library section
+            Text(
+              S.of(context)!.library,
+              style: textTheme.titleMedium?.copyWith(
+                color: colorScheme.onBackground,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SwitchListTile(
+                title: Text(
+                  'Show only artists with albums',
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                subtitle: Text(
+                  'Hide artists that have no albums in your library',
+                  style: TextStyle(
+                    color: colorScheme.onSurface.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                ),
+                value: _showOnlyArtistsWithAlbums,
+                onChanged: (value) {
+                  setState(() => _showOnlyArtistsWithAlbums = value);
+                  SettingsService.setShowOnlyArtistsWithAlbums(value);
                 },
                 activeColor: colorScheme.primary,
                 contentPadding: EdgeInsets.zero,

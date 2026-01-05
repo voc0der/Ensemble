@@ -495,24 +495,74 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                         ],
                         const SizedBox(height: 16),
 
-                        // Library button
-                        SizedBox(
-                          height: 50,
-                          width: 50,
-                          child: FilledButton.tonal(
-                            onPressed: _toggleLibrary,
-                            style: FilledButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                        // Action buttons row
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              // Main Play Latest Episode Button
+                              Expanded(
+                                flex: 2,
+                                child: SizedBox(
+                                  height: 50,
+                                  child: ElevatedButton.icon(
+                                    onPressed: _isLoadingEpisodes || _episodes.isEmpty
+                                        ? null
+                                        : () => _playEpisode(_episodes.first),
+                                    icon: const Icon(Icons.play_arrow_rounded),
+                                    label: Text(S.of(context)!.play),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: colorScheme.primary,
+                                      foregroundColor: colorScheme.onPrimary,
+                                      disabledBackgroundColor: colorScheme.primary.withOpacity(0.38),
+                                      disabledForegroundColor: colorScheme.onPrimary.withOpacity(0.38),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            child: Icon(
-                              _isInLibrary ? Icons.library_add_check : Icons.library_add,
-                              color: _isInLibrary
-                                  ? colorScheme.primary
-                                  : colorScheme.onSurfaceVariant,
-                            ),
+                              const SizedBox(width: 12),
+                              // "Play on..." Button
+                              SizedBox(
+                                height: 50,
+                                width: 50,
+                                child: FilledButton.tonal(
+                                  onPressed: _isLoadingEpisodes || _episodes.isEmpty
+                                      ? null
+                                      : () => _showPlayOnMenu(context, _episodes.first),
+                                  style: FilledButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Icon(Icons.speaker_group_outlined),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Library button
+                              SizedBox(
+                                height: 50,
+                                width: 50,
+                                child: FilledButton.tonal(
+                                  onPressed: _toggleLibrary,
+                                  style: FilledButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    _isInLibrary ? Icons.library_add_check : Icons.library_add,
+                                    color: _isInLibrary
+                                        ? colorScheme.primary
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 16),
