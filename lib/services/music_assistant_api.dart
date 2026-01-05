@@ -1239,6 +1239,7 @@ class MusicAssistantAPI {
       );
 
       final items = response['result'] as List<dynamic>?;
+      _logger.log('📋 recently_played_items returned ${items?.length ?? 0} items');
       if (items == null || items.isEmpty) {
         _logger.log('⚠️ No recently played tracks found');
         return [];
@@ -1248,6 +1249,8 @@ class MusicAssistantAPI {
       final trackUris = <String>[];
       for (final item in items) {
         final trackUri = (item as Map<String, dynamic>)['uri'] as String?;
+        final name = (item as Map<String, dynamic>)['name'] as String?;
+        _logger.log('  📀 Track: $name');
         if (trackUri != null) {
           trackUris.add(trackUri);
         }
@@ -1277,12 +1280,17 @@ class MusicAssistantAPI {
 
           try {
             final fullTrack = trackResponse['result'] as Map<String, dynamic>?;
+            final trackName = fullTrack?['name'] as String?;
             final albumData = fullTrack?['album'] as Map<String, dynamic>?;
             final albumUri = albumData?['uri'] as String?;
+            final albumName = albumData?['name'] as String?;
 
             if (albumUri != null && !seenAlbumUris.contains(albumUri)) {
               seenAlbumUris.add(albumUri);
               albumUris.add(albumUri);
+              _logger.log('  📀 Found album: $albumName from track: $trackName');
+            } else if (albumUri == null) {
+              _logger.log('  ⚠️ Track "$trackName" has no album');
             }
           } catch (_) {
             continue;

@@ -594,28 +594,20 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   Future<void> _loadPlaylists({bool? favoriteOnly}) async {
     final maProvider = context.read<MusicAssistantProvider>();
-    if (maProvider.api != null) {
-      final playlists = await maProvider.api!.getPlaylists(
-        limit: 100,
-        favoriteOnly: favoriteOnly,
-      );
-      if (mounted) {
-        // PERF: Pre-sort once on load, not on every build
-        final sorted = List<Playlist>.from(playlists)
-          ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
-        setState(() {
-          _playlists = playlists;
-          _sortedPlaylists = sorted;
-          _playlistNames = sorted.map((p) => p.name ?? '').toList();
-          _isLoadingPlaylists = false;
-        });
-      }
-    } else {
-      if (mounted) {
-        setState(() {
-          _isLoadingPlaylists = false;
-        });
-      }
+    final playlists = await maProvider.getPlaylists(
+      limit: 100,
+      favoriteOnly: favoriteOnly,
+    );
+    if (mounted) {
+      // PERF: Pre-sort once on load, not on every build
+      final sorted = List<Playlist>.from(playlists)
+        ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+      setState(() {
+        _playlists = playlists;
+        _sortedPlaylists = sorted;
+        _playlistNames = sorted.map((p) => p.name ?? '').toList();
+        _isLoadingPlaylists = false;
+      });
     }
   }
 
@@ -669,48 +661,39 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     });
 
     final maProvider = context.read<MusicAssistantProvider>();
-    if (maProvider.api != null) {
-      _logger.log('📚 Calling API getAudiobooks...');
-      final audiobooks = await maProvider.api!.getAudiobooks(
-        limit: 10000,  // Large limit to get all audiobooks
-        favoriteOnly: favoriteOnly,
-      );
-      _logger.log('📚 API returned ${audiobooks.length} audiobooks');
-      if (audiobooks.isNotEmpty) {
-        _logger.log('📚 First audiobook: ${audiobooks.first.name} by ${audiobooks.first.authorsString}');
-      }
-      if (mounted) {
-        // PERF: Pre-sort and pre-group once on load, not on every build
-        final sortedAlpha = List<Audiobook>.from(audiobooks)
-          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    _logger.log('📚 Calling getAudiobooks...');
+    final audiobooks = await maProvider.getAudiobooks(
+      limit: 10000,  // Large limit to get all audiobooks
+      favoriteOnly: favoriteOnly,
+    );
+    _logger.log('📚 Returned ${audiobooks.length} audiobooks');
+    if (audiobooks.isNotEmpty) {
+      _logger.log('📚 First audiobook: ${audiobooks.first.name} by ${audiobooks.first.authorsString}');
+    }
+    if (mounted) {
+      // PERF: Pre-sort and pre-group once on load, not on every build
+      final sortedAlpha = List<Audiobook>.from(audiobooks)
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
-        // Group audiobooks by author
-        final authorMap = <String, List<Audiobook>>{};
-        for (final book in audiobooks) {
-          final authorName = book.authorsString;
-          authorMap.putIfAbsent(authorName, () => []).add(book);
-        }
-        final sortedAuthors = authorMap.keys.toList()..sort();
+      // Group audiobooks by author
+      final authorMap = <String, List<Audiobook>>{};
+      for (final book in audiobooks) {
+        final authorName = book.authorsString;
+        authorMap.putIfAbsent(authorName, () => []).add(book);
+      }
+      final sortedAuthors = authorMap.keys.toList()..sort();
 
-        setState(() {
-          _audiobooks = audiobooks;
-          _sortedAudiobooks = sortedAlpha;
-          _audiobookNames = sortedAlpha.map((a) => a.name).toList();
-          _groupedAudiobooksByAuthor = authorMap;
-          _sortedAuthorNames = sortedAuthors;
-          _isLoadingAudiobooks = false;
-        });
-        _logger.log('📚 State updated, _audiobooks.length = ${_audiobooks.length}');
-        // Fetch author images in background
-        _fetchAuthorImages(audiobooks);
-      }
-    } else {
-      _logger.log('📚 API is null!');
-      if (mounted) {
-        setState(() {
-          _isLoadingAudiobooks = false;
-        });
-      }
+      setState(() {
+        _audiobooks = audiobooks;
+        _sortedAudiobooks = sortedAlpha;
+        _audiobookNames = sortedAlpha.map((a) => a.name).toList();
+        _groupedAudiobooksByAuthor = authorMap;
+        _sortedAuthorNames = sortedAuthors;
+        _isLoadingAudiobooks = false;
+      });
+      _logger.log('📚 State updated, _audiobooks.length = ${_audiobooks.length}');
+      // Fetch author images in background
+      _fetchAuthorImages(audiobooks);
     }
   }
 

@@ -30,17 +30,11 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
     });
 
     final maProvider = context.read<MusicAssistantProvider>();
-    if (maProvider.api != null) {
-      final playlists = await maProvider.api!.getPlaylists(limit: 100);
-      setState(() {
-        _playlists = playlists;
-        _isLoading = false;
-      });
-    } else {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    final playlists = await maProvider.getPlaylists(limit: 100);
+    setState(() {
+      _playlists = playlists;
+      _isLoading = false;
+    });
   }
 
   @override
