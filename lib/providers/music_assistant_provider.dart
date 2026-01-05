@@ -2657,16 +2657,19 @@ class MusicAssistantProvider with ChangeNotifier {
     try {
       _logger.log('🔄 Fetching fresh recent albums from MA...');
       final albums = await _api!.getRecentAlbums(limit: LibraryConstants.defaultRecentLimit);
-      _cacheService.setCachedRecentAlbums(albums);
-      return albums;
+      // Apply provider filtering
+      final filtered = filterByProvider(albums);
+      _cacheService.setCachedRecentAlbums(filtered);
+      return filtered;
     } catch (e) {
       _logger.log('❌ Failed to fetch recent albums: $e');
       // Fallback on error: try memory cache, then local database
       final cached = _cacheService.getCachedRecentAlbums();
-      if (cached != null && cached.isNotEmpty) return cached;
-      return RecentlyPlayedService.instance.getRecentAlbums(
+      if (cached != null && cached.isNotEmpty) return filterByProvider(cached);
+      final local = await RecentlyPlayedService.instance.getRecentAlbums(
         limit: LibraryConstants.defaultRecentLimit,
       );
+      return filterByProvider(local);
     }
   }
 
