@@ -2480,11 +2480,6 @@ class MusicAssistantProvider with ChangeNotifier {
           // This ensures radio artist/title changes are reflected immediately
           final isRadioUri = uri != null && (uri.contains('library://radio/') || uri.contains('/radio/'));
 
-          // Log metadata quality comparison for debugging radio
-          if (isRadioUri) {
-            _logger.log('📻 Radio metadata check: existing="${existingTrack?.name}" by "$existingArtist" (proper: $existingHasProperArtist), new="$trackTitle" by "$artistName" (proper: $newHasProperArtist, malformed: $newTitleIsMalformed)');
-          }
-
           // Keep existing if it has proper artist OR has image that new one lacks
           // BUT for podcasts, if new has album and existing doesn't, we need that album data
           // AND for radio, always update when new track has proper artist (song changed)
