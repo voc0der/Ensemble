@@ -71,11 +71,12 @@ class _QueuePanelState extends State<QueuePanel> {
       _items = List.from(_items)..removeWhere((i) => i.queueItemId == item.queueItemId);
     });
 
-    // Remove from queue via API - use playerId as queue ID
+    // Remove from queue via API - fire and forget
+    // Don't call onRefresh() - it can bring back stale data before API completes
+    // causing the "ghost item" double animation bug
     final playerId = widget.queue?.playerId;
     if (playerId != null) {
-      await widget.maProvider.api?.queueCommandDeleteItem(playerId, item.queueItemId);
-      widget.onRefresh();
+      widget.maProvider.api?.queueCommandDeleteItem(playerId, item.queueItemId);
     }
   }
 
