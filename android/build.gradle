@@ -2,6 +2,9 @@ buildscript {
     ext.kotlin_version = '1.9.10'
     repositories {
         google()
+        // Use Maven Central mirrors as fallback for 403 errors
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
         mavenCentral()
     }
 
@@ -14,6 +17,9 @@ buildscript {
 allprojects {
     repositories {
         google()
+        // Use Maven Central mirrors as fallback for 403 errors
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
         mavenCentral()
     }
 }
