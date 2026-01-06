@@ -241,9 +241,15 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   void collapse() {
     if (_isVerticalDragging) return;
+    // If queue panel is open, close it first instead of collapsing player
+    // This prevents both from closing on a single back press
+    if (isQueuePanelOpen) {
+      closeQueuePanel();
+      return;
+    }
     AnimationDebugger.startSession('playerCollapse');
     // Instantly hide queue panel when collapsing to avoid visual glitches
-    // during Android's predictive back gesture
+    // during Android's predictive back gesture (only reached if queue already closed)
     _queuePanelController.value = 0;
     _controller.duration = _collapseDuration;
     _controller.reverse().then((_) {
