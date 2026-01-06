@@ -1040,12 +1040,16 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           });
         }
 
-        // Handle Android back button - close queue panel first if open
+        // Handle Android back button - close queue panel first, then collapse player
         return PopScope(
-          canPop: !isQueuePanelOpen,
+          canPop: !isQueuePanelOpen && !isExpanded,
           onPopInvokedWithResult: (didPop, result) {
-            if (!didPop && isQueuePanelOpen) {
-              _toggleQueuePanel();
+            if (!didPop) {
+              if (isQueuePanelOpen) {
+                _toggleQueuePanel();
+              } else if (isExpanded) {
+                collapse();
+              }
             }
           },
           child: AnimatedBuilder(

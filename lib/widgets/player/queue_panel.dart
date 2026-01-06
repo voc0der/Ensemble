@@ -40,6 +40,10 @@ class _QueuePanelState extends State<QueuePanel> {
   final AnimatedListController _listController = AnimatedListController();
   List<QueueItem> _items = [];
 
+  // Track pointer for right-swipe-to-close (bypasses gesture arena)
+  Offset? _pointerStart;
+  static const _swipeThreshold = 80.0; // Minimum horizontal distance for swipe
+
   @override
   void initState() {
     super.initState();
@@ -88,13 +92,25 @@ class _QueuePanelState extends State<QueuePanel> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      // Swipe right to close queue panel and return to expanded player
-      onHorizontalDragEnd: (details) {
-        if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
-          widget.onClose();
+    // Use Listener for raw pointer events to detect right-swipe-to-close
+    // This bypasses the gesture arena so Dismissible doesn't block it
+    return Listener(
+      onPointerDown: (event) {
+        _pointerStart = event.position;
+      },
+      onPointerMove: (event) {
+        if (_pointerStart != null) {
+          final dx = event.position.dx - _pointerStart!.dx;
+          final dy = (event.position.dy - _pointerStart!.dy).abs();
+          // Right swipe: horizontal movement > threshold, mostly horizontal (not vertical)
+          if (dx > _swipeThreshold && dx > dy * 2) {
+            _pointerStart = null; // Reset to prevent multiple triggers
+            widget.onClose();
+          }
         }
       },
+      onPointerUp: (_) => _pointerStart = null,
+      onPointerCancel: (_) => _pointerStart = null,
       child: Container(
         color: widget.backgroundColor,
         child: Column(
