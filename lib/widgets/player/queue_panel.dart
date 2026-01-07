@@ -516,23 +516,26 @@ class _QueuePanelState extends State<QueuePanel> {
         isPastItem,
         dragHandle: isCurrentItem
             ? Icon(Icons.play_arrow_rounded, color: widget.primaryColor, size: 20)
-            : GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onPanStart: (details) {
-                  _startDrag(index, itemContext, details.globalPosition);
-                },
-                onPanUpdate: (details) {
-                  _updateDragPointer(details.globalPosition);
-                },
-                onPanEnd: (details) {
-                  _endDrag();
-                },
-                onPanCancel: () {
-                  _cancelDrag();
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-                  child: Icon(Icons.drag_handle, color: widget.textColor.withOpacity(0.3), size: 20),
+            : SizedBox(
+                width: 48,
+                height: 48,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: (details) {
+                    _startDrag(index, itemContext, details.globalPosition);
+                  },
+                  onPanUpdate: (details) {
+                    _updateDragPointer(details.globalPosition);
+                  },
+                  onPanEnd: (details) {
+                    _endDrag();
+                  },
+                  onPanCancel: () {
+                    _cancelDrag();
+                  },
+                  child: Center(
+                    child: Icon(Icons.drag_handle, color: widget.textColor.withOpacity(0.3), size: 20),
+                  ),
                 ),
               ),
       ),
