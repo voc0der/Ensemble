@@ -195,8 +195,16 @@ class _QueuePanelState extends State<QueuePanel> {
     // Call API if position changed
     if (positionChanged) {
       final playerId = widget.queue?.playerId;
+      debugPrint('QueuePanel: Moving ${item.track.name} from $originalIndex to $newIndex (queueItemId: ${item.queueItemId})');
       if (playerId != null) {
-        await widget.maProvider.api?.queueCommandMoveItem(playerId, item.queueItemId, newIndex);
+        try {
+          await widget.maProvider.api?.queueCommandMoveItem(playerId, item.queueItemId, newIndex);
+          debugPrint('QueuePanel: Move API call completed');
+        } catch (e) {
+          debugPrint('QueuePanel: Move API error: $e');
+        }
+      } else {
+        debugPrint('QueuePanel: playerId is null, cannot move');
       }
       // Allow updates again after a delay for server state to propagate
       await Future.delayed(const Duration(milliseconds: 500));
