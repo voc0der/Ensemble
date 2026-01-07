@@ -207,7 +207,8 @@ class _QueuePanelState extends State<QueuePanel> {
         debugPrint('QueuePanel: playerId is null, cannot move');
       }
       // Allow updates again after a delay for server state to propagate
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Needs to be long enough for Music Assistant to process and broadcast the change
+      await Future.delayed(const Duration(milliseconds: 2000));
       if (mounted) {
         setState(() {
           _pendingReorder = false;
