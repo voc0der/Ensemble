@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/music_assistant_provider.dart';
@@ -47,7 +49,6 @@ class QueuePanel extends StatefulWidget {
 }
 
 class _QueuePanelState extends State<QueuePanel> {
-  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   List<QueueItem> _items = [];
 
   // Drag state
@@ -60,13 +61,15 @@ class _QueuePanelState extends State<QueuePanel> {
   double _itemHeight = 64.0;
   double _listTopOffset = 0; // Offset of the list from top of stack
   bool _pendingReorder = false; // True while waiting for API confirmation
+  Timer? _pendingReorderTimer;
 
   // Optimistic update for tap-to-skip
   int? _optimisticCurrentIndex;
 
   // Swipe-to-close tracking (raw pointer events to bypass gesture arena)
   Offset? _swipeStart;
-  DateTime? _swipeStartTime;
+  Offset? _swipeLast;
+  int? _swipeLastTime; // milliseconds since epoch
   bool _isSwiping = false;
   static const _swipeMinDistance = 10.0; // Min distance to start tracking
 
@@ -110,15 +113,8 @@ class _QueuePanelState extends State<QueuePanel> {
 
   @override
   void dispose() {
+    _pendingReorderTimer?.cancel();
     super.dispose();
-  }
-
-  bool _itemListsEqual(List<QueueItem> a, List<QueueItem> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i].queueItemId != b[i].queueItemId) return false;
-    }
-    return true;
   }
 
   String _formatDuration(Duration? duration) {
@@ -130,15 +126,10 @@ class _QueuePanelState extends State<QueuePanel> {
   }
 
   void _handleDelete(QueueItem item, int index) async {
-    // Remove from local list with animation
+    // Remove from local list - Dismissible handles the animation
     setState(() {
       _items.removeAt(index);
     });
-    _listKey.currentState?.removeItem(
-      index,
-      (context, animation) => _buildAnimatedItem(item, index, animation, removing: true),
-      duration: const Duration(milliseconds: 200),
-    );
 
     // Call API
     final playerId = widget.queue?.playerId;
@@ -147,8 +138,18 @@ class _QueuePanelState extends State<QueuePanel> {
     }
   }
 
+  void _resetSwipeState() {
+    _swipeStart = null;
+    _swipeLast = null;
+    _swipeLastTime = null;
+    _isSwiping = false;
+  }
+
   void _startDrag(int index, BuildContext itemContext, Offset globalPosition) {
     if (_dragIndex != null) return;
+
+    // Clear any pending swipe state to prevent conflicts
+    _resetSwipeState();
 
     final RenderBox box = itemContext.findRenderObject() as RenderBox;
     final Offset globalPos = box.localToGlobal(Offset.zero);
@@ -203,6 +204,9 @@ class _QueuePanelState extends State<QueuePanel> {
     final item = _items[newIndex];
     final positionChanged = originalIndex != newIndex;
 
+    // Cancel any existing timer to prevent stacking
+    _pendingReorderTimer?.cancel();
+
     setState(() {
       _dragIndex = null;
       _dragStartIndex = null;
@@ -231,13 +235,13 @@ class _QueuePanelState extends State<QueuePanel> {
         debugPrint('QueuePanel: playerId is null, cannot move');
       }
       // Allow updates again after a delay for server state to propagate
-      // Needs to be long enough for Music Assistant to process and broadcast the change
-      await Future.delayed(const Duration(milliseconds: 2000));
-      if (mounted) {
-        setState(() {
-          _pendingReorder = false;
-        });
-      }
+      _pendingReorderTimer = Timer(const Duration(milliseconds: 2000), () {
+        if (mounted) {
+          setState(() {
+            _pendingReorder = false;
+          });
+        }
+      });
     }
   }
 
@@ -298,7 +302,8 @@ class _QueuePanelState extends State<QueuePanel> {
         // Don't track swipe while dragging a queue item
         if (_dragIndex == null) {
           _swipeStart = event.position;
-          _swipeStartTime = DateTime.now();
+          _swipeLast = event.position;
+          _swipeLastTime = DateTime.now().millisecondsSinceEpoch;
           _isSwiping = false;
         }
       },
@@ -308,34 +313,44 @@ class _QueuePanelState extends State<QueuePanel> {
         final dx = event.position.dx - _swipeStart!.dx;
         final dy = (event.position.dy - _swipeStart!.dy).abs();
 
-        // Only track horizontal swipes (dx > dy * 2 means mostly horizontal)
-        if (dx > _swipeMinDistance && dx > dy * 2) {
+        // Check if this is a horizontal swipe (dx > dy * 1.5 for more tolerance)
+        final isHorizontal = dx.abs() > _swipeMinDistance && dx.abs() > dy * 1.5;
+
+        if (isHorizontal && dx > 0) {
+          // Horizontal swipe right - close gesture
           if (!_isSwiping) {
             _isSwiping = true;
             widget.onSwipeStart?.call();
           }
+          // Track position for velocity calculation
+          _swipeLast = event.position;
+          _swipeLastTime = DateTime.now().millisecondsSinceEpoch;
           widget.onSwipeUpdate?.call(dx);
+        } else if (_isSwiping && !isHorizontal) {
+          // Was swiping but direction changed to vertical - cancel
+          widget.onSwipeEnd?.call(0); // Zero velocity = snap back
+          _isSwiping = false;
         }
       },
       onPointerUp: (event) {
-        if (_isSwiping && _swipeStart != null && _swipeStartTime != null) {
-          // Calculate velocity
-          final elapsed = DateTime.now().difference(_swipeStartTime!).inMilliseconds;
-          final dx = event.position.dx - _swipeStart!.dx;
-          final velocity = elapsed > 0 ? (dx / elapsed) * 1000 : 0.0; // px/s
+        if (_isSwiping && _swipeLast != null && _swipeLastTime != null) {
+          // Calculate instantaneous velocity from recent movement
+          final now = DateTime.now().millisecondsSinceEpoch;
+          final elapsed = now - _swipeLastTime!;
+          final dx = event.position.dx - _swipeLast!.dx;
+          // Use instantaneous velocity, fallback to reasonable default
+          final velocity = elapsed > 0 && elapsed < 100
+              ? (dx / elapsed) * 1000
+              : (event.position.dx - _swipeStart!.dx) > 100 ? 500.0 : 0.0;
           widget.onSwipeEnd?.call(velocity);
         }
-        _swipeStart = null;
-        _swipeStartTime = null;
-        _isSwiping = false;
+        _resetSwipeState();
       },
       onPointerCancel: (_) {
         if (_isSwiping) {
-          widget.onSwipeEnd?.call(0); // Cancel with zero velocity
+          widget.onSwipeEnd?.call(0); // Cancel with zero velocity = snap back
         }
-        _swipeStart = null;
-        _swipeStartTime = null;
-        _isSwiping = false;
+        _resetSwipeState();
       },
       child: Container(
         color: widget.backgroundColor,
@@ -567,13 +582,6 @@ class _QueuePanelState extends State<QueuePanel> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildAnimatedItem(QueueItem item, int index, Animation<double> animation, {bool removing = false}) {
-    return SizeTransition(
-      sizeFactor: animation,
-      child: _buildQueueItemContent(item, index, false, false),
     );
   }
 }
