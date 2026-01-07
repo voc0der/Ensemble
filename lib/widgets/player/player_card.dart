@@ -69,6 +69,7 @@ class _PlayerCardState extends State<PlayerCard> {
   int _lastDragEndTime = 0; // Track when last drag ended for consecutive swipes
   bool _hasLocalVolumeOverride = false; // True if we've set volume locally
   static const int _volumeThrottleMs = 150; // Only send volume updates every 150ms
+  static const int _precisionThrottleMs = 50; // Faster updates in precision mode
   static const int _consecutiveSwipeWindowMs = 5000; // 5 seconds - extended window for consecutive swipes
 
   // Precision mode state
@@ -444,9 +445,10 @@ class _PlayerCardState extends State<PlayerCard> {
         _dragVolumeLevel = newVolume;
       });
 
-      // Throttle API calls to prevent flooding
+      // Throttle API calls to prevent flooding (faster in precision mode)
       final now = DateTime.now().millisecondsSinceEpoch;
-      if (now - _lastVolumeUpdateTime >= _volumeThrottleMs) {
+      final throttleMs = _inPrecisionMode ? _precisionThrottleMs : _volumeThrottleMs;
+      if (now - _lastVolumeUpdateTime >= throttleMs) {
         _lastVolumeUpdateTime = now;
         widget.onVolumeChange?.call(newVolume);
       }
