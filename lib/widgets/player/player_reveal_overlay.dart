@@ -421,7 +421,7 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
                                   child: Padding(
                                     padding: const EdgeInsets.only(bottom: cardSpacing),
                                     child: TweenAnimationBuilder<double>(
-                                      tween: Tween(begin: 1.0, end: shouldDarken ? 0.0 : 1.0),
+                                      tween: Tween(begin: 1.0, end: shouldDarken ? 0.5 : 1.0),
                                       duration: const Duration(milliseconds: 200),
                                       builder: (context, saturation, child) {
                                         return ColorFiltered(
@@ -525,7 +525,7 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
                             child: Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: TweenAnimationBuilder<double>(
-                                tween: Tween(begin: 1.0, end: shouldDarken ? 0.0 : 1.0),
+                                tween: Tween(begin: 1.0, end: shouldDarken ? 0.5 : 1.0),
                                 duration: const Duration(milliseconds: 200),
                                 builder: (context, saturation, child) {
                                   return ColorFiltered(

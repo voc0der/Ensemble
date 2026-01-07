@@ -2437,7 +2437,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                   Positioned.fill(
                     child: IgnorePointer(
                       child: TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 1.0, end: 0.0),
+                        tween: Tween(begin: 1.0, end: 0.5),
                         duration: const Duration(milliseconds: 200),
                         builder: (context, saturation, child) {
                           return ColorFiltered(
