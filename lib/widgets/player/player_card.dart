@@ -54,7 +54,10 @@ class _PlayerCardState extends State<PlayerCard> {
   double _dragVolumeLevel = 0.0;
   double _cardWidth = 0.0;
   int _lastVolumeUpdateTime = 0;
+  int _lastDragEndTime = 0; // Track when last drag ended for consecutive swipes
+  bool _hasLocalVolumeOverride = false; // True if we've set volume locally
   static const int _volumeThrottleMs = 150; // Only send volume updates every 150ms
+  static const int _consecutiveSwipeWindowMs = 5000; // 5 seconds - extended window for consecutive swipes
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +70,10 @@ class _PlayerCardState extends State<PlayerCard> {
     final filledColor = widget.backgroundColor;
     final unfilledColor = Color.lerp(widget.backgroundColor, Colors.black, 0.3)!;
 
-    return LayoutBuilder(
+    // RepaintBoundary isolates this card's repaint from parent transform animations
+    // This improves performance during the staggered reveal animation
+    return RepaintBoundary(
+      child: LayoutBuilder(
       builder: (context, constraints) {
         _cardWidth = constraints.maxWidth;
 
@@ -133,6 +139,7 @@ class _PlayerCardState extends State<PlayerCard> {
           ),
         );
       },
+      ),
     );
   }
 
@@ -282,11 +289,24 @@ class _PlayerCardState extends State<PlayerCard> {
   }
 
   void _onDragStart(DragStartDetails details) {
-    // Get current volume from player
-    final currentVolume = (widget.player.volumeLevel ?? 0).toDouble() / 100.0;
+    // For consecutive swipes, use local volume (API may not have updated player state yet)
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final timeSinceLastDrag = now - _lastDragEndTime;
+    final isWithinWindow = timeSinceLastDrag < _consecutiveSwipeWindowMs;
+
+    // Use local volume if:
+    // 1. We have a local override (we've swiped before) AND
+    // 2. We're within the consecutive swipe window (5 seconds)
+    // Otherwise, read fresh from player state
+    final useLocalVolume = _hasLocalVolumeOverride && isWithinWindow;
+
+    final startVolume = useLocalVolume
+        ? _dragVolumeLevel // Continue from where last swipe ended
+        : (widget.player.volumeLevel ?? 0).toDouble() / 100.0; // Fresh from player
+
     setState(() {
       _isDraggingVolume = true;
-      _dragVolumeLevel = currentVolume;
+      _dragVolumeLevel = startVolume;
     });
     HapticFeedback.lightImpact();
   }
@@ -320,6 +340,8 @@ class _PlayerCardState extends State<PlayerCard> {
   void _onDragEnd(DragEndDetails details) {
     // Send final volume on release
     widget.onVolumeChange?.call(_dragVolumeLevel);
+    _lastDragEndTime = DateTime.now().millisecondsSinceEpoch; // Track for consecutive swipes
+    _hasLocalVolumeOverride = true; // Mark that we have a local volume value
     setState(() {
       _isDraggingVolume = false;
     });

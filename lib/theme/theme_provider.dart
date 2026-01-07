@@ -61,11 +61,28 @@ class ThemeProvider extends ChangeNotifier {
 
   /// Get the current adaptive surface color (for bottom nav background, etc.)
   /// Returns a subtle tinted surface based on the adaptive colors
+  /// NOTE: Prefer getAdaptiveSurfaceColorFor() which respects light/dark mode
   Color? get adaptiveSurfaceColor {
     if (_adaptiveColors == null) return null;
     // Use the miniPlayer color but darkened for a subtle tinted background
     final hsl = HSLColor.fromColor(_adaptiveColors!.miniPlayer);
     return hsl.withLightness((hsl.lightness * 0.4).clamp(0.08, 0.15)).toColor();
+  }
+
+  /// Get adaptive surface color for the given brightness (light/dark mode aware)
+  /// Uses primaryContainer from the appropriate scheme - same as expanded player
+  Color? getAdaptiveSurfaceColorFor(Brightness brightness) {
+    // For light mode, use light scheme; for dark, use dark scheme
+    // This matches the expanded player's approach exactly
+    final scheme = brightness == Brightness.dark
+        ? _adaptiveDarkScheme
+        : _adaptiveLightScheme;
+
+    // If no scheme available, return null to use default
+    if (scheme == null) return null;
+
+    // Use primaryContainer - same color the expanded player uses for its background
+    return scheme.primaryContainer;
   }
 
   Future<void> _loadSettings() async {

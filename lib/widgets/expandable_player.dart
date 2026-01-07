@@ -76,6 +76,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   final ValueNotifier<int> _progressNotifier = ValueNotifier<int>(0);
   final ValueNotifier<double?> _seekPositionNotifier = ValueNotifier<double?>(null);
 
+  // Pre-computed static colors to avoid object creation during animation frames
+  static const Color _shadowColor = Color(0x4D000000); // Colors.black.withOpacity(0.3)
+
   // Dimensions
   static double get _collapsedHeight => MiniPlayerLayout.height;
   static const double _collapsedMargin = 12.0; // Increased from 8 to 12 (4px more gap above nav bar)
@@ -92,7 +95,10 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   // Slide animation for device switching - now supports finger-following
   late AnimationController _slideController;
-  double _slideOffset = 0.0; // -1 to 1, negative = sliding left, positive = sliding right
+  // ValueNotifier avoids setState during high-frequency drag updates
+  final ValueNotifier<double> _slideOffsetNotifier = ValueNotifier(0.0);
+  double get _slideOffset => _slideOffsetNotifier.value;
+  set _slideOffset(double value) => _slideOffsetNotifier.value = value;
   bool _isSliding = false;
   bool _isDragging = false; // True while finger is actively dragging
 
@@ -108,16 +114,19 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   bool _isDraggingVolume = false;
   double _dragVolumeLevel = 0.0;
   int _lastVolumeUpdateTime = 0;
+  int _lastVolumeDragEndTime = 0; // Track when last drag ended for consecutive swipes
+  bool _hasLocalVolumeOverride = false; // True if we've set volume locally
   static const int _volumeThrottleMs = 150; // Only send volume updates every 150ms
+  static const int _consecutiveSwipeWindowMs = 5000; // 5 seconds - extended window for consecutive swipes
 
   // Track favorite state for current track
   bool _isCurrentTrackFavorite = false;
   String? _lastTrackUri; // Track which track we last checked favorite status for
 
   // Cached title height to avoid TextPainter.layout() every animation frame
+  // Only invalidate when track name changes (screen width doesn't change during animation)
   double? _cachedExpandedTitleHeight;
   String? _lastMeasuredTrackName;
-  double? _lastMeasuredTitleWidth;
 
   // Gesture-driven expansion state
   bool _isVerticalDragging = false;
@@ -176,6 +185,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         _loadQueue();
       } else if (status == AnimationStatus.dismissed) {
         // Close queue panel when player collapses
+        _queuePanelController.duration = _queueCloseDuration;
         _queuePanelController.reverse();
       }
     });
@@ -215,6 +225,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     _controller.dispose();
     _queuePanelController.dispose();
     _slideController.dispose();
+    _slideOffsetNotifier.dispose();
     _positionSubscription?.cancel();
     _queueRefreshTimer?.cancel();
     _progressNotifier.dispose();
@@ -229,6 +240,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   // Animation durations - asymmetric for snappier collapse
   static const Duration _expandDuration = Duration(milliseconds: 280);
   static const Duration _collapseDuration = Duration(milliseconds: 200);
+  static const Duration _queueOpenDuration = Duration(milliseconds: 250);
+  static const Duration _queueCloseDuration = Duration(milliseconds: 180);
 
   void expand() {
     if (_isVerticalDragging) return;
@@ -520,8 +533,10 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   void _toggleQueuePanel() {
     if (_queuePanelController.isAnimating) return;
     if (_queuePanelController.value == 0) {
+      _queuePanelController.duration = _queueOpenDuration;
       _queuePanelController.forward();
     } else {
+      _queuePanelController.duration = _queueCloseDuration;
       _queuePanelController.reverse();
     }
   }
@@ -531,6 +546,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   /// Close queue panel if open (for external access via GlobalPlayerOverlay)
   void closeQueuePanel() {
     if (isQueuePanelOpen && !_queuePanelController.isAnimating) {
+      _queuePanelController.duration = _queueCloseDuration;
       _queuePanelController.reverse();
     }
   }
@@ -784,32 +800,35 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final normalizedDelta = delta / containerWidth;
     final newSlideOffset = (_slideOffset + normalizedDelta).clamp(-1.0, 1.0);
 
-    // Update peek player based on drag direction (must be inside setState to trigger rebuild)
-    setState(() {
-      _slideOffset = newSlideOffset;
-      if (_slideOffset != 0) {
-        _updatePeekPlayerState(maProvider, _slideOffset);
-      }
-    });
+    // Update slideOffset via ValueNotifier (no setState needed - avoids 60fps rebuilds)
+    _slideOffset = newSlideOffset;
+
+    // Only trigger setState when peek player changes (not every frame)
+    if (_slideOffset != 0) {
+      _updatePeekPlayerState(maProvider, _slideOffset);
+    }
   }
 
-  /// Update peek player state variables (called inside setState)
+  /// Update peek player state variables - only calls setState when peek player changes
   void _updatePeekPlayerState(MusicAssistantProvider maProvider, double dragDirection) {
     // dragDirection < 0 means swiping left (next player)
     // dragDirection > 0 means swiping right (previous player)
     final isNext = dragDirection < 0;
     final newPeekPlayer = _getAdjacentPlayer(maProvider, next: isNext);
 
+    // Only setState when peek player actually changes (prevents unnecessary rebuilds)
     if (newPeekPlayer?.playerId != _peekPlayer?.playerId) {
-      _peekPlayer = newPeekPlayer;
-      // Get the peek player's current track image if available
-      if (_peekPlayer != null) {
-        _peekTrack = maProvider.getCachedTrackForPlayer(_peekPlayer.playerId);
-        _peekImageUrl = _peekTrack != null ? maProvider.getImageUrl(_peekTrack, size: 512) : null;
-      } else {
-        _peekTrack = null;
-        _peekImageUrl = null;
-      }
+      setState(() {
+        _peekPlayer = newPeekPlayer;
+        // Get the peek player's current track image if available
+        if (_peekPlayer != null) {
+          _peekTrack = maProvider.getCachedTrackForPlayer(_peekPlayer.playerId);
+          _peekImageUrl = _peekTrack != null ? maProvider.getImageUrl(_peekTrack, size: 512) : null;
+        } else {
+          _peekTrack = null;
+          _peekImageUrl = null;
+        }
+      });
     }
   }
 
@@ -864,9 +883,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     void animateToTarget() {
       if (!mounted) return;
       final curvedValue = Curves.easeOutCubic.transform(_slideController.value);
-      setState(() {
-        _slideOffset = startOffset + (targetOffset - startOffset) * curvedValue;
-      });
+      // ValueNotifier triggers AnimatedBuilder rebuild - no setState needed
+      _slideOffset = startOffset + (targetOffset - startOffset) * curvedValue;
     }
 
     _slideController.addListener(animateToTarget);
@@ -892,8 +910,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       // Move peek content to center position (slideOffset = 0) while keeping it visible.
       // The main content is hidden via _inTransition flag.
       // This creates a seamless visual - peek content is already at center.
+      _slideOffset = 0.0; // ValueNotifier triggers AnimatedBuilder rebuild
       setState(() {
-        _slideOffset = 0.0;
         _isSliding = false;
         // Keep _inTransition = true and peek data intact
       });
@@ -987,19 +1005,20 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     void animateBack() {
       if (!mounted) return;
       final curvedValue = Curves.easeOutBack.transform(_slideController.value);
-      setState(() {
-        _slideOffset = startOffset * (1.0 - curvedValue);
-      });
+      // ValueNotifier triggers AnimatedBuilder rebuild - no setState needed
+      _slideOffset = startOffset * (1.0 - curvedValue);
     }
 
     _slideController.addListener(animateBack);
-    _slideController.duration = const Duration(milliseconds: 300);
+    _slideController.duration = const Duration(milliseconds: 220); // Snappier snap-back
 
     _slideController.forward().then((_) {
       if (!mounted) return;
       _slideController.removeListener(animateBack);
+      // Update slideOffset via ValueNotifier (triggers rebuild)
+      _slideOffset = 0.0;
+      // Other state changes still need setState
       setState(() {
-        _slideOffset = 0.0;
         _isSliding = false;
         _peekPlayer = null;
         _peekImageUrl = null;
@@ -1070,7 +1089,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
             }
           },
           child: AnimatedBuilder(
-            animation: Listenable.merge([_expandAnimation, _queuePanelAnimation]),
+            // Include _slideOffsetNotifier to rebuild during finger-following drags
+            animation: Listenable.merge([_expandAnimation, _queuePanelAnimation, _slideOffsetNotifier]),
             builder: (context, _) {
               // If no track is playing, show device selector bar
               if (currentTrack == null) {
@@ -1306,9 +1326,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       letterSpacing: -0.5,
       height: 1.2,
     );
-    // Only recalculate if track name or width changed
+    // Only recalculate when track changes (screen width doesn't change during animation)
     if (_lastMeasuredTrackName != currentTrack.name ||
-        _lastMeasuredTitleWidth != expandedTitleWidth ||
         _cachedExpandedTitleHeight == null) {
       final titlePainter = TextPainter(
         text: TextSpan(text: currentTrack.name, style: titleStyle),
@@ -1317,7 +1336,6 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       )..layout(maxWidth: expandedTitleWidth);
       _cachedExpandedTitleHeight = titlePainter.height;
       _lastMeasuredTrackName = currentTrack.name;
-      _lastMeasuredTitleWidth = expandedTitleWidth;
     }
     final expandedTitleHeight = _cachedExpandedTitleHeight!;
 
@@ -1441,14 +1459,29 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           // Finish gesture-driven expansion
           _handleVerticalDragEnd(details);
         },
+        onVerticalDragCancel: () {
+          // Reset state if gesture is cancelled (e.g., system takes over)
+          _isVerticalDragging = false;
+        },
         onHorizontalDragStart: (details) {
           _horizontalDragStartX = details.globalPosition.dx;
           // Start volume drag if device reveal is visible
           if (widget.isDeviceRevealVisible && !isExpanded) {
-            final currentVolume = (selectedPlayer.volumeLevel ?? 0).toDouble() / 100.0;
+            // For consecutive swipes, use local volume (API may not have updated player state yet)
+            final now = DateTime.now().millisecondsSinceEpoch;
+            final timeSinceLastDrag = now - _lastVolumeDragEndTime;
+            final isWithinWindow = timeSinceLastDrag < _consecutiveSwipeWindowMs;
+
+            // Use local volume if we have an override AND within window
+            final useLocalVolume = _hasLocalVolumeOverride && isWithinWindow;
+
+            final startVolume = useLocalVolume
+                ? _dragVolumeLevel // Continue from where last swipe ended
+                : (selectedPlayer.volumeLevel ?? 0).toDouble() / 100.0; // Fresh from player
+
             setState(() {
               _isDraggingVolume = true;
-              _dragVolumeLevel = currentVolume;
+              _dragVolumeLevel = startVolume;
             });
             HapticFeedback.lightImpact();
           }
@@ -1492,6 +1525,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           if (_isDraggingVolume) {
             // Send final volume on release
             maProvider.setVolume(selectedPlayer.playerId, (_dragVolumeLevel * 100).round());
+            _lastVolumeDragEndTime = DateTime.now().millisecondsSinceEpoch; // Track for consecutive swipes
+            _hasLocalVolumeOverride = true; // Mark that we have a local volume value
             setState(() {
               _isDraggingVolume = false;
             });
@@ -1523,6 +1558,22 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
             _handleHorizontalDragEnd(details, maProvider);
           }
         },
+        onHorizontalDragCancel: () {
+          // Reset state if gesture is cancelled (e.g., system takes over)
+          _horizontalDragStartX = null;
+          if (_isDraggingVolume) {
+            setState(() => _isDraggingVolume = false);
+          }
+          if (_isDragging) {
+            _isDragging = false;
+            _slideOffset = 0.0;
+            setState(() {
+              _peekPlayer = null;
+              _peekImageUrl = null;
+              _peekTrack = null;
+            });
+          }
+        },
         child: Container(
           // Use foregroundDecoration for border so it renders ON TOP of content
           // This prevents the album art from clipping the yellow synced border
@@ -1536,7 +1587,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
             color: backgroundColor,
             borderRadius: BorderRadius.circular(borderRadius),
             elevation: _lerpDouble(4, 0, t),
-            shadowColor: Colors.black.withOpacity(0.3),
+            shadowColor: _shadowColor,
             // Use hardEdge when fully expanded (no border radius) to avoid anti-alias artifacts
             // Use antiAlias when collapsed/animating to smooth rounded corners
             clipBehavior: borderRadius > 0.5 ? Clip.antiAlias : Clip.hardEdge,
@@ -1567,18 +1618,21 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                           // Fade out as we expand - use color alpha instead of Opacity widget
                           final progressOpacity = (1.0 - (t / 0.5)).clamp(0.0, 1.0);
                           final progressAreaWidth = width - _collapsedArtSize;
-                          return ClipRRect(
-                            borderRadius: BorderRadius.only(
-                              topRight: Radius.circular(borderRadius),
-                              bottomRight: Radius.circular(borderRadius),
-                            ),
-                            clipBehavior: Clip.hardEdge,
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Container(
-                                width: progressAreaWidth * progress,
-                                height: height,
-                                color: collapsedBg.withOpacity(progressOpacity),
+                          // RepaintBoundary isolates frequent progress updates from parent animation
+                          return RepaintBoundary(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.only(
+                                topRight: Radius.circular(borderRadius),
+                                bottomRight: Radius.circular(borderRadius),
+                              ),
+                              clipBehavior: Clip.hardEdge,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Container(
+                                  width: progressAreaWidth * progress,
+                                  height: height,
+                                  color: collapsedBg.withOpacity(progressOpacity),
+                                ),
                               ),
                             ),
                           );
@@ -2148,19 +2202,30 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
                 // Favorite button (expanded only) - hide when queue panel is open
                 // GPU PERF: Use icon color alpha instead of Opacity
+                // Scale pop animation when toggling favorite
                 if (t > 0.3 && queueT < 0.5)
                   Positioned(
                     top: topPadding + 4,
                     right: 52,
-                    child: IconButton(
-                      icon: Icon(
-                        _isCurrentTrackFavorite ? Icons.favorite : Icons.favorite_border,
-                        color: (_isCurrentTrackFavorite ? Colors.red : textColor)
-                            .withOpacity(((t - 0.3) / 0.7).clamp(0.0, 1.0) * (1 - queueT * 2).clamp(0.0, 1.0)),
-                        size: 24,
+                    child: TweenAnimationBuilder<double>(
+                      key: ValueKey(_isCurrentTrackFavorite),
+                      tween: Tween(begin: 1.3, end: 1.0),
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutBack,
+                      builder: (context, scale, child) => Transform.scale(
+                        scale: scale,
+                        child: child,
                       ),
-                      onPressed: () => _toggleCurrentTrackFavorite(currentTrack),
-                      padding: const EdgeInsets.all(12),
+                      child: IconButton(
+                        icon: Icon(
+                          _isCurrentTrackFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: (_isCurrentTrackFavorite ? Colors.red : textColor)
+                              .withOpacity(((t - 0.3) / 0.7).clamp(0.0, 1.0) * (1 - queueT * 2).clamp(0.0, 1.0)),
+                          size: 24,
+                        ),
+                        onPressed: () => _toggleCurrentTrackFavorite(currentTrack),
+                        padding: const EdgeInsets.all(12),
+                      ),
                     ),
                   ),
 
@@ -2243,24 +2308,32 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                 // Volume swipe overlay (covers entire mini player when dragging volume)
                 // Only visible when device reveal is open and user is dragging
                 // Positioned last in Stack so it renders ON TOP of all content
-                if (_isDraggingVolume && t < 0.5)
+                // Uses AnimatedOpacity for smooth fade in/out transition
+                if (t < 0.5)
                   Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(borderRadius),
-                      child: Stack(
-                        children: [
-                          // Unfilled (darker) background
-                          Container(color: collapsedBgUnplayed),
-                          // Filled (lighter) portion based on volume
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: _dragVolumeLevel.clamp(0.0, 1.0),
-                              heightFactor: 1.0,
-                              child: Container(color: collapsedBg),
-                            ),
+                    child: IgnorePointer(
+                      ignoring: !_isDraggingVolume,
+                      child: AnimatedOpacity(
+                        opacity: _isDraggingVolume ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 120),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(borderRadius),
+                          child: Stack(
+                            children: [
+                              // Unfilled (darker) background
+                              Container(color: collapsedBgUnplayed),
+                              // Filled (lighter) portion based on volume
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: FractionallySizedBox(
+                                  widthFactor: _dragVolumeLevel.clamp(0.0, 1.0),
+                                  heightFactor: 1.0,
+                                  child: Container(color: collapsedBg),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -2557,12 +2630,11 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     return SizedBox(
       width: 44,
       height: 44,
-      child: IconButton(
-        icon: Icon(icon),
+      child: AnimatedIconButton(
+        icon: icon,
         color: color,
         iconSize: 22,
         onPressed: onPressed,
-        padding: EdgeInsets.zero,
       ),
     );
   }

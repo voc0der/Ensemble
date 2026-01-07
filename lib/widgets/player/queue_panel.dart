@@ -53,11 +53,29 @@ class _QueuePanelState extends State<QueuePanel> {
   @override
   void didUpdateWidget(QueuePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Only sync items when switching to a different queue (different player)
-    // Don't reset during normal rebuilds - we manage local state for animations
-    if (widget.queue?.playerId != oldWidget.queue?.playerId) {
-      _items = widget.queue?.items ?? [];
+
+    final newItems = widget.queue?.items ?? [];
+
+    // Sync items when:
+    // 1. Player changed (different queue entirely)
+    // 2. Item count changed (deletion confirmed by server, or track added)
+    // 3. Item order changed (shuffle toggle, manual reorder)
+    final playerChanged = widget.queue?.playerId != oldWidget.queue?.playerId;
+    final countChanged = newItems.length != _items.length;
+    final orderChanged = !_itemListsEqual(newItems, _items);
+
+    if (playerChanged || countChanged || orderChanged) {
+      _items = newItems;
     }
+  }
+
+  /// Compare two item lists by queueItemId to detect reordering
+  bool _itemListsEqual(List<QueueItem> a, List<QueueItem> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].queueItemId != b[i].queueItemId) return false;
+    }
+    return true;
   }
 
   String _formatDuration(Duration? duration) {

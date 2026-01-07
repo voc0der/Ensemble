@@ -492,8 +492,10 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
                   final navSelectedColor = _cachedNavColor.getAdjustedColor(sourceColor, isDark);
 
                   // Base background: use adaptive surface color if available, otherwise default surface
-                  final baseBgColor = (themeProvider.adaptiveTheme && themeProvider.adaptiveSurfaceColor != null)
-                      ? themeProvider.adaptiveSurfaceColor!
+                  // Use brightness-aware method to respect light/dark mode
+                  final adaptiveBg = themeProvider.getAdaptiveSurfaceColorFor(Theme.of(context).brightness);
+                  final baseBgColor = (themeProvider.adaptiveTheme && adaptiveBg != null)
+                      ? adaptiveBg
                       : colorScheme.surface;
 
                   return ValueListenableBuilder<PlayerExpansionState>(
