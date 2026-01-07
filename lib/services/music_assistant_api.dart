@@ -2476,7 +2476,7 @@ class MusicAssistantAPI {
         'player_queues/move_item',
         args: {
           'queue_id': queueId,
-          'item_id_or_index': itemId,
+          'queue_item_id': itemId,
           'new_index': newIndex,
         },
       );
