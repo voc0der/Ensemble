@@ -547,9 +547,10 @@ class _QueuePanelState extends State<QueuePanel> {
       child: Opacity(
         opacity: isPastItem ? 0.5 : 1.0,
         child: Container(
+          margin: isCurrentItem ? const EdgeInsets.symmetric(horizontal: 8, vertical: 2) : EdgeInsets.zero,
           decoration: BoxDecoration(
             color: isCurrentItem ? widget.primaryColor.withOpacity(0.15) : widget.backgroundColor,
-            borderRadius: BorderRadius.zero,
+            borderRadius: isCurrentItem ? BorderRadius.circular(12) : BorderRadius.zero,
           ),
           child: ListTile(
             dense: true,
