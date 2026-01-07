@@ -1466,6 +1466,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         // Handle tap: when device list is visible, dismiss it; when collapsed, expand
         onTap: isExpanded ? null : (widget.isDeviceRevealVisible ? GlobalPlayerOverlay.dismissPlayerReveal : expand),
         onVerticalDragStart: (details) {
+          // Ignore while queue item is being dragged
+          if (_isQueueDragging) return;
           // For expanded player or queue panel: start tracking immediately
           // For collapsed player: defer decision until we know swipe direction
           if (isExpanded || isQueuePanelOpen) {
@@ -1473,10 +1475,13 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           }
         },
         onVerticalDragUpdate: (details) {
+          // Ignore while queue item is being dragged
+          if (_isQueueDragging) return;
+
           final delta = details.primaryDelta ?? 0;
 
-          // Handle queue panel close (but not while dragging a queue item)
-          if (isQueuePanelOpen && delta > 0 && !_isQueueDragging) {
+          // Handle queue panel close
+          if (isQueuePanelOpen && delta > 0) {
             _toggleQueuePanel();
             return;
           }
@@ -1503,6 +1508,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           _handleVerticalDragUpdate(details);
         },
         onVerticalDragEnd: (details) {
+          // Ignore while queue item is being dragged
+          if (_isQueueDragging) return;
           // Finish gesture-driven expansion
           _handleVerticalDragEnd(details);
         },
@@ -2359,38 +2366,42 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                 // Queue/Chapters panel (slides in from right)
                 // For audiobooks: show chapters panel
                 // For music: show queue panel
-                if (t > 0.5 && queueT > 0)
+                // Use Offstage to keep widget mounted (preserves state) when hidden
+                if (t > 0.5)
                   Positioned.fill(
-                    child: RepaintBoundary(
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(1, 0),
-                          end: Offset.zero,
-                        ).animate(_queuePanelAnimation),
-                        child: maProvider.isPlayingAudiobook
-                            ? ChaptersPanel(
-                                maProvider: maProvider,
-                                audiobook: maProvider.currentAudiobook,
-                                textColor: textColor,
-                                primaryColor: primaryColor,
-                                backgroundColor: expandedBg,
-                                topPadding: topPadding,
-                                onClose: _toggleQueuePanel,
-                              )
-                            : QueuePanel(
-                                maProvider: maProvider,
-                                queue: _queue,
-                                isLoading: _isLoadingQueue,
-                                textColor: textColor,
-                                primaryColor: primaryColor,
-                                backgroundColor: expandedBg,
-                                topPadding: topPadding,
-                                onClose: _toggleQueuePanel,
-                                onRefresh: _loadQueue,
-                                onDraggingChanged: (isDragging) {
-                                  _isQueueDragging = isDragging;
-                                },
-                              ),
+                    child: Offstage(
+                      offstage: queueT == 0,
+                      child: RepaintBoundary(
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(1, 0),
+                            end: Offset.zero,
+                          ).animate(_queuePanelAnimation),
+                          child: maProvider.isPlayingAudiobook
+                              ? ChaptersPanel(
+                                  maProvider: maProvider,
+                                  audiobook: maProvider.currentAudiobook,
+                                  textColor: textColor,
+                                  primaryColor: primaryColor,
+                                  backgroundColor: expandedBg,
+                                  topPadding: topPadding,
+                                  onClose: _toggleQueuePanel,
+                                )
+                              : QueuePanel(
+                                  maProvider: maProvider,
+                                  queue: _queue,
+                                  isLoading: _isLoadingQueue,
+                                  textColor: textColor,
+                                  primaryColor: primaryColor,
+                                  backgroundColor: expandedBg,
+                                  topPadding: topPadding,
+                                  onClose: _toggleQueuePanel,
+                                  onRefresh: _loadQueue,
+                                  onDraggingChanged: (isDragging) {
+                                    _isQueueDragging = isDragging;
+                                  },
+                                ),
+                        ),
                       ),
                     ),
                   ),
