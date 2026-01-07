@@ -86,9 +86,29 @@ Download the latest release from the [Releases page](https://github.com/CollotsS
 ## Setup
 
 1. Launch the app
-2. Enter your Music Assistant server URL (e.g., `music.example.com` or `192.168.1.100`)
+2. Enter your Music Assistant server URL
 3. Connect to your server
 4. Start playing! Music plays on your phone by default, or tap the device icon to choose a different player.
+
+### Finding Your Server URL
+
+**Important:** You need the **Music Assistant** URL, not your Home Assistant URL.
+
+To find the correct URL:
+1. Open Music Assistant web UI
+2. Go to **Settings** → **About**
+3. Look for **Base URL** (e.g., `http://192.168.1.100:8095`)
+
+### Home Assistant Add-on Users
+
+If you run Music Assistant as a Home Assistant add-on:
+- Use the **direct Music Assistant URL** with port `8095` (e.g., `192.168.1.100:8095`)
+- Do **not** use your Home Assistant URL or ingress URL
+- The add-on runs on a separate port from Home Assistant
+
+### Remote Access
+
+For access outside your home network, you'll need to expose Music Assistant through a reverse proxy (e.g., Nginx Proxy Manager, Cloudflare Tunnel). The Home Assistant ingress URL won't work as it requires HA authentication.
 
 ## Authentication
 
