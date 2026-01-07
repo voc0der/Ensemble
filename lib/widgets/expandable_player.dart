@@ -71,6 +71,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   // Queue state
   PlayerQueue? _queue;
   bool _isLoadingQueue = false;
+  bool _isQueueDragging = false; // True while queue item is being dragged
 
   // Progress tracking - uses PositionTracker stream as single source of truth
   StreamSubscription<Duration>? _positionSubscription;
@@ -1474,8 +1475,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         onVerticalDragUpdate: (details) {
           final delta = details.primaryDelta ?? 0;
 
-          // Handle queue panel close
-          if (isQueuePanelOpen && delta > 0) {
+          // Handle queue panel close (but not while dragging a queue item)
+          if (isQueuePanelOpen && delta > 0 && !_isQueueDragging) {
             _toggleQueuePanel();
             return;
           }
@@ -2386,6 +2387,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                 topPadding: topPadding,
                                 onClose: _toggleQueuePanel,
                                 onRefresh: _loadQueue,
+                                onDraggingChanged: (isDragging) {
+                                  _isQueueDragging = isDragging;
+                                },
                               ),
                       ),
                     ),

@@ -20,6 +20,7 @@ class QueuePanel extends StatefulWidget {
   final double topPadding;
   final VoidCallback onClose;
   final VoidCallback onRefresh;
+  final ValueChanged<bool>? onDraggingChanged;
 
   const QueuePanel({
     super.key,
@@ -32,6 +33,7 @@ class QueuePanel extends StatefulWidget {
     required this.topPadding,
     required this.onClose,
     required this.onRefresh,
+    this.onDraggingChanged,
   });
 
   @override
@@ -51,6 +53,7 @@ class _QueuePanelState extends State<QueuePanel> {
   QueueItem? _dragItem;
   double _itemHeight = 64.0;
   double _listTopOffset = 0; // Offset of the list from top of stack
+  bool _pendingReorder = false; // True while waiting for API confirmation
 
   // Track pointer for right-swipe-to-close
   Offset? _pointerStart;
@@ -66,8 +69,8 @@ class _QueuePanelState extends State<QueuePanel> {
   void didUpdateWidget(QueuePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Don't update items while dragging - would revert the drag
-    if (_dragIndex != null) return;
+    // Don't update items while dragging or waiting for reorder confirmation
+    if (_dragIndex != null || _pendingReorder) return;
 
     final newItems = widget.queue?.items ?? [];
 
@@ -141,6 +144,9 @@ class _QueuePanelState extends State<QueuePanel> {
       _dragStartIndex = index;
       _dragItem = _items[index];
     });
+
+    // Notify parent that drag started
+    widget.onDraggingChanged?.call(true);
   }
 
   void _updateDragPointer(Offset globalPosition) {
@@ -173,18 +179,31 @@ class _QueuePanelState extends State<QueuePanel> {
     final newIndex = _dragIndex!;
     final originalIndex = _dragStartIndex!;
     final item = _items[newIndex];
+    final positionChanged = originalIndex != newIndex;
 
     setState(() {
       _dragIndex = null;
       _dragStartIndex = null;
       _dragItem = null;
+      // Block didUpdateWidget while waiting for server confirmation
+      if (positionChanged) _pendingReorder = true;
     });
 
+    // Notify parent that drag ended
+    widget.onDraggingChanged?.call(false);
+
     // Call API if position changed
-    if (originalIndex != newIndex) {
+    if (positionChanged) {
       final playerId = widget.queue?.playerId;
       if (playerId != null) {
         await widget.maProvider.api?.queueCommandMoveItem(playerId, item.queueItemId, newIndex);
+      }
+      // Allow updates again after a delay for server state to propagate
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        setState(() {
+          _pendingReorder = false;
+        });
       }
     }
   }
@@ -205,16 +224,23 @@ class _QueuePanelState extends State<QueuePanel> {
       _dragStartIndex = null;
       _dragItem = null;
     });
+
+    // Notify parent that drag ended
+    widget.onDraggingChanged?.call(false);
   }
 
   @override
   Widget build(BuildContext context) {
     return Listener(
       onPointerDown: (event) {
-        _pointerStart = event.position;
+        // Don't track swipe-to-close while dragging
+        if (_dragIndex == null) {
+          _pointerStart = event.position;
+        }
       },
       onPointerMove: (event) {
-        if (_pointerStart != null) {
+        // Only check swipe-to-close if not dragging
+        if (_pointerStart != null && _dragIndex == null) {
           final dx = event.position.dx - _pointerStart!.dx;
           final dy = (event.position.dy - _pointerStart!.dy).abs();
           if (dx > _swipeThreshold && dx > dy * 2) {
