@@ -44,10 +44,15 @@ class _QueuePanelState extends State<QueuePanel> {
 
   // Drag state
   int? _dragIndex;
-  double _dragOffsetY = 0;
+  int? _dragStartIndex;
+  double _dragY = 0; // Absolute Y position of dragged item
+  double _dragStartY = 0; // Y position when drag started
+  double _itemStartY = 0; // Initial Y of the item being dragged
   OverlayEntry? _dragOverlay;
   QueueItem? _dragItem;
-  double _itemHeight = 64.0; // Approximate, updated on build
+  double _itemHeight = 64.0;
+  double _itemWidth = 0;
+  double _itemX = 0;
 
   // Track pointer for right-swipe-to-close
   Offset? _pointerStart;
@@ -62,6 +67,9 @@ class _QueuePanelState extends State<QueuePanel> {
   @override
   void didUpdateWidget(QueuePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Don't update items while dragging - would revert the drag
+    if (_dragIndex != null) return;
 
     final newItems = widget.queue?.items ?? [];
 
@@ -117,82 +125,79 @@ class _QueuePanelState extends State<QueuePanel> {
     }
   }
 
-  void _startDrag(int index, BuildContext itemContext, double localY) {
+  void _startDrag(int index, BuildContext itemContext, DragStartDetails details) {
     if (_dragIndex != null) return;
 
     final RenderBox box = itemContext.findRenderObject() as RenderBox;
     final Offset globalPos = box.localToGlobal(Offset.zero);
     _itemHeight = box.size.height;
+    _itemWidth = box.size.width;
+    _itemX = globalPos.dx;
+    _itemStartY = globalPos.dy;
+    _dragStartY = details.globalPosition.dy;
+    _dragY = globalPos.dy;
 
     setState(() {
       _dragIndex = index;
+      _dragStartIndex = index;
       _dragItem = _items[index];
-      _dragOffsetY = 0;
     });
 
     _dragOverlay = OverlayEntry(
       builder: (context) => Positioned(
-        left: globalPos.dx,
-        top: globalPos.dy + _dragOffsetY,
-        width: box.size.width,
+        left: _itemX,
+        top: _dragY,
+        width: _itemWidth,
         child: Material(
           elevation: 8,
           borderRadius: BorderRadius.circular(8),
-          child: _buildQueueItemContent(_dragItem!, index, false, false),
+          child: _buildQueueItemContent(_dragItem!, _dragIndex!, false, false),
         ),
       ),
     );
     Overlay.of(context).insert(_dragOverlay!);
   }
 
-  void _updateDrag(double deltaY) {
+  void _updateDrag(DragUpdateDetails details) {
     if (_dragIndex == null || _dragOverlay == null) return;
 
-    _dragOffsetY += deltaY;
+    // Move overlay to follow finger
+    _dragY = _itemStartY + (details.globalPosition.dy - _dragStartY);
     _dragOverlay!.markNeedsBuild();
 
-    // Check if we should swap with adjacent items
-    final threshold = _itemHeight / 2;
+    // Calculate which index we're hovering over based on movement
+    final totalOffset = details.globalPosition.dy - _dragStartY;
+    final indexOffset = (totalOffset / _itemHeight).round();
+    final targetIndex = (_dragStartIndex! + indexOffset).clamp(0, _items.length - 1);
 
-    if (_dragOffsetY > threshold && _dragIndex! < _items.length - 1) {
-      // Moving down - swap with next item
-      final oldIndex = _dragIndex!;
-      final newIndex = oldIndex + 1;
+    if (targetIndex != _dragIndex) {
+      // Reorder items in the list
       setState(() {
-        final item = _items.removeAt(oldIndex);
-        _items.insert(newIndex, item);
-        _dragIndex = newIndex;
-        _dragOffsetY -= _itemHeight;
-      });
-    } else if (_dragOffsetY < -threshold && _dragIndex! > 0) {
-      // Moving up - swap with previous item
-      final oldIndex = _dragIndex!;
-      final newIndex = oldIndex - 1;
-      setState(() {
-        final item = _items.removeAt(oldIndex);
-        _items.insert(newIndex, item);
-        _dragIndex = newIndex;
-        _dragOffsetY += _itemHeight;
+        final item = _items.removeAt(_dragIndex!);
+        _items.insert(targetIndex, item);
+        _dragIndex = targetIndex;
       });
     }
   }
 
-  void _endDrag(int originalIndex) async {
-    if (_dragIndex == null) return;
+  void _endDrag() async {
+    if (_dragIndex == null || _dragStartIndex == null) return;
 
     final newIndex = _dragIndex!;
+    final originalIndex = _dragStartIndex!;
+    final item = _items[newIndex];
+
     _removeDragOverlay();
 
     setState(() {
       _dragIndex = null;
+      _dragStartIndex = null;
       _dragItem = null;
-      _dragOffsetY = 0;
     });
 
     // Call API if position changed
     if (originalIndex != newIndex) {
       final playerId = widget.queue?.playerId;
-      final item = _items[newIndex];
       if (playerId != null) {
         await widget.maProvider.api?.queueCommandMoveItem(playerId, item.queueItemId, newIndex);
       }
@@ -200,14 +205,22 @@ class _QueuePanelState extends State<QueuePanel> {
   }
 
   void _cancelDrag() {
+    if (_dragStartIndex == null) return;
+
+    // Restore original position
+    if (_dragIndex != null && _dragIndex != _dragStartIndex) {
+      setState(() {
+        final item = _items.removeAt(_dragIndex!);
+        _items.insert(_dragStartIndex!, item);
+      });
+    }
+
     _removeDragOverlay();
     setState(() {
       _dragIndex = null;
+      _dragStartIndex = null;
       _dragItem = null;
-      _dragOffsetY = 0;
     });
-    // Refresh to restore original order
-    widget.onRefresh();
   }
 
   void _removeDragOverlay() {
@@ -321,8 +334,6 @@ class _QueuePanelState extends State<QueuePanel> {
   }
 
   Widget _buildQueueItemWithDragHandle(QueueItem item, int index, bool isCurrentItem, bool isPastItem) {
-    final originalIndex = index; // Capture for drag end
-
     return Builder(
       builder: (itemContext) => _buildQueueItemContent(
         item,
@@ -333,13 +344,13 @@ class _QueuePanelState extends State<QueuePanel> {
             ? Icon(Icons.play_arrow_rounded, color: widget.primaryColor, size: 20)
             : GestureDetector(
                 onVerticalDragStart: (details) {
-                  _startDrag(index, itemContext, details.localPosition.dy);
+                  _startDrag(index, itemContext, details);
                 },
                 onVerticalDragUpdate: (details) {
-                  _updateDrag(details.delta.dy);
+                  _updateDrag(details);
                 },
                 onVerticalDragEnd: (details) {
-                  _endDrag(originalIndex);
+                  _endDrag();
                 },
                 onVerticalDragCancel: () {
                   _cancelDrag();
