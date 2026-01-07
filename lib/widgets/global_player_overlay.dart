@@ -482,17 +482,18 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
               builder: (context, _) {
                 return Consumer<ThemeProvider>(
                 builder: (context, themeProvider, _) {
-                  // Use adaptive primary color for bottom nav when adaptive theme is enabled
-                  final sourceColor = themeProvider.adaptiveTheme
-                      ? themeProvider.adaptivePrimaryColor
+                  // Use adaptive primary color only when adaptive theme is enabled AND we have adaptive colors
+                  // Otherwise use colorScheme.primary (which respects Material You if enabled)
+                  final sourceColor = (themeProvider.adaptiveTheme && themeProvider.adaptiveColors != null)
+                      ? themeProvider.adaptiveColors!.primary
                       : colorScheme.primary;
 
                   // Use cached color computation to avoid expensive HSL operations during scroll
                   final isDark = Theme.of(context).brightness == Brightness.dark;
                   final navSelectedColor = _cachedNavColor.getAdjustedColor(sourceColor, isDark);
 
-                  // Base background: use adaptive surface color if available, otherwise default surface
-                  // Use brightness-aware method to respect light/dark mode
+                  // Base background: use adaptive surface color when adaptive theme is enabled
+                  // This themes the nav bar on detail screens and when player is expanded
                   final adaptiveBg = themeProvider.getAdaptiveSurfaceColorFor(Theme.of(context).brightness);
                   final baseBgColor = (themeProvider.adaptiveTheme && adaptiveBg != null)
                       ? adaptiveBg
@@ -546,7 +547,7 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
                       ],
                     ),
                     builder: (context, expansionState, navBar) {
-                      // Only compute colors during animation - this is the hot path
+                      // Blend nav bar color with expanded player background during expansion
                       final navBgColor = expansionState.progress > 0 && expansionState.backgroundColor != null
                           ? Color.lerp(baseBgColor, expansionState.backgroundColor, expansionState.progress)!
                           : baseBgColor;

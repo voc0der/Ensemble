@@ -1277,12 +1277,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Create a darker shade for the "unplayed" portion of progress bar
     final collapsedBgUnplayed = Color.lerp(collapsedBg, Colors.black, 0.3)!;
     final expandedBg = adaptiveScheme?.surface ?? const Color(0xFF121212);
-    // Only update if we have adaptive colors, otherwise keep previous value
-    if (adaptiveScheme != null) {
-      _currentExpandedBgColor = expandedBg;
-    } else if (_currentExpandedBgColor == null) {
-      _currentExpandedBgColor = expandedBg; // First time fallback
-    }
+    // Always update to current value - don't preserve stale adaptive colors
+    _currentExpandedBgColor = expandedBg;
     // When collapsed, use the darker unplayed color as base (progress bar will overlay the played portion)
     // When expanded, transition to the normal background
     final backgroundColor = Color.lerp(t < 0.5 ? collapsedBgUnplayed : collapsedBg, expandedBg, t)!;
