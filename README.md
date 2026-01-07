@@ -67,14 +67,16 @@ This application was built with AI-assisted development using **Claude Code** an
 ## Screenshots
 
 <div align="center">
-  <img src="assets/screenshots/1.png?v=2" alt="Connection Screen" width="150">
-  <img src="assets/screenshots/2.png?v=2" alt="Home Screen" width="150">
-  <img src="assets/screenshots/3.png?v=2" alt="Album Details" width="150">
-  <img src="assets/screenshots/4.png?v=2" alt="Now Playing" width="150">
-  <img src="assets/screenshots/5.png?v=2" alt="Queue" width="150">
-  <img src="assets/screenshots/6.png?v=2" alt="Settings" width="150">
-  <img src="assets/screenshots/7.png?v=2" alt="Audiobooks" width="150">
-  <img src="assets/screenshots/8.png?v=2" alt="Audiobook Player" width="150">
+  <img src="assets/screenshots/1.png?v=3" alt="Screenshot 1" width="150">
+  <img src="assets/screenshots/2.png?v=3" alt="Screenshot 2" width="150">
+  <img src="assets/screenshots/3.png?v=3" alt="Screenshot 3" width="150">
+  <img src="assets/screenshots/4.png?v=3" alt="Screenshot 4" width="150">
+  <img src="assets/screenshots/5.png?v=3" alt="Screenshot 5" width="150">
+  <img src="assets/screenshots/6.png?v=3" alt="Screenshot 6" width="150">
+  <img src="assets/screenshots/7.png?v=3" alt="Screenshot 7" width="150">
+  <img src="assets/screenshots/8.png?v=3" alt="Screenshot 8" width="150">
+  <img src="assets/screenshots/9.png?v=3" alt="Screenshot 9" width="150">
+  <img src="assets/screenshots/10.png?v=3" alt="Screenshot 10" width="150">
 </div>
 
 ## Download
