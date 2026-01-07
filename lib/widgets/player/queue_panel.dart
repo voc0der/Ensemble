@@ -50,16 +50,16 @@ class QueuePanel extends StatefulWidget {
 
 class _QueuePanelState extends State<QueuePanel> {
   List<QueueItem> _items = [];
+  final GlobalKey _stackKey = GlobalKey();
 
   // Drag state
   int? _dragIndex;
   int? _dragStartIndex;
-  double _dragY = 0; // Y position of dragged item relative to screen
-  double _dragStartY = 0; // Y position when drag started
-  double _itemStartY = 0; // Initial Y of the item being dragged
+  double _dragY = 0; // Y position of dragged item relative to Stack
+  double _dragStartY = 0; // Y position when drag started (global)
+  double _dragOffsetInItem = 0; // Offset of touch point within item
   QueueItem? _dragItem;
   double _itemHeight = 64.0;
-  double _listTopOffset = 0; // Offset of the list from top of stack
   bool _pendingReorder = false; // True while waiting for API confirmation
   Timer? _pendingReorderTimer;
 
@@ -138,6 +138,25 @@ class _QueuePanelState extends State<QueuePanel> {
     }
   }
 
+  void _handleClearQueue() async {
+    final playerId = widget.queue?.playerId;
+    if (playerId == null) return;
+
+    // Optimistic update - clear local list
+    setState(() {
+      _items.clear();
+    });
+
+    // Call API
+    try {
+      await widget.maProvider.api?.queueCommandClear(playerId);
+    } catch (e) {
+      debugPrint('QueuePanel: Error clearing queue: $e');
+      // Refresh to restore if failed
+      widget.onRefresh();
+    }
+  }
+
   void _resetSwipeState() {
     _swipeStart = null;
     _swipeLast = null;
@@ -151,16 +170,19 @@ class _QueuePanelState extends State<QueuePanel> {
     // Clear any pending swipe state to prevent conflicts
     _resetSwipeState();
 
-    final RenderBox box = itemContext.findRenderObject() as RenderBox;
-    final Offset globalPos = box.localToGlobal(Offset.zero);
-    _itemHeight = box.size.height;
-    _itemStartY = globalPos.dy;
-    _dragStartY = globalPosition.dy;
-    _dragY = globalPos.dy;
+    final RenderBox itemBox = itemContext.findRenderObject() as RenderBox;
+    final Offset itemGlobalPos = itemBox.localToGlobal(Offset.zero);
+    _itemHeight = itemBox.size.height;
 
-    // Find the stack's position to calculate relative offset
-    // The stack is the Expanded widget's child, we need its global offset
-    _listTopOffset = globalPos.dy - (index * _itemHeight);
+    // Get Stack's global position for proper coordinate conversion
+    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final stackGlobalPos = stackBox?.localToGlobal(Offset.zero) ?? Offset.zero;
+
+    // Calculate initial position relative to Stack
+    _dragY = itemGlobalPos.dy - stackGlobalPos.dy;
+    _dragStartY = globalPosition.dy;
+    // Remember where in the item the touch started (for smooth following)
+    _dragOffsetInItem = globalPosition.dy - itemGlobalPos.dy;
 
     setState(() {
       _dragIndex = index;
@@ -175,10 +197,14 @@ class _QueuePanelState extends State<QueuePanel> {
   void _updateDragPointer(Offset globalPosition) {
     if (_dragIndex == null) return;
 
-    // Move overlay to follow finger
-    _dragY = _itemStartY + (globalPosition.dy - _dragStartY);
+    // Get Stack's global position
+    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final stackGlobalPos = stackBox?.localToGlobal(Offset.zero) ?? Offset.zero;
 
-    // Calculate which index we're hovering over based on movement
+    // Calculate overlay position relative to Stack, accounting for touch offset
+    _dragY = globalPosition.dy - stackGlobalPos.dy - _dragOffsetInItem;
+
+    // Calculate which index we're hovering over based on movement from start
     final totalOffset = globalPosition.dy - _dragStartY;
     final indexOffset = (totalOffset / _itemHeight).round();
     final targetIndex = (_dragStartIndex! + indexOffset).clamp(0, _items.length - 1);
@@ -376,6 +402,13 @@ class _QueuePanelState extends State<QueuePanel> {
                     ),
                   ),
                   const Spacer(),
+                  // Clear queue button
+                  IconButton(
+                    icon: Icon(Icons.delete_sweep_rounded, color: widget.textColor.withOpacity(0.7), size: IconSizes.sm),
+                    onPressed: _handleClearQueue,
+                    padding: Spacing.paddingAll12,
+                    tooltip: 'Clear queue',
+                  ),
                   IconButton(
                     icon: Icon(Icons.refresh_rounded, color: widget.textColor.withOpacity(0.7), size: IconSizes.sm),
                     onPressed: widget.onRefresh,
@@ -409,6 +442,7 @@ class _QueuePanelState extends State<QueuePanel> {
                             }
                           },
                           child: Stack(
+                            key: _stackKey,
                             children: [
                               _buildQueueList(),
                               // Dragged item overlay
@@ -416,7 +450,7 @@ class _QueuePanelState extends State<QueuePanel> {
                                 Positioned(
                                   left: 8,
                                   right: 8,
-                                  top: _dragY - _listTopOffset,
+                                  top: _dragY,
                                   child: Material(
                                     elevation: 8,
                                     borderRadius: BorderRadius.circular(8),

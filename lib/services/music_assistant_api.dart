@@ -2503,6 +2503,21 @@ class MusicAssistantAPI {
     }
   }
 
+  /// Clear all items from the queue
+  Future<void> queueCommandClear(String queueId) async {
+    try {
+      await _sendCommand(
+        'player_queues/clear',
+        args: {
+          'queue_id': queueId,
+        },
+      );
+    } catch (e) {
+      _logger.log('Error clearing queue: $e');
+      rethrow;
+    }
+  }
+
   // ============================================================================
   // BUILT-IN PLAYER MANAGEMENT
   // ============================================================================
