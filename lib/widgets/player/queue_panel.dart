@@ -294,6 +294,10 @@ class _QueuePanelState extends State<QueuePanel> {
     return ListView.builder(
       key: const PageStorageKey('queue_list'),
       padding: Spacing.paddingH8,
+      // Disable scrolling while dragging to prevent gesture conflict
+      physics: _dragIndex != null
+          ? const NeverScrollableScrollPhysics()
+          : const AlwaysScrollableScrollPhysics(),
       itemCount: _items.length,
       itemBuilder: (context, index) {
         final item = _items[index];
