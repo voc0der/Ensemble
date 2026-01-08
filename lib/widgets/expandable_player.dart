@@ -1423,21 +1423,23 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final artSize = _lerpDouble(_collapsedArtSize, expandedArtSize, t);
     final artBorderRadius = _lerpDouble(0, 12, t); // Square in mini player, rounded when expanded
 
-    // Art position
+    // Art position - uses curved interpolation for Hero-like arc animation
+    // X moves faster (centers early), Y moves slower (gradual rise)
     final collapsedArtLeft = 0.0;
     final expandedArtLeft = (screenSize.width - expandedArtSize) / 2;
-    final artLeft = _lerpDouble(collapsedArtLeft, expandedArtLeft, t);
+    final artLeft = _lerpX(collapsedArtLeft, expandedArtLeft, t);
 
     final collapsedArtTop = (_collapsedHeight - _collapsedArtSize) / 2; // Center vertically
     final expandedArtTop = topPadding + headerHeight + 16;
-    final artTop = _lerpDouble(collapsedArtTop, expandedArtTop, t);
+    final artTop = _lerpY(collapsedArtTop, expandedArtTop, t);
 
     // Typography - uses shared MiniPlayerLayout constants for collapsed state
     final titleFontSize = _lerpDouble(MiniPlayerLayout.primaryFontSize, 24.0, t);
     final artistFontSize = _lerpDouble(MiniPlayerLayout.secondaryFontSize, 18.0, t);
 
+    // Text position - uses curved interpolation for Hero-like arc animation
     final expandedTitleLeft = contentPadding;
-    final titleLeft = _lerpDouble(MiniPlayerLayout.textLeft, expandedTitleLeft, t);
+    final titleLeft = _lerpX(MiniPlayerLayout.textLeft, expandedTitleLeft, t);
 
     final collapsedTitleTop = MiniPlayerLayout.primaryTop;
 
@@ -1496,15 +1498,18 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Center the track info block in available space
     final trackInfoTopMargin = (availableSpace - trackInfoBlockHeight) / 2;
     final expandedTitleTop = artBottom + trackInfoTopMargin;
-    final titleTop = _lerpDouble(collapsedTitleTop, expandedTitleTop, t);
+    final titleTop = _lerpY(collapsedTitleTop, expandedTitleTop, t);
 
     // Artist positioned dynamically based on actual title height
     final collapsedArtistTop = MiniPlayerLayout.secondaryTop;
     final expandedArtistTop = expandedTitleTop + expandedTitleHeight + titleToArtistGap;
-    final artistTop = _lerpDouble(collapsedArtistTop, expandedArtistTop, t);
+    final artistTop = _lerpY(collapsedArtistTop, expandedArtistTop, t);
 
-    // Player name - only visible when collapsed (third line)
-    final playerNameTop = MiniPlayerLayout.tertiaryTop;
+    // Player name - animated to move with other text elements
+    // Starts at tertiary position, animates toward artist position as it fades out
+    final collapsedPlayerNameTop = MiniPlayerLayout.tertiaryTop;
+    final expandedPlayerNameTop = expandedArtistTop; // Animates toward artist final position
+    final playerNameTop = _lerpY(collapsedPlayerNameTop, expandedPlayerNameTop, t);
 
     // Album - subtle, below artist
     final expandedAlbumTop = expandedArtistTop + artistHeight + artistToAlbumGap;
@@ -1513,7 +1518,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final collapsedControlsRight = 8.0;
     final collapsedControlsTop = (_collapsedHeight - 34) / 2 - 6;
     final expandedControlsTop = expandedProgressTop + 64;
-    final controlsTop = _lerpDouble(collapsedControlsTop, expandedControlsTop, t);
+    final controlsTop = _lerpY(collapsedControlsTop, expandedControlsTop, t);
 
     // Button sizes - larger in expanded for better touch targets
     final skipButtonSize = _lerpDouble(28, 36, t);
@@ -2155,10 +2160,12 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                   ),
 
                 // Playback controls - with slide animation when collapsed
+                // Uses curved interpolation to smoothly transition from right-aligned to centered
                 // Use skip 30s controls for audiobooks and podcasts
                 Positioned(
-                  left: t > 0.5 ? 0 : null,
-                  right: t > 0.5 ? 0 : collapsedControlsRight - miniPlayerSlideOffset,
+                  // Full width positioning, alignment handled by child Align widget
+                  left: 0,
+                  right: 0,
                   top: controlsTop,
                   child: (maProvider.isPlayingAudiobook || maProvider.isPlayingPodcast)
                       // When device reveal is visible (player list shown), use compact controls
@@ -2278,9 +2285,15 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                 const SizedBox(width: 4),
                               ],
                             )
-                          : Row(
+                          // Wrap in Align for smooth transition from right to center
+                          : Align(
+                    // Curved alignment: x moves from 1.0 (right) to 0.0 (center) with easeOutQuad
+                    alignment: Alignment(_lerpX(1.0, 0.0, t), 0),
+                    child: Padding(
+                    // Right padding in collapsed state, fades to 0 when expanded
+                    padding: EdgeInsets.only(right: _lerpX(collapsedControlsRight - miniPlayerSlideOffset, 0, t)),
+                    child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: t > 0.5 ? MainAxisAlignment.center : MainAxisAlignment.end,
                     children: [
                       // Shuffle (expanded only)
                       // GPU PERF: Use color alpha instead of Opacity
@@ -2340,6 +2353,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                         ),
                     ],
                   ),
+                  ),
+                ),
                 ),
 
                 // Volume control (expanded only)
@@ -2898,5 +2913,23 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   double _lerpDouble(double a, double b, double t) {
     return a + (b - a) * t;
+  }
+
+  /// Curved interpolation for X axis - faster ease-out for horizontal centering
+  /// Elements center horizontally early in the animation, creating an arc path
+  double _lerpX(double a, double b, double t) {
+    // Use easeOutQuad - horizontal movement completes early
+    final curvedT = 1 - (1 - t) * (1 - t);
+    return a + (b - a) * curvedT;
+  }
+
+  /// Curved interpolation for Y axis - slower ease-in-out for vertical movement
+  /// Elements move up gradually, creating smooth arc when combined with _lerpX
+  double _lerpY(double a, double b, double t) {
+    // Use easeInOutCubic - vertical movement is gradual
+    final curvedT = t < 0.5
+        ? 4 * t * t * t
+        : 1 - ((-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2)) / 2;
+    return a + (b - a) * curvedT;
   }
 }
