@@ -244,10 +244,8 @@ class _VolumeControlState extends State<VolumeControl> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final sliderWidth = constraints.maxWidth;
-                // Clamp thumb position to keep teardrop indicator within bounds
-                // Teardrop is 32px wide, so keep 16px from each edge
-                final rawThumbPosition = currentVolume.clamp(0.0, 1.0) * sliderWidth;
-                final clampedThumbPosition = rawThumbPosition.clamp(16.0, sliderWidth - 16.0);
+                // Calculate thumb position - indicator follows thumb exactly
+                final thumbPosition = currentVolume.clamp(0.0, 1.0) * sliderWidth;
 
                 return Stack(
                   clipBehavior: Clip.none,
@@ -352,7 +350,7 @@ class _VolumeControlState extends State<VolumeControl> {
                     // Floating teardrop indicator (visible when dragging or button tap)
                     if (_isDragging || _showButtonIndicator)
                       Positioned(
-                        left: clampedThumbPosition - 16,
+                        left: thumbPosition - 16,
                         top: -28,
                         child: CustomPaint(
                           size: const Size(32, 32),
