@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import '../providers/music_assistant_provider.dart';
@@ -27,10 +29,28 @@ class _VolumeControlState extends State<VolumeControl> {
   bool _isLocalPlayer = false;
   bool _isDragging = false;
 
+  // Live volume update state
+  int _lastVolumeUpdateTime = 0;
+  static const int _volumeThrottleMs = 150;
+  static const int _precisionThrottleMs = 50;
+
+  // Precision mode state
+  bool _inPrecisionMode = false;
+  Timer? _precisionTimer;
+  Offset? _lastDragPosition;
+  double _lastLocalX = 0.0;
+  bool _precisionModeEnabled = true;
+  double _precisionZoomCenter = 0.0;
+  double _precisionStartX = 0.0;
+  static const int _precisionTriggerMs = 800;
+  static const double _precisionStillnessThreshold = 5.0;
+  static const double _precisionSensitivity = 0.1; // 10% range in precision mode
+
   @override
   void initState() {
     super.initState();
     _initLocalPlayer();
+    _loadPrecisionModeSetting();
   }
 
   Future<void> _initLocalPlayer() async {
@@ -44,7 +64,7 @@ class _VolumeControlState extends State<VolumeControl> {
     }
 
     _volumeListener = FlutterVolumeController.addListener((volume) {
-      if (mounted && _isLocalPlayer) {
+      if (mounted && _isLocalPlayer && !_isDragging) {
         setState(() {
           _systemVolume = volume;
         });
@@ -52,9 +72,35 @@ class _VolumeControlState extends State<VolumeControl> {
     });
   }
 
+  Future<void> _loadPrecisionModeSetting() async {
+    final enabled = await SettingsService.getVolumePrecisionMode();
+    if (mounted) {
+      setState(() => _precisionModeEnabled = enabled);
+    }
+  }
+
+  void _enterPrecisionMode() {
+    if (_inPrecisionMode) return;
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _inPrecisionMode = true;
+      _precisionZoomCenter = _pendingVolume ?? 0.5;
+      _precisionStartX = _lastLocalX;
+    });
+  }
+
+  void _exitPrecisionMode() {
+    _precisionTimer?.cancel();
+    _precisionTimer = null;
+    if (_inPrecisionMode) {
+      setState(() => _inPrecisionMode = false);
+    }
+  }
+
   @override
   void dispose() {
     _volumeListener?.cancel();
+    _precisionTimer?.cancel();
     super.dispose();
   }
 
@@ -83,6 +129,22 @@ class _VolumeControlState extends State<VolumeControl> {
     }
   }
 
+  void _sendVolumeUpdate(MusicAssistantProvider maProvider, String playerId, double volume) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final throttleMs = _inPrecisionMode ? _precisionThrottleMs : _volumeThrottleMs;
+
+    if (now - _lastVolumeUpdateTime >= throttleMs) {
+      _lastVolumeUpdateTime = now;
+      final volumeLevel = (volume * 100).round();
+
+      if (_isLocalPlayer) {
+        FlutterVolumeController.setVolume(volume);
+      } else {
+        maProvider.setVolume(playerId, volumeLevel);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final maProvider = context.watch<MusicAssistantProvider>();
@@ -94,9 +156,11 @@ class _VolumeControlState extends State<VolumeControl> {
 
     _isLocalPlayer = _localPlayerId != null && player.playerId == _localPlayerId;
 
-    final currentVolume = _isLocalPlayer
-        ? (_pendingVolume ?? (_systemVolume ?? 0.5))
-        : (_pendingVolume ?? player.volume.toDouble()) / 100.0;
+    final currentVolume = _isDragging
+        ? (_pendingVolume ?? 0.5)
+        : _isLocalPlayer
+            ? (_systemVolume ?? 0.5)
+            : player.volume.toDouble() / 100.0;
 
     if (widget.compact) {
       return IconButton(
@@ -126,7 +190,7 @@ class _VolumeControlState extends State<VolumeControl> {
           ),
           onPressed: () => _adjustVolume(maProvider, player.playerId, currentVolume, -1),
         ),
-        // Slider with floating percentage indicator
+        // Slider with floating teardrop indicator
         Expanded(
           child: SizedBox(
             height: 48,
@@ -138,83 +202,113 @@ class _VolumeControlState extends State<VolumeControl> {
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // The slider
-                    SliderTheme(
-                      data: SliderThemeData(
-                        trackHeight: 2,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-                        activeTrackColor: Colors.white,
-                        inactiveTrackColor: Colors.white.withOpacity(0.3),
-                        thumbColor: Colors.white,
-                        overlayColor: Colors.white.withOpacity(0.2),
-                      ),
-                      child: Slider(
-                        value: currentVolume.clamp(0.0, 1.0),
-                        onChangeStart: (_) {
-                          setState(() => _isDragging = true);
-                        },
-                        onChanged: (value) {
-                          setState(() {
-                            _pendingVolume = _isLocalPlayer ? value : value * 100;
-                          });
-                        },
-                        onChangeEnd: (value) async {
-                          setState(() => _isDragging = false);
+                    // The slider with gesture detection for precision mode
+                    GestureDetector(
+                      onHorizontalDragStart: (details) {
+                        setState(() {
+                          _isDragging = true;
+                          _pendingVolume = currentVolume;
+                          _lastDragPosition = details.globalPosition;
+                          _lastLocalX = details.localPosition.dx;
+                        });
+                      },
+                      onHorizontalDragUpdate: (details) {
+                        if (!_isDragging) return;
 
-                          if (_isLocalPlayer) {
-                            _logger.log('Volume: Setting system volume to ${(value * 100).round()}%');
-                            try {
-                              await FlutterVolumeController.setVolume(value);
-                              _systemVolume = value;
-                            } catch (e) {
-                              _logger.log('Volume: Error setting system volume - $e');
-                            } finally {
-                              if (mounted) {
-                                setState(() {
-                                  _pendingVolume = null;
-                                });
-                              }
+                        final currentPosition = details.globalPosition;
+
+                        // Check for stillness to trigger precision mode
+                        if (_precisionModeEnabled && _lastDragPosition != null) {
+                          final movement = (currentPosition - _lastDragPosition!).distance;
+
+                          if (movement < _precisionStillnessThreshold) {
+                            // Finger is still - start precision timer
+                            if (_precisionTimer == null && !_inPrecisionMode) {
+                              _precisionTimer = Timer(
+                                Duration(milliseconds: _precisionTriggerMs),
+                                _enterPrecisionMode,
+                              );
                             }
                           } else {
-                            final volumeLevel = (value * 100).round();
-                            _logger.log('Volume: Setting to $volumeLevel%');
-                            try {
-                              await maProvider.setVolume(player.playerId, volumeLevel);
-                              _logger.log('Volume: Set to $volumeLevel%');
-                            } catch (e) {
-                              _logger.log('Volume: Error - $e');
-                            } finally {
-                              if (mounted) {
-                                setState(() {
-                                  _pendingVolume = null;
-                                });
-                              }
-                            }
+                            // Finger moved - cancel timer
+                            _precisionTimer?.cancel();
+                            _precisionTimer = null;
                           }
-                        },
+                        }
+                        _lastDragPosition = currentPosition;
+                        _lastLocalX = details.localPosition.dx;
+
+                        double newVolume;
+
+                        if (_inPrecisionMode) {
+                          // PRECISION MODE: Movement from entry point maps to zoomed range
+                          final offsetX = details.localPosition.dx - _precisionStartX;
+                          final normalizedOffset = offsetX / sliderWidth;
+                          final volumeChange = normalizedOffset * _precisionSensitivity;
+                          newVolume = (_precisionZoomCenter + volumeChange).clamp(0.0, 1.0);
+                        } else {
+                          // NORMAL MODE: Position-based (like standard slider)
+                          newVolume = (details.localPosition.dx / sliderWidth).clamp(0.0, 1.0);
+                        }
+
+                        if ((newVolume - (_pendingVolume ?? 0)).abs() > 0.001) {
+                          setState(() {
+                            _pendingVolume = newVolume;
+                          });
+                          _sendVolumeUpdate(maProvider, player.playerId, newVolume);
+                        }
+                      },
+                      onHorizontalDragEnd: (details) {
+                        if (!_isDragging) return;
+
+                        // Send final volume
+                        final finalVolume = _pendingVolume ?? currentVolume;
+                        final volumeLevel = (finalVolume * 100).round();
+
+                        if (_isLocalPlayer) {
+                          FlutterVolumeController.setVolume(finalVolume);
+                          _systemVolume = finalVolume;
+                        } else {
+                          maProvider.setVolume(player.playerId, volumeLevel);
+                        }
+
+                        _exitPrecisionMode();
+                        _lastDragPosition = null;
+                        setState(() {
+                          _isDragging = false;
+                          _pendingVolume = null;
+                        });
+                      },
+                      child: SliderTheme(
+                        data: SliderThemeData(
+                          trackHeight: 2,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+                          activeTrackColor: _inPrecisionMode ? Colors.amber : Colors.white,
+                          inactiveTrackColor: Colors.white.withOpacity(0.3),
+                          thumbColor: _inPrecisionMode ? Colors.amber : Colors.white,
+                          overlayColor: (_inPrecisionMode ? Colors.amber : Colors.white).withOpacity(0.2),
+                        ),
+                        child: AbsorbPointer(
+                          // AbsorbPointer prevents Slider from handling gestures
+                          // Our GestureDetector handles everything for live updates
+                          child: Slider(
+                            value: currentVolume.clamp(0.0, 1.0),
+                            onChanged: (_) {},
+                          ),
+                        ),
                       ),
                     ),
-                    // Floating percentage indicator (only visible when dragging)
+                    // Floating teardrop indicator (only visible when dragging)
                     if (_isDragging)
                       Positioned(
-                        left: thumbPosition - 20, // Center the indicator above thumb
-                        top: -4,
-                        child: Container(
-                          width: 40,
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '${(currentVolume * 100).round()}%',
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            textAlign: TextAlign.center,
+                        left: thumbPosition - 16,
+                        top: -28,
+                        child: CustomPaint(
+                          size: const Size(32, 32),
+                          painter: _TeardropPainter(
+                            color: _inPrecisionMode ? Colors.amber : Colors.white,
+                            volume: (currentVolume * 100).round(),
                           ),
                         ),
                       ),
@@ -234,5 +328,81 @@ class _VolumeControlState extends State<VolumeControl> {
         ),
       ],
     );
+  }
+}
+
+/// Custom painter for upside-down teardrop volume indicator
+class _TeardropPainter extends CustomPainter {
+  final Color color;
+  final int volume;
+
+  _TeardropPainter({required this.color, required this.volume});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+
+    // Draw upside-down teardrop shape
+    final path = Path();
+
+    // Start at bottom point (the tip pointing down toward slider)
+    path.moveTo(center.dx, size.height - 2);
+
+    // Curve up to the left side of the circle
+    path.quadraticBezierTo(
+      center.dx - radius * 0.8,
+      center.dy + radius * 0.3,
+      center.dx - radius,
+      center.dy - radius * 0.2,
+    );
+
+    // Arc around the top (the bulb)
+    path.arcToPoint(
+      Offset(center.dx + radius, center.dy - radius * 0.2),
+      radius: Radius.circular(radius),
+      clockwise: true,
+    );
+
+    // Curve down to the bottom point
+    path.quadraticBezierTo(
+      center.dx + radius * 0.8,
+      center.dy + radius * 0.3,
+      center.dx,
+      size.height - 2,
+    );
+
+    path.close();
+    canvas.drawPath(path, paint);
+
+    // Draw the volume number (no % symbol)
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: '$volume',
+        style: TextStyle(
+          color: color == Colors.white ? Colors.black87 : Colors.black,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+
+    // Position text in the center of the bulb (slightly above center)
+    final textOffset = Offset(
+      center.dx - textPainter.width / 2,
+      center.dy - radius * 0.4 - textPainter.height / 2,
+    );
+    textPainter.paint(canvas, textOffset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TeardropPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.volume != volume;
   }
 }
