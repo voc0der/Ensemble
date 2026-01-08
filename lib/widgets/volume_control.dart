@@ -244,8 +244,11 @@ class _VolumeControlState extends State<VolumeControl> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final sliderWidth = constraints.maxWidth;
-                // Calculate thumb position - indicator follows thumb exactly
-                final thumbPosition = currentVolume.clamp(0.0, 1.0) * sliderWidth;
+                // Calculate thumb position to match Flutter Slider's internal positioning
+                // The Slider uses overlayRadius as padding on each side for the track
+                const overlayRadius = 20.0; // Must match SliderThemeData overlayShape
+                final thumbPosition = overlayRadius +
+                    (currentVolume.clamp(0.0, 1.0) * (sliderWidth - 2 * overlayRadius));
 
                 return Stack(
                   clipBehavior: Clip.none,
