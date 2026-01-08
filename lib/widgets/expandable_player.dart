@@ -85,6 +85,14 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   // Pre-computed static colors to avoid object creation during animation frames
   static const Color _shadowColor = Color(0x4D000000); // Colors.black.withOpacity(0.3)
 
+  // PERF Phase 1: Cached SliderThemeData - created once, reused every frame
+  static const SliderThemeData _sliderTheme = SliderThemeData(
+    trackHeight: 4,
+    thumbShape: RoundSliderThumbShape(enabledThumbRadius: 7),
+    overlayShape: RoundSliderOverlayShape(overlayRadius: 20),
+    trackShape: RoundedRectSliderTrackShape(),
+  );
+
   // Dimensions
   static double get _collapsedHeight => MiniPlayerLayout.height;
   static const double _collapsedMargin = 12.0; // Increased from 8 to 12 (4px more gap above nav bar)
@@ -1246,11 +1254,14 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     dynamic selectedPlayer,
     ThemeProvider themeProvider,
   ) {
-    final screenSize = MediaQuery.of(context).size;
+    // PERF Phase 1: Batch MediaQuery and Theme lookups
+    final mediaQuery = MediaQuery.of(context);
+    final screenSize = mediaQuery.size;
     // Use viewPadding to match BottomNavigationBar's height calculation
-    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bottomPadding = mediaQuery.viewPadding.bottom;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     // Get adaptive colors if available
     final adaptiveScheme = themeProvider.adaptiveTheme
@@ -1337,13 +1348,17 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     String? imageUrl,
     ThemeProvider themeProvider,
   ) {
-    final screenSize = MediaQuery.of(context).size;
+    // PERF Phase 1: Batch MediaQuery lookups - single InheritedWidget lookup
+    final mediaQuery = MediaQuery.of(context);
+    final screenSize = mediaQuery.size;
     // Use viewPadding (not padding) to match BottomNavigationBar's height calculation
     // viewPadding represents permanent system UI, padding can change (e.g., keyboard)
-    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
-    final topPadding = MediaQuery.of(context).padding.top;
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bottomPadding = mediaQuery.viewPadding.bottom;
+    final topPadding = mediaQuery.padding.top;
+    // PERF Phase 1: Batch Theme lookups
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     // Animation progress
     final t = _expandAnimation.value;
@@ -1488,8 +1503,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // - Progress bar + times: ~70px
     // Total from bottom edge: ~48 + 40 + 70 + 64 = 222, plus safe area padding
     // Position progress bar so controls section is anchored at bottom
-    // Use viewPadding for consistency with player height calculation
-    final bottomSafeArea = MediaQuery.of(context).viewPadding.bottom;
+    // PERF Phase 1: Use already-batched bottomPadding instead of separate MediaQuery lookup
+    final bottomSafeArea = bottomPadding;
     final controlsSectionHeight = 222.0; // Total height of progress + controls + volume
     final playButtonHalfHeight = 36.0; // Half of the 72px play button container
     final expandedProgressTop = screenSize.height - bottomSafeArea - controlsSectionHeight - 24 - playButtonHalfHeight;
@@ -1759,6 +1774,18 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           }
         },
         child: Container(
+          // PERF Phase 3: Use fixed shadow with animated opacity instead of animated elevation
+          // This avoids GPU-expensive shadow blur recalculations each frame
+          decoration: t < 0.95 ? BoxDecoration(
+            borderRadius: BorderRadius.circular(borderRadius),
+            boxShadow: [
+              BoxShadow(
+                color: _shadowColor.withOpacity((1.0 - t) * 0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ) : null,
           // Use foregroundDecoration for border so it renders ON TOP of content
           // This prevents the album art from clipping the yellow synced border
           foregroundDecoration: maProvider.isPlayerManuallySynced(selectedPlayer.playerId) && t < 0.5
@@ -1770,8 +1797,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           child: Material(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(borderRadius),
-            elevation: _lerpDouble(4, 0, t),
-            shadowColor: _shadowColor,
+            elevation: 0, // PERF Phase 3: Fixed elevation, shadow handled by Container
             // Use hardEdge when fully expanded (no border radius) to avoid anti-alias artifacts
             // Use antiAlias when collapsed/animating to smooth rounded corners
             clipBehavior: borderRadius > 0.5 ? Clip.antiAlias : Clip.hardEdge,
@@ -2113,13 +2139,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                 children: [
                                   SizedBox(
                                     height: 48, // Increase touch target height
+                                    // PERF Phase 1: Use cached SliderThemeData
                                     child: SliderTheme(
-                                      data: SliderThemeData(
-                                        trackHeight: 4,
-                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-                                        trackShape: const RoundedRectSliderTrackShape(),
-                                      ),
+                                      data: _sliderTheme,
                                       child: Slider(
                                         value: currentProgress.clamp(0.0, currentTrack.duration!.inSeconds.toDouble()).toDouble(),
                                         max: currentTrack.duration!.inSeconds.toDouble(),
