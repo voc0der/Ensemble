@@ -1393,6 +1393,12 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Use colorScheme.primary as fallback instead of Colors.white for light theme support
     final primaryColor = adaptiveScheme?.primary ?? colorScheme.primary;
 
+    // PERF: Pre-compute commonly used color opacities to reduce withOpacity() allocations per frame
+    // These are used multiple times throughout the widget tree during animation
+    final textColor50 = textColor.withOpacity(0.5);
+    final primaryColor20 = primaryColor.withOpacity(0.2);
+    final primaryColor70 = primaryColor.withOpacity(0.7);
+
     // Always position above bottom nav bar
     // Overlap by 2px when expanded to eliminate any subpixel rendering gaps
     final bottomNavSpace = _bottomNavHeight + bottomPadding;
@@ -2098,13 +2104,13 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                           Icon(
                             Icons.graphic_eq_rounded,
                             size: 14,
-                            color: primaryColor.withOpacity(0.7),
+                            color: primaryColor70, // PERF: Use cached color
                           ),
                           const SizedBox(width: 6),
                           Text(
                             maProvider.currentAudioFormat ?? S.of(context)!.pcmAudio,
                             style: TextStyle(
-                              color: primaryColor.withOpacity(0.7),
+                              color: primaryColor70, // PERF: Use cached color
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.3,
@@ -2164,7 +2170,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                           }
                                         },
                                         activeColor: primaryColor,
-                                        inactiveColor: primaryColor.withOpacity(0.2),
+                                        inactiveColor: primaryColor20, // PERF: Use cached color
                                       ),
                                     ),
                                   ),
@@ -2176,7 +2182,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                         Text(
                                           _formatDuration(currentProgress.toInt()),
                                           style: TextStyle(
-                                            color: textColor.withOpacity(0.5),
+                                            color: textColor50, // PERF: Use cached color
                                             fontSize: 13, // Increased from 11 to 13
                                             fontWeight: FontWeight.w500,
                                             fontFeatures: const [FontFeature.tabularFigures()],
@@ -2185,7 +2191,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                         Text(
                                           _formatDuration(currentTrack.duration!.inSeconds),
                                           style: TextStyle(
-                                            color: textColor.withOpacity(0.5),
+                                            color: textColor50, // PERF: Use cached color
                                             fontSize: 13, // Increased from 11 to 13
                                             fontWeight: FontWeight.w500,
                                             fontFeatures: const [FontFeature.tabularFigures()],
@@ -2254,7 +2260,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                 IconButton(
                                   icon: Icon(
                                     Icons.power_settings_new_rounded,
-                                    color: selectedPlayer.powered ? textColor : textColor.withOpacity(0.5),
+                                    color: selectedPlayer.powered ? textColor : textColor50,
                                     size: 20,
                                   ),
                                   onPressed: () => maProvider.togglePower(selectedPlayer.playerId),
@@ -2319,7 +2325,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                 IconButton(
                                   icon: Icon(
                                     Icons.power_settings_new_rounded,
-                                    color: selectedPlayer.powered ? textColor : textColor.withOpacity(0.5),
+                                    color: selectedPlayer.powered ? textColor : textColor50,
                                     size: 20,
                                   ),
                                   onPressed: () => maProvider.togglePower(selectedPlayer.playerId),
@@ -2345,7 +2351,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                       if (t > 0.5 && expandedElementsOpacity > 0.1)
                         _buildSecondaryButton(
                           icon: Icons.shuffle_rounded,
-                          color: (_queue?.shuffle == true ? primaryColor : textColor.withOpacity(0.5))
+                          color: (_queue?.shuffle == true ? primaryColor : textColor50)
                               .withOpacity(expandedElementsOpacity),
                           onPressed: _isLoadingQueue ? null : _toggleShuffle,
                         ),
@@ -2392,7 +2398,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                           icon: _queue?.repeatMode == 'one' ? Icons.repeat_one_rounded : Icons.repeat_rounded,
                           color: (_queue?.repeatMode != null && _queue!.repeatMode != 'off'
                                   ? primaryColor
-                                  : textColor.withOpacity(0.5))
+                                  : textColor50) // PERF: Use cached color
                               .withOpacity(expandedElementsOpacity),
                           onPressed: _isLoadingQueue ? null : _cycleRepeat,
                         ),
