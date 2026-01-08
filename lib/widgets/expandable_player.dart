@@ -589,7 +589,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   void _toggleQueuePanel() {
     if (_queuePanelController.isAnimating) return;
-    if (_queuePanelController.value == 0) {
+    // Use threshold check instead of exact equality (spring may not land exactly at 0/1)
+    if (_queuePanelController.value < 0.1) {
       _openQueuePanelWithSpring();
     } else {
       _closeQueuePanelWithSpring();
@@ -605,7 +606,12 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       1.0,
       0.0, // velocity
     );
-    _queuePanelController.animateWith(simulation);
+    _queuePanelController.animateWith(simulation).then((_) {
+      // Snap to exact value when spring settles
+      if (mounted && !_queuePanelController.isAnimating) {
+        _queuePanelController.value = 1.0;
+      }
+    });
   }
 
   /// Close queue panel with spring physics
@@ -623,7 +629,12 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       0.0,
       velocity,
     );
-    _queuePanelController.animateWith(simulation);
+    _queuePanelController.animateWith(simulation).then((_) {
+      // Snap to exact value when spring settles
+      if (mounted && !_queuePanelController.isAnimating) {
+        _queuePanelController.value = 0.0;
+      }
+    });
   }
 
   bool get isQueuePanelOpen => _queuePanelController.value > 0.5;
@@ -2471,7 +2482,12 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                         1.0,
                                         -velocity / 500, // Convert velocity to spring units
                                       );
-                                      _queuePanelController.animateWith(simulation);
+                                      _queuePanelController.animateWith(simulation).then((_) {
+                                        // Snap to exact 1.0 when spring settles
+                                        if (mounted && !_queuePanelController.isAnimating) {
+                                          _queuePanelController.value = 1.0;
+                                        }
+                                      });
                                     }
                                   },
                                 ),
