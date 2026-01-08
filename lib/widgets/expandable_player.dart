@@ -292,10 +292,13 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   static const Duration _queueCloseDuration = Duration(milliseconds: 220);
 
   // Spring description for queue panel animations
+  // Higher damping ratio prevents oscillation and ensures clean settling
+  // Critical damping = 2 * sqrt(stiffness * mass) = 2 * sqrt(400) = 40
+  // Using damping slightly above critical for overdamped (no bounce) behavior
   static const SpringDescription _queueSpring = SpringDescription(
     mass: 1.0,
-    stiffness: 300.0,
-    damping: 25.0,
+    stiffness: 400.0,
+    damping: 42.0, // Overdamped - no oscillation, clean settle
   );
 
   void expand() {
@@ -600,28 +603,25 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   /// Open queue panel with spring physics for natural feel
   void _openQueuePanelWithSpring() {
     HapticFeedback.lightImpact();
+    // Use overdamped spring - settles cleanly without oscillation or snap
     final simulation = SpringSimulation(
       _queueSpring,
       _queuePanelController.value,
       1.0,
       0.0, // velocity
     );
-    _queuePanelController.animateWith(simulation).then((_) {
-      // Snap to exact value when spring settles
-      if (mounted && !_queuePanelController.isAnimating) {
-        _queuePanelController.value = 1.0;
-      }
-    });
+    _queuePanelController.animateWith(simulation);
   }
 
   /// Close queue panel with spring physics
   void _closeQueuePanelWithSpring({double velocity = 0.0}) {
     HapticFeedback.lightImpact();
-    // Use slightly stiffer spring for close to feel snappy
+    // Use overdamped spring for snappy close without oscillation
+    // Slightly stiffer than open spring for quicker settle
     const closeSpring = SpringDescription(
       mass: 1.0,
-      stiffness: 350.0,
-      damping: 28.0,
+      stiffness: 450.0,
+      damping: 45.0, // Overdamped - no bounce, clean settle
     );
     final simulation = SpringSimulation(
       closeSpring,
@@ -629,12 +629,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       0.0,
       velocity,
     );
-    _queuePanelController.animateWith(simulation).then((_) {
-      // Snap to exact value when spring settles
-      if (mounted && !_queuePanelController.isAnimating) {
-        _queuePanelController.value = 0.0;
-      }
-    });
+    _queuePanelController.animateWith(simulation);
   }
 
   bool get isQueuePanelOpen => _queuePanelController.value > 0.5;
@@ -2475,19 +2470,14 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                                       // Use spring physics with velocity for natural feel
                                       _closeQueuePanelWithSpring(velocity: velocity / 500);
                                     } else {
-                                      // Snap back with spring
+                                      // Snap back with overdamped spring - no oscillation
                                       final simulation = SpringSimulation(
                                         _queueSpring,
                                         _queuePanelController.value,
                                         1.0,
                                         -velocity / 500, // Convert velocity to spring units
                                       );
-                                      _queuePanelController.animateWith(simulation).then((_) {
-                                        // Snap to exact 1.0 when spring settles
-                                        if (mounted && !_queuePanelController.isAnimating) {
-                                          _queuePanelController.value = 1.0;
-                                        }
-                                      });
+                                      _queuePanelController.animateWith(simulation);
                                     }
                                   },
                                 ),
