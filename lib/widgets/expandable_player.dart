@@ -2346,16 +2346,21 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Shuffle (expanded only)
-                      // GPU PERF: Use color alpha instead of Opacity
-                      if (t > 0.5 && expandedElementsOpacity > 0.1)
-                        _buildSecondaryButton(
-                          icon: Icons.shuffle_rounded,
-                          color: (_queue?.shuffle == true ? primaryColor : textColor50)
-                              .withOpacity(expandedElementsOpacity),
-                          onPressed: _isLoadingQueue ? null : _toggleShuffle,
-                        ),
-                      if (t > 0.5) SizedBox(width: _lerpDouble(0, 20, t)),
+                      // Shuffle - animate size from 0 to prevent jerk when appearing
+                      // Always render but with animated width to smoothly grow into place
+                      SizedBox(
+                        width: _lerpDouble(0, 44, t), // Animate width from 0 to 44
+                        height: 44,
+                        child: t > 0.3 ? Opacity(
+                          opacity: expandedElementsOpacity,
+                          child: _buildSecondaryButton(
+                            icon: Icons.shuffle_rounded,
+                            color: _queue?.shuffle == true ? primaryColor : textColor50,
+                            onPressed: _isLoadingQueue ? null : _toggleShuffle,
+                          ),
+                        ) : null,
+                      ),
+                      SizedBox(width: _lerpDouble(0, 20, t)),
 
                       // Previous
                       _buildControlButton(
@@ -2390,18 +2395,22 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                         useAnimation: t > 0.5,
                       ),
 
-                      // Repeat (expanded only)
-                      // GPU PERF: Use color alpha instead of Opacity
-                      if (t > 0.5) SizedBox(width: _lerpDouble(0, 20, t)),
-                      if (t > 0.5 && expandedElementsOpacity > 0.1)
-                        _buildSecondaryButton(
-                          icon: _queue?.repeatMode == 'one' ? Icons.repeat_one_rounded : Icons.repeat_rounded,
-                          color: (_queue?.repeatMode != null && _queue!.repeatMode != 'off'
-                                  ? primaryColor
-                                  : textColor50) // PERF: Use cached color
-                              .withOpacity(expandedElementsOpacity),
-                          onPressed: _isLoadingQueue ? null : _cycleRepeat,
-                        ),
+                      // Repeat - animate size from 0 to prevent jerk when appearing
+                      SizedBox(width: _lerpDouble(0, 20, t)),
+                      SizedBox(
+                        width: _lerpDouble(0, 44, t), // Animate width from 0 to 44
+                        height: 44,
+                        child: t > 0.3 ? Opacity(
+                          opacity: expandedElementsOpacity,
+                          child: _buildSecondaryButton(
+                            icon: _queue?.repeatMode == 'one' ? Icons.repeat_one_rounded : Icons.repeat_rounded,
+                            color: _queue?.repeatMode != null && _queue!.repeatMode != 'off'
+                                ? primaryColor
+                                : textColor50,
+                            onPressed: _isLoadingQueue ? null : _cycleRepeat,
+                          ),
+                        ) : null,
+                      ),
                     ],
                   ),
                 ),
