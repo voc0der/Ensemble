@@ -517,7 +517,7 @@ class _QueuePanelState extends State<QueuePanel> {
         dragHandle: isCurrentItem
             ? Icon(Icons.play_arrow_rounded, color: widget.primaryColor, size: 20)
             : SizedBox(
-                width: 48,
+                width: 32,
                 height: 48,
                 child: Listener(
                   behavior: HitTestBehavior.opaque,
@@ -525,8 +525,7 @@ class _QueuePanelState extends State<QueuePanel> {
                     _startDrag(index, itemContext, event.position);
                   },
                   // Move/up/cancel handled by parent Listener on Stack
-                  child: Align(
-                    alignment: Alignment.centerRight,
+                  child: Center(
                     child: Icon(Icons.drag_handle, color: widget.textColor.withOpacity(0.3), size: 20),
                   ),
                 ),
@@ -550,7 +549,6 @@ class _QueuePanelState extends State<QueuePanel> {
           ),
           child: ListTile(
             dense: true,
-            contentPadding: const EdgeInsets.only(left: 16, right: 8),
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(Radii.sm),
               child: SizedBox(
