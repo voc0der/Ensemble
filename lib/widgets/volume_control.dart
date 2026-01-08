@@ -25,6 +25,7 @@ class _VolumeControlState extends State<VolumeControl> {
   StreamSubscription? _volumeListener;
   String? _localPlayerId;
   bool _isLocalPlayer = false;
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -57,6 +58,31 @@ class _VolumeControlState extends State<VolumeControl> {
     super.dispose();
   }
 
+  Future<void> _adjustVolume(MusicAssistantProvider maProvider, String playerId, double currentVolume, int delta) async {
+    final newVolume = ((currentVolume * 100).round() + delta).clamp(0, 100);
+
+    if (_isLocalPlayer) {
+      _logger.log('Volume: Setting system volume to $newVolume%');
+      try {
+        await FlutterVolumeController.setVolume(newVolume / 100.0);
+        if (mounted) {
+          setState(() {
+            _systemVolume = newVolume / 100.0;
+          });
+        }
+      } catch (e) {
+        _logger.log('Volume: Error setting system volume - $e');
+      }
+    } else {
+      _logger.log('Volume: Setting to $newVolume%');
+      try {
+        await maProvider.setVolume(playerId, newVolume);
+      } catch (e) {
+        _logger.log('Volume: Error - $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final maProvider = context.watch<MusicAssistantProvider>();
@@ -71,113 +97,140 @@ class _VolumeControlState extends State<VolumeControl> {
     final currentVolume = _isLocalPlayer
         ? (_pendingVolume ?? (_systemVolume ?? 0.5))
         : (_pendingVolume ?? player.volume.toDouble()) / 100.0;
-    final isMuted = _isLocalPlayer ? false : player.isMuted;
 
     if (widget.compact) {
       return IconButton(
         icon: Icon(
-          isMuted ? Icons.volume_off : Icons.volume_up,
+          currentVolume < 0.01
+              ? Icons.volume_off
+              : currentVolume < 0.3
+                  ? Icons.volume_down
+                  : Icons.volume_up,
           color: Colors.white70,
         ),
         onPressed: () async {
-          try {
-            await maProvider.setMute(player.playerId, !isMuted);
-          } catch (e) {
-            // Error already logged by provider
-          }
+          // In compact mode, toggle between 0 and 50%
+          final newVolume = currentVolume < 0.01 ? 50 : 0;
+          await _adjustVolume(maProvider, player.playerId, newVolume / 100.0, 0);
         },
       );
     }
 
     return Row(
       children: [
+        // Volume decrease button
         IconButton(
-          icon: Icon(
-            isMuted
-                ? Icons.volume_off
-                : currentVolume < 0.3
-                    ? Icons.volume_down
-                    : Icons.volume_up,
+          icon: const Icon(
+            Icons.volume_down,
             color: Colors.white70,
           ),
-          onPressed: () async {
-            try {
-              await maProvider.setMute(player.playerId, !isMuted);
-            } catch (e) {
-              // Error already logged by provider
-            }
-          },
+          onPressed: () => _adjustVolume(maProvider, player.playerId, currentVolume, -1),
         ),
+        // Slider with floating percentage indicator
         Expanded(
           child: SizedBox(
-            height: 48, // Increase touch target height
-            child: SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 2,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-                activeTrackColor: Colors.white,
-                inactiveTrackColor: Colors.white.withOpacity(0.3),
-                thumbColor: Colors.white,
-                overlayColor: Colors.white.withOpacity(0.2),
-              ),
-              child: Slider(
-              value: currentVolume.clamp(0.0, 1.0),
-              onChanged: (value) {
-                setState(() {
-                  _pendingVolume = _isLocalPlayer ? value : value * 100;
-                });
+            height: 48,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final sliderWidth = constraints.maxWidth;
+                final thumbPosition = currentVolume.clamp(0.0, 1.0) * sliderWidth;
+
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // The slider
+                    SliderTheme(
+                      data: SliderThemeData(
+                        trackHeight: 2,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+                        activeTrackColor: Colors.white,
+                        inactiveTrackColor: Colors.white.withOpacity(0.3),
+                        thumbColor: Colors.white,
+                        overlayColor: Colors.white.withOpacity(0.2),
+                      ),
+                      child: Slider(
+                        value: currentVolume.clamp(0.0, 1.0),
+                        onChangeStart: (_) {
+                          setState(() => _isDragging = true);
+                        },
+                        onChanged: (value) {
+                          setState(() {
+                            _pendingVolume = _isLocalPlayer ? value : value * 100;
+                          });
+                        },
+                        onChangeEnd: (value) async {
+                          setState(() => _isDragging = false);
+
+                          if (_isLocalPlayer) {
+                            _logger.log('Volume: Setting system volume to ${(value * 100).round()}%');
+                            try {
+                              await FlutterVolumeController.setVolume(value);
+                              _systemVolume = value;
+                            } catch (e) {
+                              _logger.log('Volume: Error setting system volume - $e');
+                            } finally {
+                              if (mounted) {
+                                setState(() {
+                                  _pendingVolume = null;
+                                });
+                              }
+                            }
+                          } else {
+                            final volumeLevel = (value * 100).round();
+                            _logger.log('Volume: Setting to $volumeLevel%');
+                            try {
+                              await maProvider.setVolume(player.playerId, volumeLevel);
+                              _logger.log('Volume: Set to $volumeLevel%');
+                            } catch (e) {
+                              _logger.log('Volume: Error - $e');
+                            } finally {
+                              if (mounted) {
+                                setState(() {
+                                  _pendingVolume = null;
+                                });
+                              }
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                    // Floating percentage indicator (only visible when dragging)
+                    if (_isDragging)
+                      Positioned(
+                        left: thumbPosition - 20, // Center the indicator above thumb
+                        top: -4,
+                        child: Container(
+                          width: 40,
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${(currentVolume * 100).round()}%',
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
               },
-              onChangeEnd: (value) async {
-                if (_isLocalPlayer) {
-                  _logger.log('Volume: Setting system volume to ${(value * 100).round()}%');
-                  try {
-                    await FlutterVolumeController.setVolume(value);
-                    _systemVolume = value;
-                  } catch (e) {
-                    _logger.log('Volume: Error setting system volume - $e');
-                  } finally {
-                    if (mounted) {
-                      setState(() {
-                        _pendingVolume = null;
-                      });
-                    }
-                  }
-                } else {
-                  final volumeLevel = (value * 100).round();
-                  _logger.log('Volume: Setting to $volumeLevel%');
-                  try {
-                    if (isMuted) {
-                      _logger.log('Volume: Unmuting player first');
-                      await maProvider.setMute(player.playerId, false);
-                    }
-                    await maProvider.setVolume(player.playerId, volumeLevel);
-                    _logger.log('Volume: Set to $volumeLevel%');
-                  } catch (e) {
-                    _logger.log('Volume: Error - $e');
-                  } finally {
-                    if (mounted) {
-                      setState(() {
-                        _pendingVolume = null;
-                      });
-                    }
-                  }
-                }
-              },
-            ),
             ),
           ),
         ),
-        SizedBox(
-          width: 40,
-          child: Text(
-            '${(currentVolume * 100).round()}%',
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 12,
-            ),
-            textAlign: TextAlign.center,
+        // Volume increase button
+        IconButton(
+          icon: const Icon(
+            Icons.volume_up,
+            color: Colors.white70,
           ),
+          onPressed: () => _adjustVolume(maProvider, player.playerId, currentVolume, 1),
         ),
       ],
     );
