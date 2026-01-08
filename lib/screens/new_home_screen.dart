@@ -251,10 +251,10 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
     // Use LayoutBuilder to get available screen height
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Simple calculation: available height divided by 3 rows
-        // Each row includes its title, artwork, and info
+        // Each row is always 1/3 of screen height
+        // 1 row = 1/3, 2 rows = 2/3, 3 rows = full screen, 4+ rows scroll
         final availableHeight = constraints.maxHeight - BottomSpacing.withMiniPlayer;
-        final rowHeight = (availableHeight + 8) / 3;
+        final rowHeight = availableHeight / 3;
 
         // Use Android 12+ stretch overscroll effect
         return NotificationListener<ScrollNotification>(

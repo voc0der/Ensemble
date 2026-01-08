@@ -2469,19 +2469,51 @@ class MusicAssistantAPI {
     }
   }
 
-  /// Move an item to a new position in the queue
-  Future<void> queueCommandMoveItem(String queueId, String itemId, int newIndex) async {
+  /// Move an item in the queue by a relative position shift
+  /// pos_shift > 0: move down, pos_shift < 0: move up, pos_shift = 0: move to next
+  Future<void> queueCommandMoveItem(String queueId, String itemId, int posShift) async {
     try {
       await _sendCommand(
         'player_queues/move_item',
         args: {
           'queue_id': queueId,
-          'item_id_or_index': itemId,
-          'new_index': newIndex,
+          'queue_item_id': itemId,
+          'pos_shift': posShift,
         },
       );
     } catch (e) {
       _logger.log('Error moving queue item: $e');
+      rethrow;
+    }
+  }
+
+  /// Play a specific item in the queue by its queue_item_id
+  Future<void> queueCommandPlayIndex(String queueId, String queueItemId) async {
+    try {
+      await _sendCommand(
+        'player_queues/play_index',
+        args: {
+          'queue_id': queueId,
+          'index': queueItemId,
+        },
+      );
+    } catch (e) {
+      _logger.log('Error playing queue item: $e');
+      rethrow;
+    }
+  }
+
+  /// Clear all items from the queue
+  Future<void> queueCommandClear(String queueId) async {
+    try {
+      await _sendCommand(
+        'player_queues/clear',
+        args: {
+          'queue_id': queueId,
+        },
+      );
+    } catch (e) {
+      _logger.log('Error clearing queue: $e');
       rethrow;
     }
   }

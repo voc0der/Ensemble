@@ -179,11 +179,19 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
   @override
   Future<bool> didPopRoute() async {
     // Intercept back button at app level - runs BEFORE Navigator processes it
-    // Priority order: device list > expanded player > normal navigation
+    // Priority order: device list > queue panel > expanded player > normal navigation
 
     // Device list has highest priority - dismiss it first
     if (GlobalPlayerOverlay.isPlayerRevealVisible) {
       GlobalPlayerOverlay.dismissPlayerReveal();
+      return true; // We handled it, don't let Navigator process it
+    }
+
+    // Queue panel second - close it before collapsing player
+    // Use target state (not animation value) to handle rapid open-close timing
+    // Use withHaptic: false because Android back gesture provides system haptic
+    if (GlobalPlayerOverlay.isQueuePanelTargetOpen) {
+      GlobalPlayerOverlay.closeQueuePanel(withHaptic: false);
       return true; // We handled it, don't let Navigator process it
     }
 

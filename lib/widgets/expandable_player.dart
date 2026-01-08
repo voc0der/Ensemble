@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -62,6 +63,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   // Queue panel slide animation
   late AnimationController _queuePanelController;
   late Animation<double> _queuePanelAnimation;
+  // Cached slide position animation (avoids recreating Tween.animate every frame)
+  late Animation<Offset> _queueSlideAnimation;
 
   // Adaptive theme colors extracted from album art
   ColorScheme? _lightColorScheme;
@@ -71,6 +74,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   // Queue state
   PlayerQueue? _queue;
   bool _isLoadingQueue = false;
+  bool _isQueueDragging = false; // True while queue item is being dragged
+  bool _queuePanelTargetOpen = false; // Target state for queue panel (separate from animation value)
 
   // Progress tracking - uses PositionTracker stream as single source of truth
   StreamSubscription<Duration>? _positionSubscription;
@@ -175,16 +180,20 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Animation debugging - record every frame
     _controller.addListener(_recordAnimationFrame);
 
-    // Queue panel animation
+    // Queue panel animation - uses spring physics directly (no CurvedAnimation)
+    // Spring simulation already provides natural physics-based easing
+    // CurvedAnimation would distort the spring output and cause jerky motion during swipe
     _queuePanelController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _queuePanelAnimation = CurvedAnimation(
-      parent: _queuePanelController,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
+    // Use controller directly - spring physics provide the easing
+    _queuePanelAnimation = _queuePanelController;
+    // Cache the slide animation to avoid recreating Tween.animate() every frame
+    _queueSlideAnimation = Tween<Offset>(
+      begin: const Offset(1, 0),
+      end: Offset.zero,
+    ).animate(_queuePanelController);
 
     // Slide animation for device switching - used for snap/spring animations
     _slideController = AnimationController(
@@ -284,8 +293,19 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   // Animation durations - asymmetric for snappier collapse
   static const Duration _expandDuration = Duration(milliseconds: 280);
   static const Duration _collapseDuration = Duration(milliseconds: 200);
-  static const Duration _queueOpenDuration = Duration(milliseconds: 250);
-  static const Duration _queueCloseDuration = Duration(milliseconds: 180);
+  static const Duration _queueOpenDuration = Duration(milliseconds: 320);
+  static const Duration _queueCloseDuration = Duration(milliseconds: 220);
+
+  // Spring description for queue panel animations
+  // Higher damping ratio prevents oscillation and ensures clean settling
+  // Critical damping = 2 * sqrt(stiffness * mass) = 2 * sqrt(550) ≈ 47
+  // Using damping slightly above critical for overdamped (no bounce) behavior
+  // PERF: Increased stiffness from 400→550 for snappier animation
+  static const SpringDescription _queueSpring = SpringDescription(
+    mass: 1.0,
+    stiffness: 550.0,
+    damping: 50.0, // Overdamped - no oscillation, clean settle
+  );
 
   void expand() {
     if (_isVerticalDragging) return;
@@ -308,6 +328,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Instantly hide queue panel when collapsing to avoid visual glitches
     // during Android's predictive back gesture (only reached if queue already closed)
     _queuePanelController.value = 0;
+    _queuePanelTargetOpen = false;
     _controller.duration = _collapseDuration;
     _controller.reverse().then((_) {
       AnimationDebugger.endSession();
@@ -369,6 +390,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       if (currentValue > 0.0) {
         AnimationDebugger.startSession('playerCollapse');
         _queuePanelController.value = 0;
+        _queuePanelTargetOpen = false;
         _controller.duration = _collapseDuration;
         _controller.reverse().then((_) {
           AnimationDebugger.endSession();
@@ -383,11 +405,13 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   Color? _currentExpandedBgColor;
   Color? get currentExpandedBgColor => _currentExpandedBgColor;
+  Color? _currentExpandedPrimaryColor;
 
   void _notifyExpansionProgress() {
     playerExpansionNotifier.value = PlayerExpansionState(
       _controller.value,
       _currentExpandedBgColor,
+      _currentExpandedPrimaryColor,
     );
   }
 
@@ -576,22 +600,74 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   void _toggleQueuePanel() {
     if (_queuePanelController.isAnimating) return;
-    if (_queuePanelController.value == 0) {
-      _queuePanelController.duration = _queueOpenDuration;
-      _queuePanelController.forward();
+    // Use threshold check instead of exact equality (spring may not land exactly at 0/1)
+    if (_queuePanelController.value < 0.1) {
+      _openQueuePanelWithSpring();
     } else {
-      _queuePanelController.duration = _queueCloseDuration;
-      _queuePanelController.reverse();
+      _closeQueuePanelWithSpring();
     }
+  }
+
+  /// Open queue panel with spring physics for natural feel
+  void _openQueuePanelWithSpring() {
+    HapticFeedback.lightImpact();
+    // setState ensures PopScope rebuilds with correct canPop value
+    setState(() {
+      _queuePanelTargetOpen = true;
+    });
+    // Use overdamped spring - settles cleanly without oscillation or snap
+    final simulation = SpringSimulation(
+      _queueSpring,
+      _queuePanelController.value,
+      1.0,
+      0.0, // velocity
+    );
+    _queuePanelController.animateWith(simulation);
+  }
+
+  /// Close queue panel with spring physics
+  /// [withHaptic]: Set to false for Android back gesture (system provides haptic)
+  void _closeQueuePanelWithSpring({double velocity = 0.0, bool withHaptic = true}) {
+    // setState ensures PopScope rebuilds with correct canPop value
+    setState(() {
+      _queuePanelTargetOpen = false;
+    });
+    if (withHaptic) {
+      HapticFeedback.lightImpact();
+    }
+    // Use overdamped spring for snappy close without oscillation
+    // Slightly stiffer than open spring for quicker settle
+    // PERF: Increased stiffness from 450→600 for snappier close
+    const closeSpring = SpringDescription(
+      mass: 1.0,
+      stiffness: 600.0,
+      damping: 52.0, // Overdamped - no bounce, clean settle
+    );
+    final simulation = SpringSimulation(
+      closeSpring,
+      _queuePanelController.value,
+      0.0,
+      velocity,
+    );
+    _queuePanelController.animateWith(simulation);
   }
 
   bool get isQueuePanelOpen => _queuePanelController.value > 0.5;
 
+  /// Whether queue panel is intended to be open (target state, not animation value)
+  /// Use this for back gesture handling to avoid timing issues during animations
+  bool get isQueuePanelTargetOpen => _queuePanelTargetOpen;
+
   /// Close queue panel if open (for external access via GlobalPlayerOverlay)
-  void closeQueuePanel() {
-    if (isQueuePanelOpen && !_queuePanelController.isAnimating) {
-      _queuePanelController.duration = _queueCloseDuration;
-      _queuePanelController.reverse();
+  /// [withHaptic]: Set to false for Android back gesture (system provides haptic)
+  void closeQueuePanel({bool withHaptic = true}) {
+    // Use target state, not animation value, to handle rapid open-close
+    // Allow closing even during animation by stopping it first
+    if (_queuePanelTargetOpen) {
+      if (_queuePanelController.isAnimating) {
+        _queuePanelController.stop();
+      }
+      _closeQueuePanelWithSpring(withHaptic: withHaptic);
     }
   }
 
@@ -1117,24 +1193,32 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         }
 
         // Handle Android back button - close queue panel first, then collapse player
-        // Guard against re-entry during animations to prevent double-close
+        // Use _queuePanelTargetOpen (intent) instead of animation value for reliable back handling
+        // This prevents race conditions where animation value crosses threshold during gesture
         return PopScope(
-          canPop: !isQueuePanelOpen && !isExpanded,
+          canPop: !_queuePanelTargetOpen && !isExpanded,
           onPopInvokedWithResult: (didPop, result) {
             if (!didPop) {
-              // Ignore if already animating (prevents double-processing)
-              if (_queuePanelController.isAnimating || _controller.isAnimating) return;
-
-              if (isQueuePanelOpen) {
-                _toggleQueuePanel();
+              if (_queuePanelTargetOpen) {
+                // Always close queue panel on back, even if animating
+                // Stop any existing animation and start close
+                if (_queuePanelController.isAnimating) {
+                  _queuePanelController.stop();
+                }
+                // No haptic - Android back gesture provides its own haptic feedback
+                _closeQueuePanelWithSpring(withHaptic: false);
               } else if (isExpanded) {
-                collapse();
+                // Only collapse if not already animating
+                if (!_controller.isAnimating) {
+                  collapse();
+                }
               }
             }
           },
           child: AnimatedBuilder(
-            // Include _slideOffsetNotifier to rebuild during finger-following drags
-            animation: Listenable.merge([_expandAnimation, _queuePanelAnimation, _slideOffsetNotifier]),
+            // PERF: Only include _expandAnimation and _slideOffsetNotifier
+            // Queue panel has its own AnimatedBuilder - don't rebuild entire player on queue animation
+            animation: Listenable.merge([_expandAnimation, _slideOffsetNotifier]),
             builder: (context, _) {
               // If no track is playing, show device selector bar
               if (currentTrack == null) {
@@ -1276,12 +1360,10 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Create a darker shade for the "unplayed" portion of progress bar
     final collapsedBgUnplayed = Color.lerp(collapsedBg, Colors.black, 0.3)!;
     final expandedBg = adaptiveScheme?.surface ?? const Color(0xFF121212);
-    // Only update if we have adaptive colors, otherwise keep previous value
-    if (adaptiveScheme != null) {
-      _currentExpandedBgColor = expandedBg;
-    } else if (_currentExpandedBgColor == null) {
-      _currentExpandedBgColor = expandedBg; // First time fallback
-    }
+    final expandedPrimary = adaptiveScheme?.primary;
+    // Always update to current value - don't preserve stale adaptive colors
+    _currentExpandedBgColor = expandedBg;
+    _currentExpandedPrimaryColor = expandedPrimary;
     // When collapsed, use the darker unplayed color as base (progress bar will overlay the played portion)
     // When expanded, transition to the normal background
     final backgroundColor = Color.lerp(t < 0.5 ? collapsedBgUnplayed : collapsedBg, expandedBg, t)!;
@@ -1443,9 +1525,6 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Volume - anchored near bottom with breathing room
     final volumeTop = expandedControlsTop + 88;
 
-    // Queue panel slide amount (0 = hidden, 1 = fully visible)
-    final queueT = _queuePanelAnimation.value;
-
     // Check if we have multiple players for swipe gesture
     final availablePlayers = _getAvailablePlayersSorted(maProvider);
     final hasMultiplePlayers = availablePlayers.length > 1;
@@ -1465,6 +1544,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         // Handle tap: when device list is visible, dismiss it; when collapsed, expand
         onTap: isExpanded ? null : (widget.isDeviceRevealVisible ? GlobalPlayerOverlay.dismissPlayerReveal : expand),
         onVerticalDragStart: (details) {
+          // Ignore while queue item is being dragged
+          if (_isQueueDragging) return;
           // For expanded player or queue panel: start tracking immediately
           // For collapsed player: defer decision until we know swipe direction
           if (isExpanded || isQueuePanelOpen) {
@@ -1472,6 +1553,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           }
         },
         onVerticalDragUpdate: (details) {
+          // Ignore while queue item is being dragged
+          if (_isQueueDragging) return;
+
           final delta = details.primaryDelta ?? 0;
 
           // Handle queue panel close
@@ -1502,6 +1586,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           _handleVerticalDragUpdate(details);
         },
         onVerticalDragEnd: (details) {
+          // Ignore while queue item is being dragged
+          if (_isQueueDragging) return;
           // Finish gesture-driven expansion
           _handleVerticalDragEnd(details);
         },
@@ -1511,6 +1597,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         },
         onHorizontalDragStart: (details) {
           _horizontalDragStartX = details.globalPosition.dx;
+          // Queue panel swipe is handled by QueuePanel's Listener (bypasses gesture arena)
           // Start volume drag if device reveal is visible
           if (widget.isDeviceRevealVisible && !isExpanded) {
             // For consecutive swipes, use local volume (API may not have updated player state yet)
@@ -1534,6 +1621,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           }
         },
         onHorizontalDragUpdate: (details) {
+          // Queue panel swipe is handled by QueuePanel's Listener (bypasses gesture arena)
           // Volume swipe when device reveal is visible
           if (widget.isDeviceRevealVisible && _isDraggingVolume && !isExpanded) {
             // Check for stillness to trigger precision mode (only if enabled in settings)
@@ -1603,6 +1691,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           _handleHorizontalDragUpdate(details, maProvider, collapsedWidth);
         },
         onHorizontalDragEnd: (details) {
+          // Queue panel swipe is handled by QueuePanel's Listener (bypasses gesture arena)
           // End volume drag
           if (_isDraggingVolume) {
             // Send final volume on release
@@ -1629,13 +1718,13 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           if (startedInDeadZone) return;
 
           if (isExpanded) {
-            // Expanded mode: swipe to open/close queue
+            // Expanded mode: swipe LEFT to open queue (swipe right to close is handled by QueuePanel's Listener)
             if (details.primaryVelocity != null) {
               if (details.primaryVelocity! < -300 && !isQueuePanelOpen) {
                 _toggleQueuePanel();
-              } else if (details.primaryVelocity! > 300 && isQueuePanelOpen) {
-                _toggleQueuePanel();
               }
+              // NOTE: Swipe right to close is NOT handled here - QueuePanel's Listener
+              // handles its own swipe-to-close via onSwipeEnd callback to avoid double-trigger
             }
           } else if (hasMultiplePlayers) {
             // Collapsed mode: use finger-following handler
@@ -1645,6 +1734,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         onHorizontalDragCancel: () {
           // Reset state if gesture is cancelled (e.g., system takes over)
           _horizontalDragStartX = null;
+          // Queue panel swipe is handled by QueuePanel's Listener
           if (_isDraggingVolume) {
             _exitVolumePrecisionMode();
             _lastVolumeDragPosition = null;
@@ -2286,50 +2376,61 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     ),
                   ),
 
-                // Favorite button (expanded only) - hide when queue panel is open
-                // GPU PERF: Use icon color alpha instead of Opacity
-                // Scale pop animation when toggling favorite
-                if (t > 0.3 && queueT < 0.5)
-                  Positioned(
-                    top: topPadding + 4,
-                    right: 52,
-                    child: TweenAnimationBuilder<double>(
-                      key: ValueKey(_isCurrentTrackFavorite),
-                      tween: Tween(begin: 1.3, end: 1.0),
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOutBack,
-                      builder: (context, scale, child) => Transform.scale(
-                        scale: scale,
-                        child: child,
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          _isCurrentTrackFavorite ? Icons.favorite : Icons.favorite_border,
-                          color: (_isCurrentTrackFavorite ? Colors.red : textColor)
-                              .withOpacity(((t - 0.3) / 0.7).clamp(0.0, 1.0) * (1 - queueT * 2).clamp(0.0, 1.0)),
-                          size: 24,
-                        ),
-                        onPressed: () => _toggleCurrentTrackFavorite(currentTrack),
-                        padding: const EdgeInsets.all(12),
-                      ),
-                    ),
-                  ),
-
-                // Queue button (expanded only) - hide when queue panel is open
-                // GPU PERF: Use icon color alpha instead of Opacity
-                if (t > 0.3 && queueT < 0.5)
-                  Positioned(
-                    top: topPadding + 4,
-                    right: 4,
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.queue_music_rounded,
-                        color: textColor.withOpacity(((t - 0.3) / 0.7).clamp(0.0, 1.0) * (1 - queueT * 2).clamp(0.0, 1.0)),
-                        size: 24,
-                      ),
-                      onPressed: _toggleQueuePanel,
-                      padding: const EdgeInsets.all(12),
-                    ),
+                // Favorite + Queue buttons (expanded only) - fade when queue panel opens
+                // PERF: Own AnimatedBuilder - only rebuilds these 2 buttons on queue animation
+                if (t > 0.3)
+                  AnimatedBuilder(
+                    animation: _queuePanelAnimation,
+                    builder: (context, _) {
+                      final queueFade = _queuePanelAnimation.value;
+                      // Hide completely when queue > 0.5
+                      if (queueFade >= 0.5) return const SizedBox.shrink();
+                      final fadeOpacity = (1 - queueFade * 2).clamp(0.0, 1.0);
+                      final expandOpacity = ((t - 0.3) / 0.7).clamp(0.0, 1.0);
+                      return Stack(
+                        children: [
+                          // Favorite button
+                          Positioned(
+                            top: topPadding + 4,
+                            right: 52,
+                            child: TweenAnimationBuilder<double>(
+                              key: ValueKey(_isCurrentTrackFavorite),
+                              tween: Tween(begin: 1.3, end: 1.0),
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOutBack,
+                              builder: (context, scale, child) => Transform.scale(
+                                scale: scale,
+                                child: child,
+                              ),
+                              child: IconButton(
+                                icon: Icon(
+                                  _isCurrentTrackFavorite ? Icons.favorite : Icons.favorite_border,
+                                  color: (_isCurrentTrackFavorite ? Colors.red : textColor)
+                                      .withOpacity(expandOpacity * fadeOpacity),
+                                  size: 24,
+                                ),
+                                onPressed: () => _toggleCurrentTrackFavorite(currentTrack),
+                                padding: const EdgeInsets.all(12),
+                              ),
+                            ),
+                          ),
+                          // Queue button
+                          Positioned(
+                            top: topPadding + 4,
+                            right: 4,
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.queue_music_rounded,
+                                color: textColor.withOpacity(expandOpacity * fadeOpacity),
+                                size: 24,
+                              ),
+                              onPressed: _toggleQueuePanel,
+                              padding: const EdgeInsets.all(12),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
 
                 // Player name (expanded only)
@@ -2358,35 +2459,68 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                 // Queue/Chapters panel (slides in from right)
                 // For audiobooks: show chapters panel
                 // For music: show queue panel
-                if (t > 0.5 && queueT > 0)
+                // PERF: Own AnimatedBuilder - only rebuilds queue panel section on queue animation
+                // Main player doesn't rebuild when queue slides in/out
+                if (t > 0.5)
                   Positioned.fill(
-                    child: RepaintBoundary(
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(1, 0),
-                          end: Offset.zero,
-                        ).animate(_queuePanelAnimation),
-                        child: maProvider.isPlayingAudiobook
-                            ? ChaptersPanel(
-                                maProvider: maProvider,
-                                audiobook: maProvider.currentAudiobook,
-                                textColor: textColor,
-                                primaryColor: primaryColor,
-                                backgroundColor: expandedBg,
-                                topPadding: topPadding,
-                                onClose: _toggleQueuePanel,
-                              )
-                            : QueuePanel(
-                                maProvider: maProvider,
-                                queue: _queue,
-                                isLoading: _isLoadingQueue,
-                                textColor: textColor,
-                                primaryColor: primaryColor,
-                                backgroundColor: expandedBg,
-                                topPadding: topPadding,
-                                onClose: _toggleQueuePanel,
-                                onRefresh: _loadQueue,
-                              ),
+                    child: AnimatedBuilder(
+                      animation: _queuePanelAnimation,
+                      builder: (context, child) {
+                        final queueProgress = _queuePanelAnimation.value;
+                        return Offstage(
+                          offstage: queueProgress == 0,
+                          child: child,
+                        );
+                      },
+                      // PERF: Child is not rebuilt - only Offstage wrapper updates
+                      child: RepaintBoundary(
+                        child: SlideTransition(
+                          // PERF: Use cached animation instead of Tween.animate() every frame
+                          position: _queueSlideAnimation,
+                          child: maProvider.isPlayingAudiobook
+                              ? ChaptersPanel(
+                                  maProvider: maProvider,
+                                  audiobook: maProvider.currentAudiobook,
+                                  textColor: textColor,
+                                  primaryColor: primaryColor,
+                                  backgroundColor: expandedBg,
+                                  topPadding: topPadding,
+                                  onClose: _toggleQueuePanel,
+                                )
+                              : QueuePanel(
+                                  maProvider: maProvider,
+                                  queue: _queue,
+                                  isLoading: _isLoadingQueue,
+                                  textColor: textColor,
+                                  primaryColor: primaryColor,
+                                  backgroundColor: expandedBg,
+                                  topPadding: topPadding,
+                                  onClose: _toggleQueuePanel,
+                                  onRefresh: _loadQueue,
+                                  onDraggingChanged: (isDragging) {
+                                    _isQueueDragging = isDragging;
+                                  },
+                                  onSwipeStart: () {
+                                    // Haptic feedback when swipe gesture recognized
+                                    HapticFeedback.selectionClick();
+                                  },
+                                  onSwipeUpdate: (_) {
+                                    // No finger tracking - just wait for swipe end
+                                    // This avoids jank from direct value manipulation
+                                  },
+                                  onSwipeEnd: (velocity, totalDx) {
+                                    // Decide based on velocity and total displacement
+                                    final screenWidth = MediaQuery.of(context).size.width;
+                                    final swipeProgress = totalDx / screenWidth;
+                                    final shouldClose = velocity > 150 || swipeProgress > 0.25;
+
+                                    if (shouldClose) {
+                                      _closeQueuePanelWithSpring();
+                                    }
+                                    // If not closing, panel stays open (no snap-back needed since we didn't move it)
+                                  },
+                                ),
+                        ),
                       ),
                     ),
                   ),

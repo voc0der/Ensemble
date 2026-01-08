@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:great_list_view/great_list_view.dart';
 import '../../providers/music_assistant_provider.dart';
 import '../../models/player.dart';
 import '../../theme/design_tokens.dart';
 import '../common/empty_state.dart';
 
 /// Panel that displays the current playback queue with drag-to-reorder
-/// and swipe-left-to-delete functionality
+/// and swipe-left-to-delete functionality.
+///
+/// Uses custom AnimatedList implementation instead of great_list_view
+/// to avoid grey screen bugs (ReorderableListView) and drag duplication bugs (great_list_view).
 class QueuePanel extends StatefulWidget {
   final MusicAssistantProvider maProvider;
   final PlayerQueue? queue;
@@ -18,6 +23,10 @@ class QueuePanel extends StatefulWidget {
   final double topPadding;
   final VoidCallback onClose;
   final VoidCallback onRefresh;
+  final ValueChanged<bool>? onDraggingChanged;
+  final VoidCallback? onSwipeStart;
+  final ValueChanged<double>? onSwipeUpdate; // dx delta from start
+  final void Function(double velocity, double totalDx)? onSwipeEnd; // velocity and total displacement
 
   const QueuePanel({
     super.key,
@@ -30,6 +39,10 @@ class QueuePanel extends StatefulWidget {
     required this.topPadding,
     required this.onClose,
     required this.onRefresh,
+    this.onDraggingChanged,
+    this.onSwipeStart,
+    this.onSwipeUpdate,
+    this.onSwipeEnd,
   });
 
   @override
@@ -37,45 +50,83 @@ class QueuePanel extends StatefulWidget {
 }
 
 class _QueuePanelState extends State<QueuePanel> {
-  final AnimatedListController _listController = AnimatedListController();
   List<QueueItem> _items = [];
+  final GlobalKey _stackKey = GlobalKey();
 
-  // Track pointer for right-swipe-to-close (bypasses gesture arena)
-  Offset? _pointerStart;
-  static const _swipeThreshold = 80.0; // Minimum horizontal distance for swipe
+  // Drag state
+  int? _dragIndex;
+  int? _dragStartIndex;
+  double _dragY = 0; // Y position of dragged item relative to Stack
+  double _dragStartY = 0; // Y position when drag started (global)
+  double _dragOffsetInItem = 0; // Offset of touch point within item
+  QueueItem? _dragItem;
+  double _itemHeight = 64.0;
+  bool _pendingReorder = false; // True while waiting for API confirmation
+  Timer? _pendingReorderTimer;
+
+  // Optimistic update for tap-to-skip
+  int? _optimisticCurrentIndex;
+
+  // Swipe-to-close tracking (raw pointer events to bypass gesture arena)
+  Offset? _swipeStart;
+  Offset? _swipeLast;
+  int? _swipeLastTime; // milliseconds since epoch
+  bool _isSwiping = false;
+  bool _swipeLocked = false; // Lock direction once established
+  static const _swipeMinDistance = 8.0; // Min distance to start tracking (reduced for responsiveness)
+  static const _edgeDeadZone = 48.0; // Dead zone for Android back gesture (increased)
+
+  // Track last touch start position for edge detection in Dismissible
+  // Static so it persists across widget rebuilds
+  static double? _lastPointerDownX;
+  static double? _lastScreenWidth;
+
+  // Velocity tracking with multiple samples for smoother calculation
+  final List<_VelocitySample> _velocitySamples = [];
+  static const _maxVelocitySamples = 5;
+
 
   @override
   void initState() {
     super.initState();
-    _items = widget.queue?.items ?? [];
+    _items = List.from(widget.queue?.items ?? []);
   }
 
   @override
   void didUpdateWidget(QueuePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // Clear optimistic state when server catches up
+    if (_optimisticCurrentIndex != null) {
+      final serverIndex = widget.queue?.currentIndex;
+      if (serverIndex == _optimisticCurrentIndex) {
+        // Server caught up - clear optimistic state
+        _optimisticCurrentIndex = null;
+      }
+    }
+
+    // Don't update items while dragging or waiting for reorder confirmation
+    if (_dragIndex != null || _pendingReorder) return;
+
     final newItems = widget.queue?.items ?? [];
 
-    // Sync items when:
-    // 1. Player changed (different queue entirely)
-    // 2. Item count changed (deletion confirmed by server, or track added)
-    // 3. Item order changed (shuffle toggle, manual reorder)
+    // Only sync when player changes or item count changes (additions/deletions)
+    // Don't sync on order changes - trust our local order after user reorders
+    // This prevents stale server state from overwriting recent local changes
     final playerChanged = widget.queue?.playerId != oldWidget.queue?.playerId;
     final countChanged = newItems.length != _items.length;
-    final orderChanged = !_itemListsEqual(newItems, _items);
 
-    if (playerChanged || countChanged || orderChanged) {
-      _items = newItems;
+    if (playerChanged || countChanged) {
+      setState(() {
+        _items = List.from(newItems);
+      });
     }
   }
 
-  /// Compare two item lists by queueItemId to detect reordering
-  bool _itemListsEqual(List<QueueItem> a, List<QueueItem> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i].queueItemId != b[i].queueItemId) return false;
-    }
-    return true;
+  @override
+  void dispose() {
+    _pendingReorderTimer?.cancel();
+    super.dispose();
   }
 
   String _formatDuration(Duration? duration) {
@@ -86,49 +137,347 @@ class _QueuePanelState extends State<QueuePanel> {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
-  void _handleDelete(QueueItem item) async {
-    // DON'T update _items - let Dismissible handle the visual removal
-    // Updating _items causes AutomaticAnimatedListView to also animate,
-    // creating a double-animation bug
+  void _handleDelete(QueueItem item, int index) async {
+    // Remove from local list - Dismissible handles the animation
+    setState(() {
+      _items.removeAt(index);
+    });
 
-    // Just call the API - fire and forget
+    // Call API
     final playerId = widget.queue?.playerId;
     if (playerId != null) {
       widget.maProvider.api?.queueCommandDeleteItem(playerId, item.queueItemId);
     }
   }
 
-  void _handleReorder(int oldIndex, int newIndex) async {
-    // Reorder via API - use playerId as queue ID
+  void _handleClearQueue() async {
     final playerId = widget.queue?.playerId;
-    if (playerId != null && oldIndex != newIndex) {
-      final item = _items[oldIndex];
-      await widget.maProvider.api?.queueCommandMoveItem(playerId, item.queueItemId, newIndex);
+    if (playerId == null) return;
+
+    // Optimistic update - clear local list
+    setState(() {
+      _items.clear();
+    });
+
+    // Call API
+    try {
+      await widget.maProvider.api?.queueCommandClear(playerId);
+    } catch (e) {
+      debugPrint('QueuePanel: Error clearing queue: $e');
+      // Refresh to restore if failed
       widget.onRefresh();
+    }
+  }
+
+  void _resetSwipeState() {
+    _swipeStart = null;
+    _swipeLast = null;
+    _swipeLastTime = null;
+    _isSwiping = false;
+    _swipeLocked = false;
+    _velocitySamples.clear();
+    // NOTE: Don't reset _lastPointerDownX - it's needed by confirmDismiss
+    // which may be called after pointer up
+  }
+
+  /// Check if x position is in the edge dead zone (Android back gesture area)
+  static bool _isInEdgeZone(double x, double screenWidth) {
+    return x < _edgeDeadZone || x > screenWidth - _edgeDeadZone;
+  }
+
+  /// Check if last touch started in edge zone (for Dismissible to check)
+  static bool get lastTouchWasInEdgeZone {
+    if (_lastPointerDownX == null || _lastScreenWidth == null) return false;
+    return _isInEdgeZone(_lastPointerDownX!, _lastScreenWidth!);
+  }
+
+  /// Build an invisible edge absorber that blocks horizontal drags from triggering Dismissible
+  Widget _buildEdgeAbsorber({required bool left}) {
+    return Positioned(
+      left: left ? 0 : null,
+      right: left ? null : 0,
+      top: 0,
+      bottom: 0,
+      width: _edgeDeadZone,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: (_) {}, // Absorb horizontal drags
+        onHorizontalDragUpdate: (_) {},
+        onHorizontalDragEnd: (_) {},
+      ),
+    );
+  }
+
+  void _addVelocitySample(Offset position, int timeMs) {
+    _velocitySamples.add(_VelocitySample(position, timeMs));
+    if (_velocitySamples.length > _maxVelocitySamples) {
+      _velocitySamples.removeAt(0);
+    }
+  }
+
+  double _calculateAverageVelocity() {
+    if (_velocitySamples.length < 2) return 0.0;
+
+    // Use weighted average of recent samples (more recent = higher weight)
+    double totalVelocity = 0.0;
+    double totalWeight = 0.0;
+
+    for (int i = 1; i < _velocitySamples.length; i++) {
+      final prev = _velocitySamples[i - 1];
+      final curr = _velocitySamples[i];
+      final dt = curr.timeMs - prev.timeMs;
+      if (dt > 0 && dt < 100) { // Only use samples within 100ms
+        final dx = curr.position.dx - prev.position.dx;
+        final velocity = (dx / dt) * 1000; // px/s
+        final weight = i.toDouble(); // Later samples get higher weight
+        totalVelocity += velocity * weight;
+        totalWeight += weight;
+      }
+    }
+
+    return totalWeight > 0 ? totalVelocity / totalWeight : 0.0;
+  }
+
+  void _startDrag(int index, BuildContext itemContext, Offset globalPosition) {
+    if (_dragIndex != null) return;
+
+    // Clear any pending swipe state to prevent conflicts
+    _resetSwipeState();
+
+    final RenderBox itemBox = itemContext.findRenderObject() as RenderBox;
+    final Offset itemGlobalPos = itemBox.localToGlobal(Offset.zero);
+    _itemHeight = itemBox.size.height;
+
+    // Get Stack's global position for proper coordinate conversion
+    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final stackGlobalPos = stackBox?.localToGlobal(Offset.zero) ?? Offset.zero;
+
+    // Calculate initial position relative to Stack
+    _dragY = itemGlobalPos.dy - stackGlobalPos.dy;
+    _dragStartY = globalPosition.dy;
+    // Remember where in the item the touch started (for smooth following)
+    _dragOffsetInItem = globalPosition.dy - itemGlobalPos.dy;
+
+    setState(() {
+      _dragIndex = index;
+      _dragStartIndex = index;
+      _dragItem = _items[index];
+    });
+
+    // Haptic feedback on drag start
+    HapticFeedback.mediumImpact();
+
+    // Notify parent that drag started
+    widget.onDraggingChanged?.call(true);
+  }
+
+  void _updateDragPointer(Offset globalPosition) {
+    if (_dragIndex == null) return;
+
+    // Get Stack's global position
+    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final stackGlobalPos = stackBox?.localToGlobal(Offset.zero) ?? Offset.zero;
+
+    // Calculate overlay position relative to Stack, accounting for touch offset
+    _dragY = globalPosition.dy - stackGlobalPos.dy - _dragOffsetInItem;
+
+    // Calculate which index we're hovering over based on movement from start
+    final totalOffset = globalPosition.dy - _dragStartY;
+    final indexOffset = (totalOffset / _itemHeight).round();
+    final targetIndex = (_dragStartIndex! + indexOffset).clamp(0, _items.length - 1);
+
+    if (targetIndex != _dragIndex) {
+      // Reorder items in the list
+      setState(() {
+        final item = _items.removeAt(_dragIndex!);
+        _items.insert(targetIndex, item);
+        _dragIndex = targetIndex;
+      });
+      // Haptic feedback on each reorder
+      HapticFeedback.selectionClick();
+    } else {
+      // Just update position
+      setState(() {});
+    }
+  }
+
+  void _endDrag() async {
+    if (_dragIndex == null || _dragStartIndex == null) return;
+
+    final newIndex = _dragIndex!;
+    final originalIndex = _dragStartIndex!;
+    final item = _items[newIndex];
+    final positionChanged = originalIndex != newIndex;
+
+    // Cancel any existing timer to prevent stacking
+    _pendingReorderTimer?.cancel();
+
+    setState(() {
+      _dragIndex = null;
+      _dragStartIndex = null;
+      _dragItem = null;
+      // Block didUpdateWidget while waiting for server confirmation
+      if (positionChanged) _pendingReorder = true;
+    });
+
+    // Haptic feedback on drop
+    HapticFeedback.lightImpact();
+
+    // Notify parent that drag ended
+    widget.onDraggingChanged?.call(false);
+
+    // Call API if position changed
+    if (positionChanged) {
+      final playerId = widget.queue?.playerId;
+      // API uses relative shift: positive = down, negative = up
+      final posShift = newIndex - originalIndex;
+      debugPrint('QueuePanel: Moving ${item.track.name} from $originalIndex to $newIndex (shift: $posShift, queueItemId: ${item.queueItemId})');
+      if (playerId != null) {
+        try {
+          await widget.maProvider.api?.queueCommandMoveItem(playerId, item.queueItemId, posShift);
+          debugPrint('QueuePanel: Move API call completed');
+        } catch (e) {
+          debugPrint('QueuePanel: Move API error: $e');
+        }
+      } else {
+        debugPrint('QueuePanel: playerId is null, cannot move');
+      }
+      // Allow updates again after a delay for server state to propagate
+      _pendingReorderTimer = Timer(const Duration(milliseconds: 2000), () {
+        if (mounted) {
+          setState(() {
+            _pendingReorder = false;
+          });
+        }
+      });
+    }
+  }
+
+  void _cancelDrag() {
+    if (_dragStartIndex == null) return;
+
+    // Restore original position
+    if (_dragIndex != null && _dragIndex != _dragStartIndex) {
+      setState(() {
+        final item = _items.removeAt(_dragIndex!);
+        _items.insert(_dragStartIndex!, item);
+      });
+    }
+
+    setState(() {
+      _dragIndex = null;
+      _dragStartIndex = null;
+      _dragItem = null;
+    });
+
+    // Notify parent that drag ended
+    widget.onDraggingChanged?.call(false);
+  }
+
+  void _handleTapToSkip(QueueItem item, int index, bool isCurrentItem) async {
+    if (isCurrentItem) return;
+
+    final playerId = widget.queue?.playerId;
+    if (playerId == null) return;
+
+    // Optimistic update: immediately show tapped track as current
+    setState(() {
+      _optimisticCurrentIndex = index;
+    });
+
+    // Call API
+    try {
+      await widget.maProvider.api?.queueCommandPlayIndex(playerId, item.queueItemId);
+    } catch (e) {
+      debugPrint('QueuePanel: Error playing index: $e');
+    }
+
+    // Clear optimistic state after delay - server state will take over
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (mounted) {
+      setState(() {
+        _optimisticCurrentIndex = null;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Use Listener for raw pointer events to detect right-swipe-to-close
-    // This bypasses the gesture arena so Dismissible doesn't block it
+    // Use Listener for raw pointer events to bypass gesture arena
+    // This allows swipe-to-close to work even over ListView/Dismissible
     return Listener(
       onPointerDown: (event) {
-        _pointerStart = event.position;
-      },
-      onPointerMove: (event) {
-        if (_pointerStart != null) {
-          final dx = event.position.dx - _pointerStart!.dx;
-          final dy = (event.position.dy - _pointerStart!.dy).abs();
-          // Right swipe: horizontal movement > threshold, mostly horizontal (not vertical)
-          if (dx > _swipeThreshold && dx > dy * 2) {
-            _pointerStart = null; // Reset to prevent multiple triggers
-            widget.onClose();
-          }
+        // Store touch position for edge detection (used by Dismissible confirmDismiss)
+        // Use static variables so they persist across rebuilds
+        _lastPointerDownX = event.position.dx;
+        _lastScreenWidth = MediaQuery.of(context).size.width;
+
+        // Check if touch started in edge zone (Android back gesture area)
+        final startedInEdgeZone = _isInEdgeZone(event.position.dx, _lastScreenWidth!);
+
+        // Don't track swipe while dragging a queue item
+        if (_dragIndex == null && !startedInEdgeZone) {
+          _swipeStart = event.position;
+          _swipeLast = event.position;
+          _swipeLastTime = DateTime.now().millisecondsSinceEpoch;
+          _isSwiping = false;
+          _swipeLocked = false;
+          _velocitySamples.clear();
+          _addVelocitySample(event.position, _swipeLastTime!);
+        } else if (startedInEdgeZone) {
+          // Clear swipe state for edge touches
+          _swipeStart = null;
         }
       },
-      onPointerUp: (_) => _pointerStart = null,
-      onPointerCancel: (_) => _pointerStart = null,
+      onPointerMove: (event) {
+        // Ignore swipes from edge zone (let Android back gesture handle it)
+        if (_swipeStart == null || _dragIndex != null) return;
+
+        final dx = event.position.dx - _swipeStart!.dx;
+        final dy = (event.position.dy - _swipeStart!.dy).abs();
+        final now = DateTime.now().millisecondsSinceEpoch;
+
+        // Track all move events for velocity calculation
+        _addVelocitySample(event.position, now);
+        _swipeLast = event.position;
+        _swipeLastTime = now;
+
+        // Once direction is locked, maintain it (prevents accidental cancellation)
+        if (_swipeLocked && _isSwiping) {
+          widget.onSwipeUpdate?.call(dx.clamp(0.0, double.infinity));
+          return;
+        }
+
+        // Check if this is a horizontal swipe (reduced tolerance: dx > dy * 1.2)
+        final isHorizontal = dx.abs() > _swipeMinDistance && dx.abs() > dy * 1.2;
+
+        if (isHorizontal && dx > 0) {
+          // Horizontal swipe right - close gesture
+          if (!_isSwiping) {
+            _isSwiping = true;
+            _swipeLocked = true; // Lock direction once swipe starts
+            widget.onSwipeStart?.call();
+          }
+          widget.onSwipeUpdate?.call(dx);
+        } else if (!_swipeLocked && dx.abs() > _swipeMinDistance) {
+          // Direction established as vertical - don't start swipe
+          _swipeLocked = true; // Lock as non-swipe
+        }
+      },
+      onPointerUp: (event) {
+        if (_isSwiping && _swipeStart != null) {
+          final velocity = _calculateAverageVelocity();
+          final totalDx = event.position.dx - _swipeStart!.dx;
+          widget.onSwipeEnd?.call(velocity, totalDx);
+        }
+        _resetSwipeState();
+      },
+      onPointerCancel: (_) {
+        if (_isSwiping) {
+          widget.onSwipeEnd?.call(0, 0); // Cancel - no action
+        }
+        _resetSwipeState();
+      },
       child: Container(
         color: widget.backgroundColor,
         child: Column(
@@ -153,10 +502,12 @@ class _QueuePanelState extends State<QueuePanel> {
                     ),
                   ),
                   const Spacer(),
+                  // Clear queue button
                   IconButton(
-                    icon: Icon(Icons.refresh_rounded, color: widget.textColor.withOpacity(0.7), size: IconSizes.sm),
-                    onPressed: widget.onRefresh,
+                    icon: Icon(Icons.delete_sweep_rounded, color: widget.textColor.withOpacity(0.7), size: IconSizes.sm),
+                    onPressed: _handleClearQueue,
                     padding: Spacing.paddingAll12,
+                    tooltip: 'Clear queue',
                   ),
                 ],
               ),
@@ -167,8 +518,47 @@ class _QueuePanelState extends State<QueuePanel> {
               child: widget.isLoading
                   ? Center(child: CircularProgressIndicator(color: widget.primaryColor))
                   : widget.queue == null || _items.isEmpty
-                      ? _buildEmptyState(context)
-                      : _buildQueueList(),
+                      ? EmptyState.queue(context: context)
+                      : Listener(
+                          // Capture pointer events anywhere while dragging
+                          onPointerMove: (event) {
+                            if (_dragIndex != null) {
+                              _updateDragPointer(event.position);
+                            }
+                          },
+                          onPointerUp: (event) {
+                            if (_dragIndex != null) {
+                              _endDrag();
+                            }
+                          },
+                          onPointerCancel: (event) {
+                            if (_dragIndex != null) {
+                              _cancelDrag();
+                            }
+                          },
+                          child: Stack(
+                            key: _stackKey,
+                            children: [
+                              _buildQueueList(),
+                              // Dragged item overlay
+                              if (_dragIndex != null && _dragItem != null)
+                                Positioned(
+                                  left: 8,
+                                  right: 8,
+                                  top: _dragY,
+                                  child: Material(
+                                    elevation: 8,
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: _buildQueueItemContent(_dragItem!, _dragIndex!, false, false),
+                                  ),
+                                ),
+                              // Edge gesture absorbers - block horizontal drags from screen edges
+                              // This prevents Android back gesture from triggering Dismissible
+                              _buildEdgeAbsorber(left: true),
+                              _buildEdgeAbsorber(left: false),
+                            ],
+                          ),
+                        ),
             ),
           ],
         ),
@@ -176,47 +566,36 @@ class _QueuePanelState extends State<QueuePanel> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
-    return EmptyState.queue(context: context);
-  }
-
   Widget _buildQueueList() {
-    final currentIndex = widget.queue!.currentIndex ?? 0;
+    // Use optimistic index if set, otherwise use server state
+    final currentIndex = _optimisticCurrentIndex ?? widget.queue!.currentIndex ?? 0;
 
-    return AutomaticAnimatedListView<QueueItem>(
-      list: _items,
+    return ListView.builder(
+      key: const PageStorageKey('queue_list'),
       padding: Spacing.paddingH8,
-      comparator: AnimatedListDiffListComparator<QueueItem>(
-        sameItem: (a, b) => a.queueItemId == b.queueItemId,
-        sameContent: (a, b) => a.track.name == b.track.name && a.track.duration == b.track.duration,
-      ),
-      itemBuilder: (context, item, data) {
-        final index = _items.indexOf(item);
+      // Disable scrolling while dragging to prevent gesture conflict
+      physics: _dragIndex != null
+          ? const NeverScrollableScrollPhysics()
+          : const AlwaysScrollableScrollPhysics(),
+      itemCount: _items.length,
+      itemBuilder: (context, index) {
+        final item = _items[index];
         final isCurrentItem = index == currentIndex;
         final isPastItem = index < currentIndex;
+        final isDragging = _dragIndex == index;
 
-        // Always return same widget structure (with Dismissible) for consistency
-        // Only vary the measuring flag for image loading optimization
-        return _buildDismissibleQueueItem(item, index, isCurrentItem, isPastItem, measuring: data.measuring);
+        return Opacity(
+          opacity: isDragging ? 0.3 : 1.0,
+          child: _buildDismissibleItem(item, index, isCurrentItem, isPastItem),
+        );
       },
-      listController: _listController,
-      reorderModel: AnimatedListReorderModel(
-        onReorderStart: (index, dx, dy) => true,
-        onReorderFeedback: (index, dropIndex, offset, dx, dy) => null,
-        onReorderMove: (index, dropIndex) => true,
-        onReorderComplete: (index, dropIndex, slot) {
-          _handleReorder(index, dropIndex);
-          return true;
-        },
-      ),
-      addLongPressReorderable: false, // We use custom drag handle instead
     );
   }
 
-  Widget _buildDismissibleQueueItem(QueueItem item, int index, bool isCurrentItem, bool isPastItem, {bool measuring = false}) {
+  Widget _buildDismissibleItem(QueueItem item, int index, bool isCurrentItem, bool isPastItem) {
     return Dismissible(
       key: ValueKey(item.queueItemId),
-      direction: DismissDirection.endToStart, // Swipe left to delete only
+      direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
@@ -227,17 +606,50 @@ class _QueuePanelState extends State<QueuePanel> {
         child: const Icon(Icons.delete_outline, color: Colors.white, size: 24),
       ),
       confirmDismiss: (direction) async {
-        // Don't allow deleting currently playing track
+        // Block dismissal if swipe started from screen edge (Android back gesture)
+        if (lastTouchWasInEdgeZone) return false;
+        // Don't allow dismissing the currently playing item
         return !isCurrentItem;
       },
-      onDismissed: (direction) {
-        _handleDelete(item);
-      },
-      child: _buildQueueItem(item, index, isCurrentItem, isPastItem, measuring: measuring),
+      onDismissed: (direction) => _handleDelete(item, index),
+      child: _buildQueueItemWithDragHandle(item, index, isCurrentItem, isPastItem),
     );
   }
 
-  Widget _buildQueueItem(QueueItem item, int index, bool isCurrentItem, bool isPastItem, {bool measuring = false}) {
+  Widget _buildQueueItemWithDragHandle(QueueItem item, int index, bool isCurrentItem, bool isPastItem) {
+    return Builder(
+      builder: (itemContext) => _buildQueueItemContent(
+        item,
+        index,
+        isCurrentItem,
+        isPastItem,
+        dragHandle: isCurrentItem
+            ? SizedBox(
+                width: 48,
+                height: 48,
+                child: Center(
+                  child: Icon(Icons.play_arrow_rounded, color: widget.primaryColor, size: 20),
+                ),
+              )
+            : SizedBox(
+                width: 48,
+                height: 48,
+                child: Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: (event) {
+                    _startDrag(index, itemContext, event.position);
+                  },
+                  // Move/up/cancel handled by parent Listener on Stack
+                  child: Center(
+                    child: Icon(Icons.drag_handle, color: widget.textColor.withOpacity(0.3), size: 20),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildQueueItemContent(QueueItem item, int index, bool isCurrentItem, bool isPastItem, {Widget? dragHandle}) {
     final imageUrl = widget.maProvider.api?.getImageUrl(item.track, size: 80);
     final duration = _formatDuration(item.track.duration);
 
@@ -245,19 +657,26 @@ class _QueuePanelState extends State<QueuePanel> {
       child: Opacity(
         opacity: isPastItem ? 0.5 : 1.0,
         child: Container(
-          // Use background color with zero radius to cover any grey from list package
+          margin: isCurrentItem ? const EdgeInsets.symmetric(horizontal: 8, vertical: 2) : EdgeInsets.zero,
           decoration: BoxDecoration(
             color: isCurrentItem ? widget.primaryColor.withOpacity(0.15) : widget.backgroundColor,
-            borderRadius: BorderRadius.zero,
+            borderRadius: isCurrentItem ? BorderRadius.circular(12) : BorderRadius.zero,
           ),
           child: ListTile(
             dense: true,
+            // Compensate for current item's 8px margin on both sides
+            // Left:  Non-current: 8+0+16=24px, Current: 8+8+8=24px
+            // Right: Non-current: 8+0+8+14=30px, Current: 8+8+0+14=30px
+            contentPadding: EdgeInsets.only(
+              left: isCurrentItem ? 8 : 16,
+              right: isCurrentItem ? 0 : 8,
+            ),
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(Radii.sm),
               child: SizedBox(
                 width: 44,
                 height: 44,
-                child: imageUrl != null && !measuring
+                child: imageUrl != null
                     ? CachedNetworkImage(
                         imageUrl: imageUrl,
                         fit: BoxFit.cover,
@@ -305,53 +724,28 @@ class _QueuePanelState extends State<QueuePanel> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (duration.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      duration,
-                      style: TextStyle(
-                        color: widget.textColor.withOpacity(0.5),
-                        fontSize: 12,
-                      ),
+                  Text(
+                    duration,
+                    style: TextStyle(
+                      color: widget.textColor.withOpacity(0.5),
+                      fontSize: 12,
                     ),
                   ),
-                if (isCurrentItem)
-                  Icon(Icons.play_arrow_rounded, color: widget.primaryColor, size: 20)
-                else if (!measuring)
-                  Builder(
-                    builder: (itemContext) => GestureDetector(
-                      onVerticalDragStart: (details) {
-                        _listController.notifyStartReorder(
-                          itemContext,
-                          details.localPosition.dx,
-                          details.localPosition.dy,
-                        );
-                      },
-                      onVerticalDragUpdate: (details) {
-                        _listController.notifyUpdateReorder(
-                          details.localPosition.dx,
-                          details.localPosition.dy,
-                        );
-                      },
-                      onVerticalDragEnd: (details) {
-                        _listController.notifyStopReorder(false);
-                      },
-                      onVerticalDragCancel: () {
-                        _listController.notifyStopReorder(true);
-                      },
-                      child: Icon(Icons.drag_handle, color: widget.textColor.withOpacity(0.3), size: 20),
-                    ),
-                  )
-                else
-                  Icon(Icons.drag_handle, color: widget.textColor.withOpacity(0.3), size: 20),
+                dragHandle ?? Icon(Icons.drag_handle, color: widget.textColor.withOpacity(0.3), size: 20),
               ],
             ),
-            onTap: () {
-              // TODO: Jump to this track in queue if MA API supports it
-            },
+            onTap: () => _handleTapToSkip(item, index, isCurrentItem),
           ),
         ),
       ),
     );
   }
+}
+
+/// Helper class for velocity tracking samples
+class _VelocitySample {
+  final Offset position;
+  final int timeMs;
+
+  _VelocitySample(this.position, this.timeMs);
 }
