@@ -1683,13 +1683,13 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           if (startedInDeadZone) return;
 
           if (isExpanded) {
-            // Expanded mode: swipe to open/close queue
+            // Expanded mode: swipe LEFT to open queue (swipe right to close is handled by QueuePanel's Listener)
             if (details.primaryVelocity != null) {
               if (details.primaryVelocity! < -300 && !isQueuePanelOpen) {
                 _toggleQueuePanel();
-              } else if (details.primaryVelocity! > 300 && isQueuePanelOpen) {
-                _toggleQueuePanel();
               }
+              // NOTE: Swipe right to close is NOT handled here - QueuePanel's Listener
+              // handles its own swipe-to-close via onSwipeEnd callback to avoid double-trigger
             }
           } else if (hasMultiplePlayers) {
             // Collapsed mode: use finger-following handler
