@@ -2474,7 +2474,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                           CurveTween(curve: const Interval(0.5, 1.0, curve: Curves.easeIn)),
                         ),
                       ),
-                      child: const VolumeControl(compact: false),
+                      child: VolumeControl(compact: false, accentColor: primaryColor),
                     ),
                   ),
 
