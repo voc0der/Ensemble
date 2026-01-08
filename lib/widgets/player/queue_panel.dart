@@ -515,9 +515,15 @@ class _QueuePanelState extends State<QueuePanel> {
         isCurrentItem,
         isPastItem,
         dragHandle: isCurrentItem
-            ? Icon(Icons.play_arrow_rounded, color: widget.primaryColor, size: 20)
+            ? SizedBox(
+                width: 48,
+                height: 48,
+                child: Center(
+                  child: Icon(Icons.play_arrow_rounded, color: widget.primaryColor, size: 20),
+                ),
+              )
             : SizedBox(
-                width: 32,
+                width: 48,
                 height: 48,
                 child: Listener(
                   behavior: HitTestBehavior.opaque,
@@ -602,14 +608,11 @@ class _QueuePanelState extends State<QueuePanel> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (duration.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      duration,
-                      style: TextStyle(
-                        color: widget.textColor.withOpacity(0.5),
-                        fontSize: 12,
-                      ),
+                  Text(
+                    duration,
+                    style: TextStyle(
+                      color: widget.textColor.withOpacity(0.5),
+                      fontSize: 12,
                     ),
                   ),
                 dragHandle ?? Icon(Icons.drag_handle, color: widget.textColor.withOpacity(0.3), size: 20),
