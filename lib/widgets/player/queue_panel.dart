@@ -191,6 +191,23 @@ class _QueuePanelState extends State<QueuePanel> {
     return _isInEdgeZone(_lastPointerDownX!, _lastScreenWidth!);
   }
 
+  /// Build an invisible edge absorber that blocks horizontal drags from triggering Dismissible
+  Widget _buildEdgeAbsorber({required bool left}) {
+    return Positioned(
+      left: left ? 0 : null,
+      right: left ? null : 0,
+      top: 0,
+      bottom: 0,
+      width: _edgeDeadZone,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: (_) {}, // Absorb horizontal drags
+        onHorizontalDragUpdate: (_) {},
+        onHorizontalDragEnd: (_) {},
+      ),
+    );
+  }
+
   void _addVelocitySample(Offset position, int timeMs) {
     _velocitySamples.add(_VelocitySample(position, timeMs));
     if (_velocitySamples.length > _maxVelocitySamples) {
@@ -535,6 +552,10 @@ class _QueuePanelState extends State<QueuePanel> {
                                     child: _buildQueueItemContent(_dragItem!, _dragIndex!, false, false),
                                   ),
                                 ),
+                              // Edge gesture absorbers - block horizontal drags from screen edges
+                              // This prevents Android back gesture from triggering Dismissible
+                              _buildEdgeAbsorber(left: true),
+                              _buildEdgeAbsorber(left: false),
                             ],
                           ),
                         ),
