@@ -1111,17 +1111,34 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       }
     }
 
-    // Pastel colors for each media type
+    // Colors for each media type - darker for dark theme, lighter for light theme
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     Color getMediaTypeColor(LibraryMediaType type) {
-      switch (type) {
-        case LibraryMediaType.music:
-          return const Color(0xFFB39DDB); // Soft purple
-        case LibraryMediaType.books:
-          return const Color(0xFFFFCC80); // Soft orange/amber
-        case LibraryMediaType.podcasts:
-          return const Color(0xFF80CBC4); // Soft teal
-        case LibraryMediaType.radio:
-          return const Color(0xFFF48FB1); // Soft pink
+      if (isDark) {
+        // Darker/muted colors for dark theme (light text on dark bg)
+        switch (type) {
+          case LibraryMediaType.music:
+            return const Color(0xFF5E35B1); // Deep purple
+          case LibraryMediaType.books:
+            return const Color(0xFFE65100); // Deep orange
+          case LibraryMediaType.podcasts:
+            return const Color(0xFF00796B); // Deep teal
+          case LibraryMediaType.radio:
+            return const Color(0xFFC2185B); // Deep pink
+        }
+      } else {
+        // Lighter pastel colors for light theme (dark text on light bg)
+        switch (type) {
+          case LibraryMediaType.music:
+            return const Color(0xFFD1C4E9); // Light purple
+          case LibraryMediaType.books:
+            return const Color(0xFFFFE0B2); // Light orange
+          case LibraryMediaType.podcasts:
+            return const Color(0xFFB2DFDB); // Light teal
+          case LibraryMediaType.radio:
+            return const Color(0xFFF8BBD9); // Light pink
+        }
       }
     }
 
@@ -1174,7 +1191,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                       getMediaTypeIcon(type),
                       size: 18,
                       color: isSelected
-                          ? Colors.black87
+                          ? (isDark ? Colors.white : Colors.black87)
                           : colorScheme.onSurface.withOpacity(0.6),
                     ),
                     const SizedBox(width: 6),
@@ -1183,7 +1200,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                         getMediaTypeLabel(type),
                         style: TextStyle(
                           color: isSelected
-                              ? Colors.black87
+                              ? (isDark ? Colors.white : Colors.black87)
                               : colorScheme.onSurface.withOpacity(0.7),
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                           fontSize: 14,
