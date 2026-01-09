@@ -38,6 +38,12 @@ class _ArtistRowState extends State<ArtistRow> with AutomaticKeepAliveClientMixi
   @override
   void initState() {
     super.initState();
+    // Get cached data synchronously BEFORE first build (no spinner flash)
+    final cached = widget.getCachedArtists?.call();
+    if (cached != null && cached.isNotEmpty) {
+      _artists = cached;
+      _isLoading = false;
+    }
     _loadArtists();
   }
 
@@ -45,18 +51,7 @@ class _ArtistRowState extends State<ArtistRow> with AutomaticKeepAliveClientMixi
     if (_hasLoaded) return;
     _hasLoaded = true;
 
-    // 1. Try to get cached data synchronously for instant display
-    final cachedArtists = widget.getCachedArtists?.call();
-    if (cachedArtists != null && cachedArtists.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _artists = cachedArtists;
-          _isLoading = false;
-        });
-      }
-    }
-
-    // 2. Load fresh data (always update - fresh data may have images that cached data lacks)
+    // Load fresh data (always update - fresh data may have images that cached data lacks)
     try {
       final freshArtists = await widget.loadArtists();
       if (mounted && freshArtists.isNotEmpty) {

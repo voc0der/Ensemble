@@ -42,6 +42,12 @@ class _AudiobookRowState extends State<AudiobookRow> with AutomaticKeepAliveClie
   @override
   void initState() {
     super.initState();
+    // Get cached data synchronously BEFORE first build (no spinner flash)
+    final cached = widget.getCachedAudiobooks?.call();
+    if (cached != null && cached.isNotEmpty) {
+      _audiobooks = cached;
+      _isLoading = false;
+    }
     _loadAudiobooks();
   }
 
@@ -49,18 +55,7 @@ class _AudiobookRowState extends State<AudiobookRow> with AutomaticKeepAliveClie
     if (_hasLoaded) return;
     _hasLoaded = true;
 
-    // 1. Try to get cached data synchronously for instant display
-    final cachedAudiobooks = widget.getCachedAudiobooks?.call();
-    if (cachedAudiobooks != null && cachedAudiobooks.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _audiobooks = cachedAudiobooks;
-          _isLoading = false;
-        });
-      }
-    }
-
-    // 2. Load fresh data (always update - fresh data may have updated progress)
+    // Load fresh data (always update - fresh data may have updated progress)
     try {
       final freshAudiobooks = await widget.loadAudiobooks();
       if (mounted && freshAudiobooks.isNotEmpty) {

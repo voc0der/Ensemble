@@ -36,6 +36,12 @@ class _RadioStationRowState extends State<RadioStationRow> with AutomaticKeepAli
   @override
   void initState() {
     super.initState();
+    // Get cached data synchronously BEFORE first build (no spinner flash)
+    final cached = widget.getCachedRadioStations?.call();
+    if (cached != null && cached.isNotEmpty) {
+      _radioStations = cached;
+      _isLoading = false;
+    }
     _loadRadioStations();
   }
 
@@ -43,18 +49,7 @@ class _RadioStationRowState extends State<RadioStationRow> with AutomaticKeepAli
     if (_hasLoaded) return;
     _hasLoaded = true;
 
-    // 1. Try to get cached data synchronously for instant display
-    final cachedStations = widget.getCachedRadioStations?.call();
-    if (cachedStations != null && cachedStations.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _radioStations = cachedStations;
-          _isLoading = false;
-        });
-      }
-    }
-
-    // 2. Load fresh data
+    // Load fresh data
     try {
       final freshStations = await widget.loadRadioStations();
       if (mounted && freshStations.isNotEmpty) {

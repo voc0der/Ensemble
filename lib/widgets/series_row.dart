@@ -46,6 +46,12 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
   @override
   void initState() {
     super.initState();
+    // Get cached data synchronously BEFORE first build (no spinner flash)
+    final cached = widget.getCachedSeries?.call();
+    if (cached != null && cached.isNotEmpty) {
+      _series = cached;
+      _isLoading = false;
+    }
     _loadSeries();
   }
 
@@ -53,18 +59,7 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
     if (_hasLoaded) return;
     _hasLoaded = true;
 
-    // 1. Try to get cached data synchronously for instant display
-    final cachedSeries = widget.getCachedSeries?.call();
-    if (cachedSeries != null && cachedSeries.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _series = cachedSeries;
-          _isLoading = false;
-        });
-      }
-    }
-
-    // 2. Load fresh data (always update)
+    // Load fresh data (always update)
     try {
       final freshSeries = await widget.loadSeries();
       if (mounted && freshSeries.isNotEmpty) {

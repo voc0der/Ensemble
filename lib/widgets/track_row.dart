@@ -35,6 +35,12 @@ class _TrackRowState extends State<TrackRow> with AutomaticKeepAliveClientMixin 
   @override
   void initState() {
     super.initState();
+    // Get cached data synchronously BEFORE first build (no spinner flash)
+    final cached = widget.getCachedTracks?.call();
+    if (cached != null && cached.isNotEmpty) {
+      _tracks = cached;
+      _isLoading = false;
+    }
     _loadTracks();
   }
 
@@ -42,18 +48,7 @@ class _TrackRowState extends State<TrackRow> with AutomaticKeepAliveClientMixin 
     if (_hasLoaded) return;
     _hasLoaded = true;
 
-    // 1. Try to get cached data synchronously for instant display
-    final cachedTracks = widget.getCachedTracks?.call();
-    if (cachedTracks != null && cachedTracks.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _tracks = cachedTracks;
-          _isLoading = false;
-        });
-      }
-    }
-
-    // 2. Load fresh data (always update)
+    // Load fresh data (always update)
     try {
       final freshTracks = await widget.loadTracks();
       if (mounted && freshTracks.isNotEmpty) {

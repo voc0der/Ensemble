@@ -36,6 +36,12 @@ class _PlaylistRowState extends State<PlaylistRow> with AutomaticKeepAliveClient
   @override
   void initState() {
     super.initState();
+    // Get cached data synchronously BEFORE first build (no spinner flash)
+    final cached = widget.getCachedPlaylists?.call();
+    if (cached != null && cached.isNotEmpty) {
+      _playlists = cached;
+      _isLoading = false;
+    }
     _loadPlaylists();
   }
 
@@ -43,18 +49,7 @@ class _PlaylistRowState extends State<PlaylistRow> with AutomaticKeepAliveClient
     if (_hasLoaded) return;
     _hasLoaded = true;
 
-    // 1. Try to get cached data synchronously for instant display
-    final cachedPlaylists = widget.getCachedPlaylists?.call();
-    if (cachedPlaylists != null && cachedPlaylists.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _playlists = cachedPlaylists;
-          _isLoading = false;
-        });
-      }
-    }
-
-    // 2. Load fresh data
+    // Load fresh data
     try {
       final freshPlaylists = await widget.loadPlaylists();
       if (mounted && freshPlaylists.isNotEmpty) {
