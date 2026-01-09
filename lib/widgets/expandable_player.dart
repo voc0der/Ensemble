@@ -1551,9 +1551,12 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     final titleToArtistGap = 12.0;
     final artistToAlbumGap = 8.0;
     final artistHeight = 22.0; // Approximate height for 18px font
-    final albumHeight = currentTrack.album != null ? 20.0 : 0.0; // Album line or nothing
+    // Album/chapter line visibility must match render condition:
+    // Show when: (album exists OR audiobook) AND NOT podcast
+    final showAlbumLine = (currentTrack.album != null || maProvider.isPlayingAudiobook) && !maProvider.isPlayingPodcast;
+    final albumHeight = showAlbumLine ? 20.0 : 0.0;
     final trackInfoBlockHeight = expandedTitleHeight + titleToArtistGap + artistHeight +
-        (currentTrack.album != null ? artistToAlbumGap + albumHeight : 0.0);
+        (showAlbumLine ? artistToAlbumGap + albumHeight : 0.0);
 
     // Controls section heights (from bottom up):
     // - Volume slider: 48px
@@ -2042,7 +2045,9 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                               height: _lerpDouble(1.0, 1.2, t),
                             ),
                             textAlign: TextAlign.left, // Keep static, Align handles centering
-                            maxLines: 2, // Allow 2 lines throughout, text will naturally use 1 when short
+                            // Use 1 line when collapsed to prevent overlap with artist line,
+                            // expand to 2 lines during animation for long titles
+                            maxLines: t > 0.3 ? 2 : 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

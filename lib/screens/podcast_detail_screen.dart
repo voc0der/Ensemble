@@ -225,6 +225,8 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
 
     if (selectedPlayer != null) {
       try {
+        // Set podcast context before playing so player UI shows correct podcast name
+        maProvider.setCurrentPodcastName(widget.podcast.name);
         await maProvider.api?.playPodcastEpisode(selectedPlayer.playerId, episode);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -259,6 +261,8 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
       selectedPlayer: maProvider.selectedPlayer,
       onPlayerSelected: (player) async {
         maProvider.selectPlayer(player);
+        // Set podcast context before playing so player UI shows correct podcast name
+        maProvider.setCurrentPodcastName(widget.podcast.name);
         await maProvider.api?.playPodcastEpisode(player.playerId, episode);
       },
     ).whenComplete(() {

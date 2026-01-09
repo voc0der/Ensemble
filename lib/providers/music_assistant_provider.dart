@@ -65,6 +65,7 @@ class MusicAssistantProvider with ChangeNotifier {
   Map<String, String> _castToSendspinIdMap = {}; // Maps regular Cast IDs to Sendspin IDs for grouping
   Track? _currentTrack;
   Audiobook? _currentAudiobook; // Currently playing audiobook context (with chapters)
+  String? _currentPodcastName; // Currently playing podcast's name (set when playing episode)
   Timer? _playerStateTimer;
   Timer? _notificationPositionTimer; // Updates notification position every second for remote players
 
@@ -333,14 +334,18 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   /// Get the podcast name when playing a podcast episode
-  /// Returns the podcast name from metadata, album name, or artist name
+  /// Returns the podcast name from stored context, metadata, or fallbacks
   String? get currentPodcastName {
     if (!isPlayingPodcast || _currentTrack == null) return null;
 
-    // Try metadata first (if episode has parent podcast info)
+    // Primary source: stored podcast name from when episode was played
+    if (_currentPodcastName != null && _currentPodcastName!.isNotEmpty) {
+      return _currentPodcastName;
+    }
+
+    // Try metadata (if episode has parent podcast info from API)
     final metadata = _currentTrack!.metadata;
     if (metadata != null) {
-      // Check for podcast_name or podcast.name in metadata
       if (metadata['podcast_name'] != null) {
         return metadata['podcast_name'] as String;
       }
@@ -351,18 +356,24 @@ class MusicAssistantProvider with ChangeNotifier {
         }
       }
     }
-    // Fall back to album name (often contains podcast name)
-    if (_currentTrack!.album != null && _currentTrack!.album!.name.isNotEmpty) {
-      return _currentTrack!.album!.name;
-    }
-    // Fall back to artist (sometimes the podcast name is set as artist)
-    if (_currentTrack!.artists != null && _currentTrack!.artists!.isNotEmpty) {
-      final artistName = _currentTrack!.artists!.first.name;
-      if (artistName != 'Unknown Artist' && artistName.isNotEmpty) {
-        return artistName;
-      }
-    }
+
+    // Fallbacks removed - album/artist contain episode name, not podcast name
+    // Return null to let UI show generic "Podcasts" label
     return null;
+  }
+
+  /// Set the current podcast context (call when playing a podcast episode)
+  void setCurrentPodcastName(String? podcastName) {
+    _currentPodcastName = podcastName;
+    _logger.log('🎙️ Set current podcast name: $podcastName');
+  }
+
+  /// Clear the podcast context
+  void clearCurrentPodcastName() {
+    if (_currentPodcastName != null) {
+      _logger.log('🎙️ Cleared podcast context');
+      _currentPodcastName = null;
+    }
   }
 
   String get lastSearchQuery => _lastSearchQuery;
@@ -2350,6 +2361,12 @@ class MusicAssistantProvider with ChangeNotifier {
           clearCurrentAudiobook();
         }
 
+        // Clear podcast context when switching to non-podcast media
+        if (mediaType != 'podcast_episode' && _currentPodcastName != null) {
+          _logger.log('🎙️ Media type changed to $mediaType - clearing podcast context');
+          clearCurrentPodcastName();
+        }
+
         if (mediaType != 'flow_stream') {
           final durationSecs = (currentMedia['duration'] as num?)?.toInt();
           final albumName = currentMedia['album'] as String?;
@@ -4047,6 +4064,11 @@ class MusicAssistantProvider with ChangeNotifier {
           _currentAudiobook = null;
           stateChanged = true;
         }
+        if (_currentPodcastName != null) {
+          _logger.log('🎙️ External source active, clearing podcast context');
+          _currentPodcastName = null;
+          stateChanged = true;
+        }
         // Clear notification for external source
         audioHandler.clearRemotePlaybackState();
         if (stateChanged) {
@@ -4086,6 +4108,12 @@ class MusicAssistantProvider with ChangeNotifier {
         if (_currentAudiobook != null) {
           _logger.log('📚 Playback stopped, clearing audiobook context');
           _currentAudiobook = null;
+          stateChanged = true;
+        }
+        // Clear podcast context when playback stops
+        if (_currentPodcastName != null) {
+          _logger.log('🎙️ Playback stopped, clearing podcast context');
+          _currentPodcastName = null;
           stateChanged = true;
         }
 
