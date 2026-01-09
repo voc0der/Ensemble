@@ -12,12 +12,15 @@ class SeriesRow extends StatefulWidget {
   final String title;
   final Future<List<AudiobookSeries>> Function() loadSeries;
   final double? rowHeight;
+  /// Optional: synchronous getter for cached data (for instant display)
+  final List<AudiobookSeries>? Function()? getCachedSeries;
 
   const SeriesRow({
     super.key,
     required this.title,
     required this.loadSeries,
     this.rowHeight,
+    this.getCachedSeries,
   });
 
   @override
@@ -25,8 +28,8 @@ class SeriesRow extends StatefulWidget {
 }
 
 class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixin {
-  late Future<List<AudiobookSeries>> _seriesFuture;
-  List<AudiobookSeries>? _cachedSeries;
+  List<AudiobookSeries> _series = [];
+  bool _isLoading = true;
   bool _hasLoaded = false;
 
   // Cache for series cover images
@@ -43,16 +46,39 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
   @override
   void initState() {
     super.initState();
-    _loadSeriesOnce();
+    _loadSeries();
   }
 
-  void _loadSeriesOnce() {
-    if (!_hasLoaded) {
-      _seriesFuture = widget.loadSeries().then((series) {
-        _cachedSeries = series;
-        return series;
-      });
-      _hasLoaded = true;
+  Future<void> _loadSeries() async {
+    if (_hasLoaded) return;
+    _hasLoaded = true;
+
+    // 1. Try to get cached data synchronously for instant display
+    final cachedSeries = widget.getCachedSeries?.call();
+    if (cachedSeries != null && cachedSeries.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _series = cachedSeries;
+          _isLoading = false;
+        });
+      }
+    }
+
+    // 2. Load fresh data (always update)
+    try {
+      final freshSeries = await widget.loadSeries();
+      if (mounted && freshSeries.isNotEmpty) {
+        setState(() {
+          _series = freshSeries;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // Silent failure - keep showing cached data
+    }
+
+    if (mounted && _isLoading) {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -127,10 +153,68 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
 
   static final _logger = DebugLogger();
 
+  Widget _buildContent(double contentHeight, ColorScheme colorScheme, TextTheme textTheme, MusicAssistantProvider maProvider) {
+    // Only show loading if we have no data at all
+    if (_series.isEmpty && _isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_series.isEmpty) {
+      return Center(
+        child: Text(
+          'No series found',
+          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+        ),
+      );
+    }
+
+    const textAreaHeight = 44.0;
+    final artworkSize = contentHeight - textAreaHeight;
+    final cardWidth = artworkSize;
+    final itemExtent = cardWidth + 12;
+
+    return ScrollConfiguration(
+      behavior: const _StretchScrollBehavior(),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        itemCount: _series.length,
+        itemExtent: itemExtent,
+        cacheExtent: 500,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: false,
+        itemBuilder: (context, index) {
+          final s = _series[index];
+
+          // Load covers if not cached
+          if (!_seriesCovers.containsKey(s.id) && !_loadingCovers.contains(s.id)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _loadSeriesCovers(s.id, maProvider);
+            });
+          }
+
+          return Container(
+            key: ValueKey(s.id),
+            width: cardWidth,
+            margin: const EdgeInsets.symmetric(horizontal: 6.0),
+            child: _SeriesCard(
+              series: s,
+              covers: _seriesCovers[s.id],
+              cachedBookCount: _seriesBookCounts[s.id],
+              extractedColors: _seriesExtractedColors[s.id],
+              colorScheme: colorScheme,
+              textTheme: textTheme,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _logger.startBuild('SeriesRow:${widget.title}');
-    super.build(context);
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final maProvider = context.read<MusicAssistantProvider>();
@@ -156,73 +240,7 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
               ),
             ),
             Expanded(
-              child: FutureBuilder<List<AudiobookSeries>>(
-                future: _seriesFuture,
-                builder: (context, snapshot) {
-                  final series = snapshot.data ?? _cachedSeries;
-
-                  if (series == null && snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (snapshot.hasError && series == null) {
-                    return Center(
-                      child: Text('Error: ${snapshot.error}'),
-                    );
-                  }
-
-                  if (series == null || series.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'No series found',
-                        style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
-                      ),
-                    );
-                  }
-
-                  const textAreaHeight = 44.0;
-                  final artworkSize = contentHeight - textAreaHeight;
-                  final cardWidth = artworkSize;
-                  final itemExtent = cardWidth + 12;
-
-                  return ScrollConfiguration(
-                    behavior: const _StretchScrollBehavior(),
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                      itemCount: series.length,
-                      itemExtent: itemExtent,
-                      cacheExtent: 500,
-                      addAutomaticKeepAlives: false,
-                      addRepaintBoundaries: false,
-                      itemBuilder: (context, index) {
-                        final s = series[index];
-
-                        // Load covers if not cached
-                        if (!_seriesCovers.containsKey(s.id) && !_loadingCovers.contains(s.id)) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _loadSeriesCovers(s.id, maProvider);
-                          });
-                        }
-
-                        return Container(
-                          key: ValueKey(s.id),
-                          width: cardWidth,
-                          margin: const EdgeInsets.symmetric(horizontal: 6.0),
-                          child: _SeriesCard(
-                            series: s,
-                            covers: _seriesCovers[s.id],
-                            cachedBookCount: _seriesBookCounts[s.id],
-                            extractedColors: _seriesExtractedColors[s.id],
-                            colorScheme: colorScheme,
-                            textTheme: textTheme,
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
+              child: _buildContent(contentHeight, colorScheme, textTheme, maProvider),
             ),
           ],
         ),

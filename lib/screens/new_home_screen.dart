@@ -338,7 +338,8 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         return AudiobookRow(
           key: const ValueKey('continue-listening'),
           title: S.of(context)!.continueListening,
-          loadAudiobooks: () => provider.getInProgressAudiobooks(),
+          loadAudiobooks: () => provider.getInProgressAudiobooksWithCache(),
+          getCachedAudiobooks: () => provider.getCachedInProgressAudiobooks(),
           rowHeight: rowHeight,
         );
       case 'discover-audiobooks':
@@ -346,7 +347,8 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         return AudiobookRow(
           key: const ValueKey('discover-audiobooks'),
           title: S.of(context)!.discoverAudiobooks,
-          loadAudiobooks: () => provider.getDiscoverAudiobooks(),
+          loadAudiobooks: () => provider.getDiscoverAudiobooksWithCache(),
+          getCachedAudiobooks: () => provider.getCachedDiscoverAudiobooks(),
           rowHeight: rowHeight,
         );
       case 'discover-series':
@@ -354,7 +356,8 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
         return SeriesRow(
           key: const ValueKey('discover-series'),
           title: S.of(context)!.discoverSeries,
-          loadSeries: () => provider.getDiscoverSeries(),
+          loadSeries: () => provider.getDiscoverSeriesWithCache(),
+          getCachedSeries: () => provider.getCachedDiscoverSeries(),
           rowHeight: rowHeight,
         );
       case 'favorite-albums':

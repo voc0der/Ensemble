@@ -2826,9 +2826,20 @@ class MusicAssistantProvider with ChangeNotifier {
   // AUDIOBOOK HOME SCREEN ROWS
   // ============================================================================
 
-  /// Get audiobooks that have progress (continue listening)
-  Future<List<Audiobook>> getInProgressAudiobooks() async {
-    if (_api == null) return [];
+  /// Get audiobooks that have progress (continue listening) with caching
+  Future<List<Audiobook>> getInProgressAudiobooksWithCache({bool forceRefresh = false}) async {
+    // Check cache first
+    if (!forceRefresh && _cacheService.isInProgressAudiobooksCacheValid()) {
+      _logger.log('📦 Using cached in-progress audiobooks');
+      return _cacheService.getCachedInProgressAudiobooks()!;
+    }
+
+    if (_api == null) {
+      // Fallback to cache when offline
+      final cached = _cacheService.getCachedInProgressAudiobooks();
+      if (cached != null && cached.isNotEmpty) return cached;
+      return [];
+    }
 
     try {
       _logger.log('📚 Fetching in-progress audiobooks...');
@@ -2838,47 +2849,93 @@ class MusicAssistantProvider with ChangeNotifier {
           .where((a) => a.progress > 0 && a.progress < 1.0) // Has progress but not complete
           .toList()
         ..sort((a, b) => b.progress.compareTo(a.progress)); // Sort by progress descending
-      _logger.log('📚 Found ${inProgress.length} in-progress audiobooks');
-      return inProgress.take(20).toList(); // Limit to 20 for home row
+      final result = inProgress.take(20).toList(); // Limit to 20 for home row
+      _logger.log('📚 Found ${result.length} in-progress audiobooks');
+      _cacheService.setCachedInProgressAudiobooks(result);
+      return result;
     } catch (e) {
       _logger.log('❌ Failed to fetch in-progress audiobooks: $e');
+      // Fallback to cache on error
+      final cached = _cacheService.getCachedInProgressAudiobooks();
+      if (cached != null && cached.isNotEmpty) return cached;
       return [];
     }
   }
 
-  /// Get random audiobooks for discovery
-  Future<List<Audiobook>> getDiscoverAudiobooks() async {
-    if (_api == null) return [];
+  /// Get cached in-progress audiobooks synchronously (for instant display)
+  List<Audiobook>? getCachedInProgressAudiobooks() => _cacheService.getCachedInProgressAudiobooks();
+
+  /// Get random audiobooks for discovery with caching
+  Future<List<Audiobook>> getDiscoverAudiobooksWithCache({bool forceRefresh = false}) async {
+    // Check cache first
+    if (!forceRefresh && _cacheService.isDiscoverAudiobooksCacheValid()) {
+      _logger.log('📦 Using cached discover audiobooks');
+      return _cacheService.getCachedDiscoverAudiobooks()!;
+    }
+
+    if (_api == null) {
+      // Fallback to cache when offline
+      final cached = _cacheService.getCachedDiscoverAudiobooks();
+      if (cached != null && cached.isNotEmpty) return cached;
+      return [];
+    }
 
     try {
       _logger.log('📚 Fetching discover audiobooks...');
       final allAudiobooks = filterByProvider(await _api!.getAudiobooks());
       // Shuffle and take a subset
       final shuffled = List<Audiobook>.from(allAudiobooks)..shuffle();
+      final result = shuffled.take(20).toList();
       _logger.log('📚 Found ${allAudiobooks.length} total audiobooks, returning random selection');
-      return shuffled.take(20).toList();
+      _cacheService.setCachedDiscoverAudiobooks(result);
+      return result;
     } catch (e) {
       _logger.log('❌ Failed to fetch discover audiobooks: $e');
+      // Fallback to cache on error
+      final cached = _cacheService.getCachedDiscoverAudiobooks();
+      if (cached != null && cached.isNotEmpty) return cached;
       return [];
     }
   }
 
-  /// Get random series for discovery
-  Future<List<AudiobookSeries>> getDiscoverSeries() async {
-    if (_api == null) return [];
+  /// Get cached discover audiobooks synchronously (for instant display)
+  List<Audiobook>? getCachedDiscoverAudiobooks() => _cacheService.getCachedDiscoverAudiobooks();
+
+  /// Get random series for discovery with caching
+  Future<List<AudiobookSeries>> getDiscoverSeriesWithCache({bool forceRefresh = false}) async {
+    // Check cache first
+    if (!forceRefresh && _cacheService.isDiscoverSeriesCacheValid()) {
+      _logger.log('📦 Using cached discover series');
+      return _cacheService.getCachedDiscoverSeries()!;
+    }
+
+    if (_api == null) {
+      // Fallback to cache when offline
+      final cached = _cacheService.getCachedDiscoverSeries();
+      if (cached != null && cached.isNotEmpty) return cached;
+      return [];
+    }
 
     try {
       _logger.log('📚 Fetching discover series...');
       final allSeries = await _api!.getAudiobookSeries();
       // Shuffle and take a subset
       final shuffled = List<AudiobookSeries>.from(allSeries)..shuffle();
+      final result = shuffled.take(20).toList();
       _logger.log('📚 Found ${allSeries.length} total series, returning random selection');
-      return shuffled.take(20).toList();
+      _cacheService.setCachedDiscoverSeries(result);
+      return result;
     } catch (e) {
       _logger.log('❌ Failed to fetch discover series: $e');
+      // Fallback to cache on error
+      final cached = _cacheService.getCachedDiscoverSeries();
+      if (cached != null && cached.isNotEmpty) return cached;
       return [];
     }
   }
+
+  /// Get cached discover series synchronously (for instant display)
+  List<AudiobookSeries>? getCachedDiscoverSeries() => _cacheService.getCachedDiscoverSeries();
 
   // ============================================================================
   // DETAIL SCREEN CACHING

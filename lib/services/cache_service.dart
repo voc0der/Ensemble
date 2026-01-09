@@ -20,9 +20,15 @@ class CacheService {
   List<Album>? _cachedRecentAlbums;
   List<Artist>? _cachedDiscoverArtists;
   List<Album>? _cachedDiscoverAlbums;
+  List<Audiobook>? _cachedInProgressAudiobooks;
+  List<Audiobook>? _cachedDiscoverAudiobooks;
+  List<AudiobookSeries>? _cachedDiscoverSeries;
   DateTime? _recentAlbumsLastFetched;
   DateTime? _discoverArtistsLastFetched;
   DateTime? _discoverAlbumsLastFetched;
+  DateTime? _inProgressAudiobooksLastFetched;
+  DateTime? _discoverAudiobooksLastFetched;
+  DateTime? _discoverSeriesLastFetched;
 
   // Detail screen caching
   final Map<String, List<Track>> _albumTracksCache = {};
@@ -112,11 +118,82 @@ class CacheService {
     _persistHomeRowToDatabase('discover_albums', albums.map((a) => a.toJson()).toList());
   }
 
+  /// Check if in-progress audiobooks cache is valid
+  bool isInProgressAudiobooksCacheValid({bool forceRefresh = false}) {
+    if (forceRefresh) return false;
+    final now = DateTime.now();
+    return _cachedInProgressAudiobooks != null &&
+        _inProgressAudiobooksLastFetched != null &&
+        now.difference(_inProgressAudiobooksLastFetched!) < Timings.homeRowCacheDuration;
+  }
+
+  /// Get cached in-progress audiobooks
+  List<Audiobook>? getCachedInProgressAudiobooks() => _cachedInProgressAudiobooks;
+
+  /// Set cached in-progress audiobooks
+  void setCachedInProgressAudiobooks(List<Audiobook> audiobooks) {
+    _cachedInProgressAudiobooks = audiobooks;
+    _inProgressAudiobooksLastFetched = DateTime.now();
+    _logger.log('✅ Cached ${audiobooks.length} in-progress audiobooks');
+  }
+
+  /// Check if discover audiobooks cache is valid
+  bool isDiscoverAudiobooksCacheValid({bool forceRefresh = false}) {
+    if (forceRefresh) return false;
+    final now = DateTime.now();
+    return _cachedDiscoverAudiobooks != null &&
+        _discoverAudiobooksLastFetched != null &&
+        now.difference(_discoverAudiobooksLastFetched!) < Timings.homeRowCacheDuration;
+  }
+
+  /// Get cached discover audiobooks
+  List<Audiobook>? getCachedDiscoverAudiobooks() => _cachedDiscoverAudiobooks;
+
+  /// Set cached discover audiobooks
+  void setCachedDiscoverAudiobooks(List<Audiobook> audiobooks) {
+    _cachedDiscoverAudiobooks = audiobooks;
+    _discoverAudiobooksLastFetched = DateTime.now();
+    _logger.log('✅ Cached ${audiobooks.length} discover audiobooks');
+  }
+
+  /// Check if discover series cache is valid
+  bool isDiscoverSeriesCacheValid({bool forceRefresh = false}) {
+    if (forceRefresh) return false;
+    final now = DateTime.now();
+    return _cachedDiscoverSeries != null &&
+        _discoverSeriesLastFetched != null &&
+        now.difference(_discoverSeriesLastFetched!) < Timings.homeRowCacheDuration;
+  }
+
+  /// Get cached discover series
+  List<AudiobookSeries>? getCachedDiscoverSeries() => _cachedDiscoverSeries;
+
+  /// Set cached discover series
+  void setCachedDiscoverSeries(List<AudiobookSeries> series) {
+    _cachedDiscoverSeries = series;
+    _discoverSeriesLastFetched = DateTime.now();
+    _logger.log('✅ Cached ${series.length} discover series');
+  }
+
+  /// Invalidate audiobook caches
+  void invalidateAudiobookCaches() {
+    _cachedInProgressAudiobooks = null;
+    _inProgressAudiobooksLastFetched = null;
+    _cachedDiscoverAudiobooks = null;
+    _discoverAudiobooksLastFetched = null;
+    _cachedDiscoverSeries = null;
+    _discoverSeriesLastFetched = null;
+    _logger.log('🗑️ Audiobook caches invalidated');
+  }
+
   /// Invalidate home screen cache (call on pull-to-refresh)
   void invalidateHomeCache() {
     _recentAlbumsLastFetched = null;
     _discoverArtistsLastFetched = null;
     _discoverAlbumsLastFetched = null;
+    _inProgressAudiobooksLastFetched = null;
+    _discoverAudiobooksLastFetched = null;
+    _discoverSeriesLastFetched = null;
     _logger.log('🗑️ Home screen cache invalidated');
   }
 
