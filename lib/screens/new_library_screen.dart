@@ -1235,8 +1235,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final totalFlex = flexValues.reduce((a, b) => a + b);
     final selectedIndex = types.indexOf(_selectedMediaType);
 
-    // Horizontal inset for the pill highlight (small gap from edges)
+    // Horizontal inset for the pill highlight (gap between adjacent tabs)
     const double hInset = 2.0;
+    final isFirstTab = selectedIndex == 0;
+    final isLastTab = selectedIndex == types.length - 1;
 
     // Animated sliding highlight with pill shape
     return LayoutBuilder(
@@ -1257,6 +1259,15 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           return (flexValues[index] / totalFlex) * totalWidth;
         }
 
+        // Calculate highlight position and size based on whether it's at the edge
+        // First tab: flush with left edge, gap on right
+        // Last tab: gap on left, flush with right edge
+        // Middle tabs: gap on both sides
+        final leftInset = isFirstTab ? 0.0 : hInset;
+        final rightInset = isLastTab ? 0.0 : hInset;
+        final highlightLeft = getLeftPosition(selectedIndex) + leftInset;
+        final highlightWidth = getTabWidth(selectedIndex) - leftInset - rightInset;
+
         return Container(
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
@@ -1268,8 +1279,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeOutCubic,
-                left: getLeftPosition(selectedIndex) + hInset,
-                width: getTabWidth(selectedIndex) - (hInset * 2),
+                left: highlightLeft,
+                width: highlightWidth,
                 top: 0,
                 bottom: 0,
                 child: AnimatedContainer(
@@ -1403,6 +1414,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     );
 
     const double hInset = 2.0;
+    final isFirstTab = selectedIndex == 0;
+    final isLastTab = selectedIndex == categories.length - 1;
 
     // Calculate left position for a given index
     double getLeftPosition(int index) {
@@ -1418,6 +1431,15 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       return (flexValues[index] / totalFlex) * estimatedTotalWidth;
     }
 
+    // Calculate highlight position and size based on whether it's at the edge
+    // First tab: flush with left edge, gap on right
+    // Last tab: gap on left, flush with right edge
+    // Middle tabs: gap on both sides
+    final leftInset = isFirstTab ? 0.0 : hInset;
+    final rightInset = isLastTab ? 0.0 : hInset;
+    final highlightLeft = getLeftPosition(selectedIndex) + leftInset;
+    final highlightWidth = getTabWidth(selectedIndex) - leftInset - rightInset;
+
     return Container(
       width: estimatedTotalWidth,
       height: _filterRowHeight,
@@ -1431,8 +1453,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
-            left: getLeftPosition(selectedIndex) + hInset,
-            width: getTabWidth(selectedIndex) - (hInset * 2),
+            left: highlightLeft,
+            width: highlightWidth,
             top: 0,
             bottom: 0,
             child: Container(
