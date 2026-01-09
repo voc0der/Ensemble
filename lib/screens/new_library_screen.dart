@@ -1234,69 +1234,108 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       return 10 + label.length;
     }
 
-    // Unified segmented bar with no gaps
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: types.asMap().entries.map((entry) {
-          final index = entry.key;
-          final type = entry.value;
-          final isSelected = _selectedMediaType == type;
-          final isFirst = index == 0;
-          final isLast = index == types.length - 1;
+    // Pre-calculate flex values and total
+    final flexValues = types.map((t) => getFlexForType(t)).toList();
+    final totalFlex = flexValues.reduce((a, b) => a + b);
+    final selectedIndex = types.indexOf(_selectedMediaType);
 
-          return Expanded(
-            flex: getFlexForType(type),
-            child: GestureDetector(
-              onTap: () => _changeMediaType(type),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? getMediaTypeColor(type) : Colors.transparent,
-                  borderRadius: BorderRadius.horizontal(
-                    left: isFirst ? const Radius.circular(8) : Radius.zero,
-                    right: isLast ? const Radius.circular(8) : Radius.zero,
+    // Inset for the pill highlight (creates padding inside the bar)
+    const double inset = 3.0;
+
+    // Animated sliding highlight with pill shape
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+
+        // Calculate left position for a given tab index
+        double getLeftPosition(int index) {
+          double left = 0;
+          for (int i = 0; i < index; i++) {
+            left += (flexValues[i] / totalFlex) * totalWidth;
+          }
+          return left;
+        }
+
+        // Calculate width for a given tab index
+        double getTabWidth(int index) {
+          return (flexValues[index] / totalFlex) * totalWidth;
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Stack(
+            children: [
+              // Animated sliding highlight (pill shape with full border radius)
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                left: getLeftPosition(selectedIndex) + inset,
+                width: getTabWidth(selectedIndex) - (inset * 2),
+                top: inset,
+                bottom: inset,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  decoration: BoxDecoration(
+                    color: getMediaTypeColor(_selectedMediaType),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      getMediaTypeIcon(type),
-                      size: 18,
-                      color: isSelected
-                          ? colorScheme.onPrimaryContainer
-                          : colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        getMediaTypeLabel(type),
-                        style: TextStyle(
-                          color: isSelected
-                              ? colorScheme.onPrimaryContainer
-                              : colorScheme.onSurface.withOpacity(0.7),
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                          fontSize: 14,
+              ),
+              // Tab buttons row (transparent, on top of highlight)
+              Row(
+                children: types.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final type = entry.value;
+                  final isSelected = _selectedMediaType == type;
+
+                  return Expanded(
+                    flex: flexValues[index],
+                    child: GestureDetector(
+                      onTap: () => _changeMediaType(type),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              getMediaTypeIcon(type),
+                              size: 18,
+                              color: isSelected
+                                  ? colorScheme.onPrimaryContainer
+                                  : colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                getMediaTypeLabel(type),
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? colorScheme.onPrimaryContainer
+                                      : colorScheme.onSurface.withOpacity(0.7),
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ],
-                ),
+                  );
+                }).toList(),
               ),
-            ),
-          );
-        }).toList(),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 
