@@ -300,6 +300,10 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
     for (final rowId in _homeRowOrder) {
       final widget = _buildRowWidget(rowId, provider, rowHeight);
       if (widget != null) {
+        // Add spacing between rows (not before first row)
+        if (rows.isNotEmpty) {
+          rows.add(const SizedBox(height: 1.0));
+        }
         rows.add(widget);
       }
     }
