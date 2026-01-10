@@ -319,7 +319,20 @@ class _NewHomeScreenState extends State<NewHomeScreen> with AutomaticKeepAliveCl
               child: Column(
                 key: _refreshKey,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: _buildOrderedRows(provider, rowHeight),
+                children: [
+                  ..._buildOrderedRows(provider, rowHeight),
+                  // DEBUG: Red = end of content (should touch mini player exactly for 3 rows)
+                  Container(
+                    height: 4,
+                    color: Colors.red,
+                    child: Center(
+                      child: Text(
+                        'END - avail:${availableHeight.toStringAsFixed(0)} row:${rowHeight.toStringAsFixed(0)} rows:$enabledRows margins:${marginsInView.toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 8, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
