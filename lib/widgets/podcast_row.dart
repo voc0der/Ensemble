@@ -4,30 +4,31 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/debug_logger.dart';
-import 'playlist_card.dart';
+import 'podcast_card.dart';
 
-class PlaylistRow extends StatefulWidget {
+class PodcastRow extends StatefulWidget {
   final String title;
-  final Future<List<Playlist>> Function() loadPlaylists;
+  final Future<List<MediaItem>> Function() loadPodcasts;
   final String? heroTagSuffix;
   final double? rowHeight;
-  final List<Playlist>? Function()? getCachedPlaylists;
+  /// Optional: synchronous getter for cached data (for instant display)
+  final List<MediaItem>? Function()? getCachedPodcasts;
 
-  const PlaylistRow({
+  const PodcastRow({
     super.key,
     required this.title,
-    required this.loadPlaylists,
+    required this.loadPodcasts,
     this.heroTagSuffix,
     this.rowHeight,
-    this.getCachedPlaylists,
+    this.getCachedPodcasts,
   });
 
   @override
-  State<PlaylistRow> createState() => _PlaylistRowState();
+  State<PodcastRow> createState() => _PodcastRowState();
 }
 
-class _PlaylistRowState extends State<PlaylistRow> with AutomaticKeepAliveClientMixin {
-  List<Playlist> _playlists = [];
+class _PodcastRowState extends State<PodcastRow> with AutomaticKeepAliveClientMixin {
+  List<MediaItem> _podcasts = [];
   bool _isLoading = true;
   bool _hasLoaded = false;
 
@@ -40,28 +41,28 @@ class _PlaylistRowState extends State<PlaylistRow> with AutomaticKeepAliveClient
   void initState() {
     super.initState();
     // Get cached data synchronously BEFORE first build (no spinner flash)
-    final cached = widget.getCachedPlaylists?.call();
+    final cached = widget.getCachedPodcasts?.call();
     if (cached != null && cached.isNotEmpty) {
-      _playlists = cached;
+      _podcasts = cached;
       _isLoading = false;
     }
-    _loadPlaylists();
+    _loadPodcasts();
   }
 
-  Future<void> _loadPlaylists() async {
+  Future<void> _loadPodcasts() async {
     if (_hasLoaded) return;
     _hasLoaded = true;
 
-    // Load fresh data
+    // Load fresh data (always update - fresh data may have images that cached data lacks)
     try {
-      final freshPlaylists = await widget.loadPlaylists();
-      if (mounted && freshPlaylists.isNotEmpty) {
+      final freshPodcasts = await widget.loadPodcasts();
+      if (mounted && freshPodcasts.isNotEmpty) {
         setState(() {
-          _playlists = freshPlaylists;
+          _podcasts = freshPodcasts;
           _isLoading = false;
         });
         // Pre-cache images for smooth hero animations
-        _precachePlaylistImages(freshPlaylists);
+        _precachePodcastImages(freshPodcasts);
       }
     } catch (e) {
       // Silent failure - keep showing cached data
@@ -72,40 +73,47 @@ class _PlaylistRowState extends State<PlaylistRow> with AutomaticKeepAliveClient
     }
   }
 
-  void _precachePlaylistImages(List<Playlist> playlists) {
+  /// Pre-cache podcast images so hero animations are smooth on first tap
+  void _precachePodcastImages(List<MediaItem> podcasts) {
     if (!mounted) return;
     final maProvider = context.read<MusicAssistantProvider>();
 
-    final playlistsToCache = playlists.take(10);
+    // Only precache first ~10 visible items to avoid excessive network/memory use
+    final podcastsToCache = podcasts.take(10);
 
-    for (final playlist in playlistsToCache) {
-      final imageUrl = maProvider.api?.getImageUrl(playlist, size: 256);
+    for (final podcast in podcastsToCache) {
+      // Use getPodcastImageUrl which includes iTunes cache
+      final imageUrl = maProvider.getPodcastImageUrl(podcast, size: 256);
       if (imageUrl != null) {
+        // Use CachedNetworkImageProvider to warm the cache
         precacheImage(
           CachedNetworkImageProvider(imageUrl),
           context,
-        ).catchError((_) => false);
+        ).catchError((_) {
+          // Silently ignore precache errors
+          return false;
+        });
       }
     }
   }
 
   Widget _buildContent(double contentHeight, ColorScheme colorScheme) {
     // Only show loading if we have no data at all
-    if (_playlists.isEmpty && _isLoading) {
+    if (_podcasts.isEmpty && _isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_playlists.isEmpty) {
+    if (_podcasts.isEmpty) {
       return Center(
         child: Text(
-          'No playlists found',
+          'No podcasts found',
           style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
         ),
       );
     }
 
     // Card layout: square artwork + text below (same as AlbumRow)
-    // Text area: 8px gap + ~18px title + ~18px owner = ~44px
+    // Text area: 8px gap + ~18px title + ~18px author = ~44px
     const textAreaHeight = 44.0;
     final artworkSize = contentHeight - textAreaHeight;
     final cardWidth = artworkSize; // Card width = artwork width (square)
@@ -117,21 +125,21 @@ class _PlaylistRowState extends State<PlaylistRow> with AutomaticKeepAliveClient
         clipBehavior: Clip.none,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        itemCount: _playlists.length,
+        itemCount: _podcasts.length,
         itemExtent: itemExtent,
         cacheExtent: 500, // Preload ~3 items ahead for smoother scrolling
         addAutomaticKeepAlives: false, // Row already uses AutomaticKeepAliveClientMixin
         addRepaintBoundaries: false, // Cards already have RepaintBoundary
         itemBuilder: (context, index) {
-          final playlist = _playlists[index];
+          final podcast = _podcasts[index];
           return Padding(
             padding: const EdgeInsets.only(bottom: 4.0),
             child: Container(
-              key: ValueKey(playlist.uri ?? playlist.itemId),
+              key: ValueKey(podcast.uri ?? podcast.itemId),
               width: cardWidth,
               margin: const EdgeInsets.symmetric(horizontal: 6.0),
-              child: PlaylistCard(
-                playlist: playlist,
+              child: PodcastCard(
+                podcast: podcast,
                 heroTagSuffix: widget.heroTagSuffix,
                 imageCacheSize: 256,
               ),
@@ -144,7 +152,7 @@ class _PlaylistRowState extends State<PlaylistRow> with AutomaticKeepAliveClient
 
   @override
   Widget build(BuildContext context) {
-    _logger.startBuild('PlaylistRow:${widget.title}');
+    _logger.startBuild('PodcastRow:${widget.title}');
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
@@ -177,7 +185,7 @@ class _PlaylistRowState extends State<PlaylistRow> with AutomaticKeepAliveClient
         ),
       ),
     );
-    _logger.endBuild('PlaylistRow:${widget.title}');
+    _logger.endBuild('PodcastRow:${widget.title}');
     return result;
   }
 }

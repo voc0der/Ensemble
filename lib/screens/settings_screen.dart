@@ -31,6 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _showFavoriteTracks = false;
   bool _showFavoritePlaylists = false;
   bool _showFavoriteRadioStations = false;
+  bool _showFavoritePodcasts = false;
   // Audiobook home rows (default off)
   bool _showContinueListeningAudiobooks = false;
   bool _showDiscoverAudiobooks = false;
@@ -75,6 +76,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final showFavTracks = await SettingsService.getShowFavoriteTracks();
     final showFavPlaylists = await SettingsService.getShowFavoritePlaylists();
     final showFavRadio = await SettingsService.getShowFavoriteRadioStations();
+    final showFavPodcasts = await SettingsService.getShowFavoritePodcasts();
 
     // Load audiobook home row settings
     final showContinueAudiobooks = await SettingsService.getShowContinueListeningAudiobooks();
@@ -115,6 +117,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _showFavoriteTracks = showFavTracks;
         _showFavoritePlaylists = showFavPlaylists;
         _showFavoriteRadioStations = showFavRadio;
+        _showFavoritePodcasts = showFavPodcasts;
         _showContinueListeningAudiobooks = showContinueAudiobooks;
         _showDiscoverAudiobooks = showDiscAudiobooks;
         _showDiscoverSeries = showDiscSeries;
@@ -163,6 +166,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return {'title': s.favoritePlaylists, 'subtitle': s.showFavoritePlaylists};
       case 'favorite-radio-stations':
         return {'title': s.favoriteRadioStations, 'subtitle': s.showFavoriteRadioStations};
+      case 'favorite-podcasts':
+        return {'title': s.favoritePodcasts, 'subtitle': s.showFavoritePodcasts};
       default:
         return {'title': rowId, 'subtitle': ''};
     }
@@ -193,6 +198,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return _showFavoritePlaylists;
       case 'favorite-radio-stations':
         return _showFavoriteRadioStations;
+      case 'favorite-podcasts':
+        return _showFavoritePodcasts;
       default:
         return false;
     }
@@ -245,6 +252,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         case 'favorite-radio-stations':
           _showFavoriteRadioStations = value;
           SettingsService.setShowFavoriteRadioStations(value);
+          break;
+        case 'favorite-podcasts':
+          _showFavoritePodcasts = value;
+          SettingsService.setShowFavoritePodcasts(value);
           break;
       }
     });

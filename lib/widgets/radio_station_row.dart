@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
+import '../services/debug_logger.dart';
 import 'radio_station_card.dart';
 
 class RadioStationRow extends StatefulWidget {
@@ -29,6 +30,8 @@ class _RadioStationRowState extends State<RadioStationRow> with AutomaticKeepAli
   List<MediaItem> _radioStations = [];
   bool _isLoading = true;
   bool _hasLoaded = false;
+
+  static final _logger = DebugLogger();
 
   @override
   bool get wantKeepAlive => true;
@@ -86,75 +89,105 @@ class _RadioStationRowState extends State<RadioStationRow> with AutomaticKeepAli
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    // Don't render if empty and done loading
-    if (_radioStations.isEmpty && !_isLoading) {
-      return const SizedBox.shrink();
+  Widget _buildContent(double contentHeight, ColorScheme colorScheme) {
+    // Only show loading if we have no data at all
+    if (_radioStations.isEmpty && _isLoading) {
+      return const Center(child: CircularProgressIndicator());
     }
 
-    final colorScheme = Theme.of(context).colorScheme;
+    if (_radioStations.isEmpty) {
+      return Center(
+        child: Text(
+          'No radio stations found',
+          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+        ),
+      );
+    }
+
+    // Card layout: circle image + name below (same as ArtistRow)
+    // Text area: 8px gap + ~36px for 2-line name = ~44px
+    const textAreaHeight = 44.0;
+    final imageSize = contentHeight - textAreaHeight;
+    final cardWidth = imageSize; // Card width = image width (circle)
+    final itemExtent = cardWidth + 16; // width + horizontal margins
+
+    return ScrollConfiguration(
+      behavior: const _StretchScrollBehavior(),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        itemCount: _radioStations.length,
+        itemExtent: itemExtent,
+        cacheExtent: 500, // Preload ~3 items ahead for smoother scrolling
+        addAutomaticKeepAlives: false, // Row already uses AutomaticKeepAliveClientMixin
+        addRepaintBoundaries: false, // Cards already have RepaintBoundary
+        itemBuilder: (context, index) {
+          final station = _radioStations[index];
+          return Container(
+            key: ValueKey(station.uri ?? station.itemId),
+            width: cardWidth,
+            margin: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: RadioStationCard(
+              radioStation: station,
+              heroTagSuffix: widget.heroTagSuffix,
+              imageCacheSize: 256,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _logger.startBuild('RadioStationRow:${widget.title}');
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    // Calculate card dimensions - similar to ArtistRow for circular items
-    // Default: 44 for title, remaining for content (circular image + name)
-    final rowHeight = widget.rowHeight ?? 207.0;
-    final titleHeight = 44.0;
-    final contentHeight = rowHeight - titleHeight;
-    // Circular artwork, text takes ~40px (8 padding + name lines)
-    final artworkSize = contentHeight - 40;
-    final cardWidth = artworkSize;
+    // Total row height includes title + content (same as ArtistRow)
+    final totalHeight = widget.rowHeight ?? 207.0; // Default: 44 title + 163 content
+    const titleHeight = 44.0; // 12 top padding + ~24 text + 8 bottom padding
+    final contentHeight = totalHeight - titleHeight;
 
-    return RepaintBoundary(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Section title
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Text(
-              widget.title,
-              style: textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+    final result = RepaintBoundary(
+      child: SizedBox(
+        height: totalHeight,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
+              child: Text(
+                widget.title,
+                style: textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onBackground,
+                ),
               ),
             ),
-          ),
-          // Horizontal list of radio stations
-          SizedBox(
-            height: contentHeight,
-            child: _isLoading && _radioStations.isEmpty
-                ? Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: colorScheme.primary,
-                    ),
-                  )
-                : ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    itemCount: _radioStations.length,
-                    cacheExtent: 500,
-                    addAutomaticKeepAlives: false,
-                    itemBuilder: (context, index) {
-                      final station = _radioStations[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: SizedBox(
-                          width: cardWidth,
-                          child: RadioStationCard(
-                            radioStation: station,
-                            heroTagSuffix: widget.heroTagSuffix,
-                            imageCacheSize: 256,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+            Expanded(
+              child: _buildContent(contentHeight, colorScheme),
+            ),
+          ],
+        ),
       ),
+    );
+    _logger.endBuild('RadioStationRow:${widget.title}');
+    return result;
+  }
+}
+
+/// Custom scroll behavior that uses Android 12+ stretch overscroll effect
+class _StretchScrollBehavior extends ScrollBehavior {
+  const _StretchScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+      BuildContext context, Widget child, ScrollableDetails details) {
+    return StretchingOverscrollIndicator(
+      axisDirection: details.direction,
+      child: child,
     );
   }
 }

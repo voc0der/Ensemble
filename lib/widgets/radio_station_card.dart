@@ -80,19 +80,23 @@ class RadioStationCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // Radio station name - centered for circular images
-            Hero(
-              tag: HeroTags.radioTitle + (radioStation.uri ?? radioStation.itemId) + suffix,
-              child: Material(
-                color: Colors.transparent,
-                child: Text(
-                  radioStation.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w500,
+            // Radio station name - fixed height container so image size is consistent
+            SizedBox(
+              height: 36, // Fixed height for 2 lines of text
+              child: Hero(
+                tag: HeroTags.radioTitle + (radioStation.uri ?? radioStation.itemId) + suffix,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Text(
+                    radioStation.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                      height: 1.15,
+                    ),
                   ),
                 ),
               ),

@@ -37,6 +37,7 @@ class SettingsService {
   static const String _keyShowFavoriteTracks = 'show_favorite_tracks';
   static const String _keyShowFavoritePlaylists = 'show_favorite_playlists';
   static const String _keyShowFavoriteRadioStations = 'show_favorite_radio_stations';
+  static const String _keyShowFavoritePodcasts = 'show_favorite_podcasts';
   static const String _keyShowOnlyArtistsWithAlbums = 'show_only_artists_with_albums'; // Library artists filter
   static const String _keyHomeRowOrder = 'home_row_order'; // JSON list of row IDs
 
@@ -53,6 +54,7 @@ class SettingsService {
     'favorite-tracks',
     'favorite-playlists',
     'favorite-radio-stations',
+    'favorite-podcasts',
   ];
 
   // View Mode Settings
@@ -517,6 +519,16 @@ class SettingsService {
     await prefs.setBool(_keyShowFavoriteRadioStations, show);
   }
 
+  static Future<bool> getShowFavoritePodcasts() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyShowFavoritePodcasts) ?? false;
+  }
+
+  static Future<void> setShowFavoritePodcasts(bool show) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowFavoritePodcasts, show);
+  }
+
   // Library Artists Filter - show only artists that have albums in library
   static Future<bool> getShowOnlyArtistsWithAlbums() async {
     final prefs = await SharedPreferences.getInstance();
@@ -535,7 +547,17 @@ class SettingsService {
     if (json != null) {
       try {
         final List<dynamic> decoded = jsonDecode(json);
-        return decoded.cast<String>();
+        final savedOrder = decoded.cast<String>();
+
+        // Add any new rows from defaultHomeRowOrder that aren't in saved order
+        // This ensures new row types appear for existing users
+        final missingRows = defaultHomeRowOrder
+            .where((row) => !savedOrder.contains(row))
+            .toList();
+        if (missingRows.isNotEmpty) {
+          return [...savedOrder, ...missingRows];
+        }
+        return savedOrder;
       } catch (_) {
         return List.from(defaultHomeRowOrder);
       }

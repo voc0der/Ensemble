@@ -261,6 +261,11 @@
     "description": "Home screen section title"
   },
 
+  "favoritePodcasts": "Favorite Podcasts",
+  "@favoritePodcasts": {
+    "description": "Home screen section title"
+  },
+
   "searchMusic": "Search music...",
   "@searchMusic": {
     "description": "Search placeholder text"
@@ -1074,6 +1079,7 @@
   "showFavoriteTracks": "Show a row of your favorite tracks",
   "showFavoritePlaylists": "Show a row of your favorite playlists",
   "showFavoriteRadioStations": "Show a row of your favorite radio stations",
+  "showFavoritePodcasts": "Show a row of your favorite podcasts",
   "extractColorsFromArtwork": "Extract colors from album and artist artwork",
   "chooseHomeScreenRows": "Choose which rows to display on the home screen",
   "addedToFavorites": "Added to favorites",

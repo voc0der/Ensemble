@@ -29,6 +29,9 @@ class HeroTags {
   /// Podcast cover hero tag prefix
   static const String podcastCover = 'podcast_cover_';
 
+  /// Podcast title hero tag prefix
+  static const String podcastTitle = 'podcast_title_';
+
   /// Playlist cover hero tag prefix
   static const String playlistCover = 'playlist_cover_';
 

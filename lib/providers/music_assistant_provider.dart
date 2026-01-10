@@ -2839,6 +2839,18 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
+  /// Get favorite podcasts from the library
+  Future<List<MediaItem>> getFavoritePodcasts() async {
+    if (_api == null) return [];
+    try {
+      final podcasts = await _api!.getPodcasts(favoriteOnly: true);
+      return filterByProvider(podcasts);
+    } catch (e) {
+      _logger.log('❌ Failed to fetch favorite podcasts: $e');
+      return [];
+    }
+  }
+
   // ============================================================================
   // AUDIOBOOK HOME SCREEN ROWS
   // ============================================================================
