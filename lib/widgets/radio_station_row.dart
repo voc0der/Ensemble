@@ -157,7 +157,7 @@ class _RadioStationRowState extends State<RadioStationRow> with AutomaticKeepAli
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
+              padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 9.0),
               child: Text(
                 widget.title,
                 style: textTheme.titleLarge?.copyWith(
