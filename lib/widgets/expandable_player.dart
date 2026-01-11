@@ -79,6 +79,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   // Progress tracking - uses PositionTracker stream as single source of truth
   StreamSubscription<Duration>? _positionSubscription;
+  // Queue items subscription - refreshes queue when MA pushes updates (e.g., radio mode adds tracks)
+  StreamSubscription<Map<String, dynamic>>? _queueItemsSubscription;
   final ValueNotifier<int> _progressNotifier = ValueNotifier<int>(0);
   final ValueNotifier<double?> _seekPositionNotifier = ValueNotifier<double?>(null);
 
@@ -254,6 +256,10 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     // Subscribe to position tracker stream - single source of truth for playback position
     _subscribeToPositionTracker();
 
+    // Subscribe to queue_items_updated events from Music Assistant
+    // This keeps queue in sync when MA pushes changes (e.g., radio mode adds tracks)
+    _subscribeToQueueEvents();
+
     // Auto-refresh queue when panel is open
     _queuePanelController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -317,6 +323,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     _slideController.dispose();
     _slideOffsetNotifier.dispose();
     _positionSubscription?.cancel();
+    _queueItemsSubscription?.cancel();
     _queueRefreshTimer?.cancel();
     _volumePrecisionTimer?.cancel();
     _progressNotifier.dispose();
@@ -471,6 +478,26 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     _positionSubscription = maProvider.positionTracker.positionStream.listen((position) {
       if (!mounted) return;
       _progressNotifier.value = position.inSeconds;
+    });
+  }
+
+  void _subscribeToQueueEvents() {
+    _queueItemsSubscription?.cancel();
+    final maProvider = context.read<MusicAssistantProvider>();
+    final api = maProvider.api;
+    if (api == null) return;
+
+    // Subscribe to queue_items_updated events from Music Assistant
+    // This keeps queue UI in sync when MA adds/removes items (e.g., radio mode)
+    _queueItemsSubscription = api.queueItemsUpdatedEvents.listen((event) {
+      if (!mounted) return;
+      final playerId = event['queue_id'] as String?;
+      final selectedPlayer = maProvider.selectedPlayer;
+      // Only refresh if the event is for our current player
+      if (playerId != null && selectedPlayer != null && playerId == selectedPlayer.playerId) {
+        debugPrint('QueuePanel: Received queue_items_updated event, refreshing queue');
+        _loadQueue();
+      }
     });
   }
 

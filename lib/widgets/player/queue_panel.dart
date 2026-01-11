@@ -138,15 +138,27 @@ class _QueuePanelState extends State<QueuePanel> {
   }
 
   void _handleDelete(QueueItem item, int index) async {
-    // Remove from local list - Dismissible handles the animation
+    // Store item for potential rollback
+    final deletedItem = item;
+    final deletedIndex = index;
+
+    // Optimistic update - remove from local list
     setState(() {
       _items.removeAt(index);
     });
 
-    // Call API
+    // Call API with error handling
     final playerId = widget.queue?.playerId;
     if (playerId != null) {
-      widget.maProvider.api?.queueCommandDeleteItem(playerId, item.queueItemId);
+      try {
+        await widget.maProvider.api?.queueCommandDeleteItem(playerId, item.queueItemId);
+        debugPrint('QueuePanel: Delete successful for ${item.track.name}');
+      } catch (e) {
+        debugPrint('QueuePanel: Error deleting queue item: $e');
+        // Rollback: re-insert the item or refresh from server
+        // Refresh is safer as queue may have changed
+        widget.onRefresh();
+      }
     }
   }
 
@@ -335,21 +347,35 @@ class _QueuePanelState extends State<QueuePanel> {
       if (playerId != null) {
         try {
           await widget.maProvider.api?.queueCommandMoveItem(playerId, item.queueItemId, posShift);
-          debugPrint('QueuePanel: Move API call completed');
+          debugPrint('QueuePanel: Move API call completed successfully');
+          // Allow updates again after a delay for server state to propagate
+          _pendingReorderTimer = Timer(const Duration(milliseconds: 2000), () {
+            if (mounted) {
+              setState(() {
+                _pendingReorder = false;
+              });
+            }
+          });
         } catch (e) {
           debugPrint('QueuePanel: Move API error: $e');
+          // Clear pending state immediately on error
+          if (mounted) {
+            setState(() {
+              _pendingReorder = false;
+            });
+          }
+          // Refresh queue from server to get correct state
+          widget.onRefresh();
         }
       } else {
         debugPrint('QueuePanel: playerId is null, cannot move');
-      }
-      // Allow updates again after a delay for server state to propagate
-      _pendingReorderTimer = Timer(const Duration(milliseconds: 2000), () {
+        // Clear pending state
         if (mounted) {
           setState(() {
             _pendingReorder = false;
           });
         }
-      });
+      }
     }
   }
 

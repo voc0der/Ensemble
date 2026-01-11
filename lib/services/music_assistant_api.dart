@@ -2561,6 +2561,23 @@ class MusicAssistantAPI {
     return _eventStreams['media_item_deleted']!.stream;
   }
 
+  /// Stream of queue_updated events (for queue metadata changes)
+  Stream<Map<String, dynamic>> get queueUpdatedEvents {
+    if (!_eventStreams.containsKey('queue_updated')) {
+      _eventStreams['queue_updated'] = StreamController<Map<String, dynamic>>.broadcast();
+    }
+    return _eventStreams['queue_updated']!.stream;
+  }
+
+  /// Stream of queue_items_updated events (for queue item add/remove/reorder)
+  /// This is critical for keeping queue UI in sync, especially in radio mode
+  Stream<Map<String, dynamic>> get queueItemsUpdatedEvents {
+    if (!_eventStreams.containsKey('queue_items_updated')) {
+      _eventStreams['queue_items_updated'] = StreamController<Map<String, dynamic>>.broadcast();
+    }
+    return _eventStreams['queue_items_updated']!.stream;
+  }
+
   /// Register this device as a player with retry logic
   /// CRITICAL: This creates a player config in MA's settings.json
   /// The server expects: player_id and player_name
