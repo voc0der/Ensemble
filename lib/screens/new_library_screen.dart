@@ -1842,47 +1842,39 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildCategoryChips(ColorScheme colorScheme, S l10n, int selectedIndex) {
     final categories = _getCategoryLabels(l10n);
 
-    // Use consistent formula for both flex and width: basePadding + charWidth * length
-    const double basePadding = 16.0;
-    const double charWidth = 7.5;
-
-    // Calculate widths per label (used for both flex ratios and total width)
-    final labelWidths = categories.map((label) => basePadding + label.length * charWidth).toList();
-    final estimatedTotalWidth = labelWidths.reduce((a, b) => a + b);
-
-    // Flex values derived from the same widths (scaled to integers for Expanded)
-    final flexValues = labelWidths.map((w) => (w * 10).round()).toList();
-    final totalFlex = flexValues.reduce((a, b) => a + b);
-
+    // Fixed horizontal padding around each label (consistent spacing)
+    const double hPadding = 10.0;
     const double hInset = 2.0;
-    final isFirstTab = selectedIndex == 0;
-    final isLastTab = selectedIndex == categories.length - 1;
+
+    // Measure actual text widths using TextPainter
+    final textStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w600);
+    final labelWidths = categories.map((label) {
+      final textPainter = TextPainter(
+        text: TextSpan(text: label, style: textStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      return textPainter.width + (hPadding * 2); // text width + padding on both sides
+    }).toList();
+    final totalWidth = labelWidths.reduce((a, b) => a + b);
 
     // Calculate left position for a given index
     double getLeftPosition(int index) {
       double left = 0;
       for (int i = 0; i < index; i++) {
-        left += (flexValues[i] / totalFlex) * estimatedTotalWidth;
+        left += labelWidths[i];
       }
       return left;
     }
 
-    // Calculate width for a given index
-    double getTabWidth(int index) {
-      return (flexValues[index] / totalFlex) * estimatedTotalWidth;
-    }
-
-    // Calculate highlight position and size based on whether it's at the edge
-    // First tab: flush with left edge, gap on right
-    // Last tab: gap on left, flush with right edge
-    // Middle tabs: gap on both sides
+    final isFirstTab = selectedIndex == 0;
+    final isLastTab = selectedIndex == categories.length - 1;
     final leftInset = isFirstTab ? 0.0 : hInset;
     final rightInset = isLastTab ? 0.0 : hInset;
     final highlightLeft = getLeftPosition(selectedIndex) + leftInset;
-    final highlightWidth = getTabWidth(selectedIndex) - leftInset - rightInset;
+    final highlightWidth = labelWidths[selectedIndex] - leftInset - rightInset;
 
     return Container(
-      width: estimatedTotalWidth,
+      width: totalWidth,
       height: _filterRowHeight,
       decoration: BoxDecoration(
         color: colorScheme.surfaceVariant.withOpacity(0.6),
@@ -1912,8 +1904,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               final label = entry.value;
               final isSelected = selectedIndex == index;
 
-              return Expanded(
-                flex: flexValues[index],
+              return SizedBox(
+                width: labelWidths[index],
                 child: GestureDetector(
                   onTap: () => _animateToCategory(index),
                   behavior: HitTestBehavior.opaque,
