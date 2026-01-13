@@ -1837,15 +1837,17 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildCategoryChips(ColorScheme colorScheme, S l10n, int selectedIndex) {
     final categories = _getCategoryLabels(l10n);
 
-    // Calculate flex values based on label length (same approach as media type bar)
-    final flexValues = categories.map((label) => 8 + label.length).toList();
-    final totalFlex = flexValues.reduce((a, b) => a + b);
+    // Use consistent formula for both flex and width: basePadding + charWidth * length
+    const double basePadding = 16.0;
+    const double charWidth = 7.5;
 
-    // Estimate total width: base padding (16) + text width per label
-    final estimatedTotalWidth = categories.fold<double>(
-      0,
-      (sum, label) => sum + 16 + label.length * 7.5,
-    );
+    // Calculate widths per label (used for both flex ratios and total width)
+    final labelWidths = categories.map((label) => basePadding + label.length * charWidth).toList();
+    final estimatedTotalWidth = labelWidths.reduce((a, b) => a + b);
+
+    // Flex values derived from the same widths (scaled to integers for Expanded)
+    final flexValues = labelWidths.map((w) => (w * 10).round()).toList();
+    final totalFlex = flexValues.reduce((a, b) => a + b);
 
     const double hInset = 2.0;
     final isFirstTab = selectedIndex == 0;
