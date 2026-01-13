@@ -49,6 +49,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   bool _isLoadingTracks = false;
   bool _isLoadingAudiobooks = false;
   bool _showFavoritesOnly = false;
+  bool _isChangingMediaType = false; // Flag to ignore onPageChanged during media type transitions
 
   // All tracks with lazy loading
   List<Track> _allTracks = [];
@@ -570,6 +571,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       _logger.log('📚 Same type, skipping');
       return;
     }
+
+    // Set flag to ignore onPageChanged during transition
+    _isChangingMediaType = true;
+
     setState(() {
       _selectedMediaType = type;
     });
@@ -578,7 +583,17 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final targetIndex = goToLastTab ? _getTabCountForType(type) - 1 : 0;
     _selectedTabIndex.value = targetIndex;
     _tabIndexNotifier.value = targetIndex;
-    _resetCategoryIndex();
+
+    // Jump to the target page and clear flag after
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(targetIndex);
+      }
+      // Clear flag after a short delay to ensure all page change events have fired
+      Future.delayed(const Duration(milliseconds: 50), () {
+        _isChangingMediaType = false;
+      });
+    });
     // Load audiobooks when switching to books tab
     if (type == LibraryMediaType.books) {
       _logger.log('📚 Switched to Books, _audiobooks.isEmpty=${_audiobooks.isEmpty}');
@@ -607,6 +622,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   }
 
   void _onPageChanged(int index) {
+    // Ignore page changes during media type transitions to avoid race conditions
+    if (_isChangingMediaType) return;
+
     // Update both: RestorableInt for persistence, ValueNotifier for UI
     // No setState needed - ValueListenableBuilder will rebuild only the filter chips
     _selectedTabIndex.value = index;
