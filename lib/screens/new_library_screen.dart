@@ -1861,7 +1861,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final categories = _getCategoryLabels(l10n);
 
     // Fixed horizontal padding around each label (consistent spacing)
-    const double hPadding = 10.0;
+    const double hPadding = 12.0;
     const double hInset = 2.0;
 
     // Measure actual text widths using TextPainter
