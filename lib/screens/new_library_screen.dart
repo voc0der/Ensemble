@@ -1762,21 +1762,20 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildInlineActionButtons(ColorScheme colorScheme) {
     final currentSort = _getCurrentSortOrder();
     final sortIcon = _getSortIcon(currentSort);
+    final fadedCircleColor = colorScheme.surfaceVariant.withOpacity(0.6);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         // Sort button with popup menu
         Padding(
-          padding: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.only(right: 4),
           child: SizedBox(
-            width: 36,
-            height: 36,
+            width: 32,
+            height: 32,
             child: Material(
-              color: colorScheme.background,
-              elevation: 2,
-              shadowColor: Colors.black26,
+              color: fadedCircleColor,
               shape: const CircleBorder(),
               child: PopupMenuButton<String>(
                 onSelected: _setSortOrder,
@@ -1785,7 +1784,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: Icon(
                   sortIcon,
-                  size: 18,
+                  size: 16,
                   color: colorScheme.onSurface,
                 ),
               ),
@@ -1794,21 +1793,19 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         ),
         // Favorites toggle (all media types support favorites)
         Padding(
-          padding: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.only(right: 4),
           child: SizedBox(
-            width: 36,
-            height: 36,
+            width: 32,
+            height: 32,
             child: Material(
-              color: _showFavoritesOnly ? Colors.red : colorScheme.background,
-              elevation: 2,
-              shadowColor: Colors.black26,
+              color: _showFavoritesOnly ? Colors.red : fadedCircleColor,
               shape: const CircleBorder(),
               child: InkWell(
                 onTap: () => _toggleFavoritesMode(!_showFavoritesOnly),
                 customBorder: const CircleBorder(),
                 child: Icon(
                   _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
-                  size: 18,
+                  size: 16,
                   color: _showFavoritesOnly ? Colors.white : colorScheme.onSurface,
                 ),
               ),
@@ -1817,19 +1814,17 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         ),
         // View mode toggle
         SizedBox(
-          width: 36,
-          height: 36,
+          width: 32,
+          height: 32,
           child: Material(
-            color: colorScheme.background,
-            elevation: 2,
-            shadowColor: Colors.black26,
+            color: fadedCircleColor,
             shape: const CircleBorder(),
             child: InkWell(
               onTap: _cycleCurrentViewMode,
               customBorder: const CircleBorder(),
               child: Icon(
                 _getViewModeIcon(_getCurrentViewMode()),
-                size: 18,
+                size: 16,
                 color: colorScheme.onSurface,
               ),
             ),
@@ -1843,13 +1838,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final categories = _getCategoryLabels(l10n);
 
     // Calculate flex values based on label length (same approach as media type bar)
-    final flexValues = categories.map((label) => 10 + label.length).toList();
+    final flexValues = categories.map((label) => 8 + label.length).toList();
     final totalFlex = flexValues.reduce((a, b) => a + b);
 
-    // Estimate total width: base padding (28) + text width per label
+    // Estimate total width: base padding (16) + text width per label
     final estimatedTotalWidth = categories.fold<double>(
       0,
-      (sum, label) => sum + 28 + label.length * 8.5,
+      (sum, label) => sum + 16 + label.length * 7.5,
     );
 
     const double hInset = 2.0;
