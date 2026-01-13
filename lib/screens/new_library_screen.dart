@@ -50,6 +50,16 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   bool _isLoadingAudiobooks = false;
   bool _showFavoritesOnly = false;
 
+  // All tracks with lazy loading
+  List<Track> _allTracks = [];
+  List<Track> _sortedAllTracks = [];
+  List<String> _trackNames = [];
+  bool _isLoadingMoreTracks = false;
+  bool _hasMoreTracks = true;
+  int _tracksOffset = 0;
+  static const int _tracksPageSize = 100;
+  static const int _tracksInitialLoad = 200;
+
   // PERF: Pre-sorted lists - computed once on data load, not on every build
   List<Playlist> _sortedPlaylists = [];
   List<String> _playlistNames = [];
@@ -82,6 +92,16 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   String _radioViewMode = 'list'; // 'grid2', 'grid3', 'list'
   String _podcastsViewMode = 'grid2'; // 'grid2', 'grid3', 'list'
   String _audiobooksSortOrder = 'alpha'; // 'alpha', 'year'
+
+  // Sort orders for all categories
+  String _artistsSortOrder = 'alpha'; // 'alpha', 'alpha_desc'
+  String _albumsSortOrder = 'alpha'; // 'alpha', 'alpha_desc', 'year', 'year_desc', 'artist'
+  String _tracksSortOrder = 'artist'; // 'alpha', 'artist', 'album', 'duration'
+  String _playlistsSortOrder = 'alpha'; // 'alpha', 'alpha_desc', 'tracks'
+  String _authorsSortOrder = 'alpha'; // 'alpha', 'alpha_desc', 'books'
+  String _seriesSortOrder = 'alpha'; // 'alpha', 'alpha_desc', 'books'
+  String _radioSortOrder = 'alpha'; // 'alpha', 'alpha_desc'
+  String _podcastsSortOrder = 'alpha'; // 'alpha', 'alpha_desc'
 
   // Author image cache
   final Map<String, String?> _authorImages = {};
@@ -119,6 +139,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   final ScrollController _artistsScrollController = ScrollController();
   final ScrollController _albumsScrollController = ScrollController();
   final ScrollController _playlistsScrollController = ScrollController();
+  final ScrollController _tracksScrollController = ScrollController();
   final ScrollController _authorsScrollController = ScrollController();
   final ScrollController _audiobooksScrollController = ScrollController();
   final ScrollController _seriesScrollController = ScrollController();
@@ -128,7 +149,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   int get _tabCount {
     switch (_selectedMediaType) {
       case LibraryMediaType.music:
-        return _showFavoritesOnly ? 4 : 3;
+        return 4; // Artists, Albums, Tracks, Playlists (always 4)
       case LibraryMediaType.books:
         return 3; // Authors, All Books, Series
       case LibraryMediaType.podcasts:
@@ -162,9 +183,21 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     _pageController = PageController();
     _loadPlaylists();
     _loadViewPreferences();
+    _loadAllTracks(); // Load tracks for the permanent Tracks tab
+
+    // Add scroll listener for lazy loading tracks
+    _tracksScrollController.addListener(_onTracksScroll);
+  }
+
+  void _onTracksScroll() {
+    if (_tracksScrollController.position.pixels >=
+        _tracksScrollController.position.maxScrollExtent - 500) {
+      _loadMoreTracks();
+    }
   }
 
   Future<void> _loadViewPreferences() async {
+    // View modes
     final artistsMode = await SettingsService.getLibraryArtistsViewMode();
     final albumsMode = await SettingsService.getLibraryAlbumsViewMode();
     final playlistsMode = await SettingsService.getLibraryPlaylistsViewMode();
@@ -174,8 +207,20 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final seriesMode = await SettingsService.getLibrarySeriesViewMode();
     final radioMode = await SettingsService.getLibraryRadioViewMode();
     final podcastsMode = await SettingsService.getLibraryPodcastsViewMode();
+
+    // Sort orders
+    final artistsSort = await SettingsService.getLibraryArtistsSortOrder();
+    final albumsSort = await SettingsService.getLibraryAlbumsSortOrder();
+    final tracksSort = await SettingsService.getLibraryTracksSortOrder();
+    final playlistsSort = await SettingsService.getLibraryPlaylistsSortOrder();
+    final authorsSort = await SettingsService.getLibraryAuthorsSortOrder();
+    final seriesSort = await SettingsService.getLibrarySeriesSortOrder();
+    final radioSort = await SettingsService.getLibraryRadioSortOrder();
+    final podcastsSort = await SettingsService.getLibraryPodcastsSortOrder();
+
     if (mounted) {
       setState(() {
+        // View modes
         _artistsViewMode = artistsMode;
         _albumsViewMode = albumsMode;
         _playlistsViewMode = playlistsMode;
@@ -185,6 +230,16 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         _seriesViewMode = seriesMode;
         _radioViewMode = radioMode;
         _podcastsViewMode = podcastsMode;
+
+        // Sort orders
+        _artistsSortOrder = artistsSort;
+        _albumsSortOrder = albumsSort;
+        _tracksSortOrder = tracksSort;
+        _playlistsSortOrder = playlistsSort;
+        _authorsSortOrder = authorsSort;
+        _seriesSortOrder = seriesSort;
+        _radioSortOrder = radioSort;
+        _podcastsSortOrder = podcastsSort;
       });
     }
   }
@@ -271,9 +326,15 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   void _toggleAudiobooksSortOrder() {
     final newOrder = _audiobooksSortOrder == 'alpha' ? 'year' : 'alpha';
-    // PERF: Re-sort once on order change, not on every build
+    _audiobooksSortOrder = newOrder;
+    _sortAudiobooks();
+    SettingsService.setLibraryAudiobooksSortOrder(newOrder);
+  }
+
+  /// Sort audiobooks based on current sort order
+  void _sortAudiobooks() {
     final sorted = List<Audiobook>.from(_audiobooks);
-    if (newOrder == 'year') {
+    if (_audiobooksSortOrder == 'year') {
       sorted.sort((a, b) {
         if (a.year == null && b.year == null) return a.name.compareTo(b.name);
         if (a.year == null) return 1;
@@ -283,12 +344,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     } else {
       sorted.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     }
-    setState(() {
-      _audiobooksSortOrder = newOrder;
-      _sortedAudiobooks = sorted;
-      _audiobookNames = sorted.map((a) => a.name).toList();
-    });
-    SettingsService.setLibraryAudiobooksSortOrder(newOrder);
+    _sortedAudiobooks = sorted;
+    _audiobookNames = sorted.map((a) => a.name).toList();
   }
 
   void _cycleSeriesViewMode() {
@@ -676,6 +733,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     _artistsScrollController.dispose();
     _albumsScrollController.dispose();
     _playlistsScrollController.dispose();
+    _tracksScrollController.removeListener(_onTracksScroll);
+    _tracksScrollController.dispose();
     _authorsScrollController.dispose();
     _audiobooksScrollController.dispose();
     _seriesScrollController.dispose();
@@ -691,16 +750,35 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       favoriteOnly: favoriteOnly,
     );
     if (mounted) {
-      // PERF: Pre-sort once on load, not on every build
-      final sorted = List<Playlist>.from(playlists)
-        ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
       setState(() {
         _playlists = playlists;
-        _sortedPlaylists = sorted;
-        _playlistNames = sorted.map((p) => p.name ?? '').toList();
+        _sortPlaylists();
         _isLoadingPlaylists = false;
       });
     }
+  }
+
+  /// Sort playlists based on current sort order
+  void _sortPlaylists() {
+    final sorted = List<Playlist>.from(_playlists);
+    switch (_playlistsSortOrder) {
+      case 'alpha':
+        sorted.sort((a, b) => (a.name ?? '').toLowerCase().compareTo((b.name ?? '').toLowerCase()));
+        break;
+      case 'alpha_desc':
+        sorted.sort((a, b) => (b.name ?? '').toLowerCase().compareTo((a.name ?? '').toLowerCase()));
+        break;
+      case 'tracks':
+        sorted.sort((a, b) {
+          // Sort by track count descending (most tracks first)
+          // Note: We don't have track count in the playlist model directly,
+          // so we'll sort alphabetically as fallback
+          return (a.name ?? '').toLowerCase().compareTo((b.name ?? '').toLowerCase());
+        });
+        break;
+    }
+    _sortedPlaylists = sorted;
+    _playlistNames = sorted.map((p) => p.name ?? '').toList();
   }
 
   Future<void> _loadFavoriteTracks() async {
@@ -737,6 +815,107 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         });
       }
     }
+  }
+
+  /// Load all tracks with lazy loading (initial batch)
+  Future<void> _loadAllTracks() async {
+    if (_isLoadingTracks) return;
+
+    setState(() {
+      _isLoadingTracks = true;
+      _tracksOffset = 0;
+      _hasMoreTracks = true;
+    });
+
+    final maProvider = context.read<MusicAssistantProvider>();
+    if (maProvider.api != null) {
+      final tracks = await maProvider.api!.getTracks(
+        limit: _tracksInitialLoad,
+        offset: 0,
+      );
+      if (mounted) {
+        setState(() {
+          _allTracks = tracks;
+          _sortAllTracks();
+          _tracksOffset = tracks.length;
+          _hasMoreTracks = tracks.length >= _tracksInitialLoad;
+          _isLoadingTracks = false;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoadingTracks = false;
+        });
+      }
+    }
+  }
+
+  /// Load more tracks when scrolling near bottom
+  Future<void> _loadMoreTracks() async {
+    if (_isLoadingMoreTracks || !_hasMoreTracks) return;
+
+    setState(() {
+      _isLoadingMoreTracks = true;
+    });
+
+    final maProvider = context.read<MusicAssistantProvider>();
+    if (maProvider.api != null) {
+      final tracks = await maProvider.api!.getTracks(
+        limit: _tracksPageSize,
+        offset: _tracksOffset,
+      );
+      if (mounted) {
+        setState(() {
+          _allTracks.addAll(tracks);
+          _sortAllTracks();
+          _tracksOffset += tracks.length;
+          _hasMoreTracks = tracks.length >= _tracksPageSize;
+          _isLoadingMoreTracks = false;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoadingMoreTracks = false;
+        });
+      }
+    }
+  }
+
+  /// Sort all tracks based on current sort order
+  void _sortAllTracks() {
+    final sorted = List<Track>.from(_allTracks);
+    switch (_tracksSortOrder) {
+      case 'alpha':
+        sorted.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case 'artist':
+        sorted.sort((a, b) {
+          final artistCompare = a.artistsString.compareTo(b.artistsString);
+          if (artistCompare != 0) return artistCompare;
+          return a.name.compareTo(b.name);
+        });
+        break;
+      case 'album':
+        sorted.sort((a, b) {
+          final albumA = a.album?.name ?? '';
+          final albumB = b.album?.name ?? '';
+          final albumCompare = albumA.compareTo(albumB);
+          if (albumCompare != 0) return albumCompare;
+          return a.name.compareTo(b.name);
+        });
+        break;
+      case 'duration':
+        sorted.sort((a, b) {
+          final durA = a.duration?.inSeconds ?? 0;
+          final durB = b.duration?.inSeconds ?? 0;
+          return durA.compareTo(durB);
+        });
+        break;
+    }
+    _sortedAllTracks = sorted;
+    _trackNames = sorted.map((t) => t.name).toList();
   }
 
   final _logger = DebugLogger();
@@ -1346,36 +1525,296 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     );
   }
 
-  // Inline action buttons for favorites and view mode (right side of row 2)
+  // ============ SORT FUNCTIONALITY ============
+
+  /// Get current sort order based on media type and tab index
+  String _getCurrentSortOrder() {
+    final tabIndex = _selectedTabIndex.value;
+    switch (_selectedMediaType) {
+      case LibraryMediaType.music:
+        switch (tabIndex) {
+          case 0: return _artistsSortOrder;
+          case 1: return _albumsSortOrder;
+          case 2: return _tracksSortOrder;
+          case 3: return _playlistsSortOrder;
+          default: return 'alpha';
+        }
+      case LibraryMediaType.books:
+        switch (tabIndex) {
+          case 0: return _authorsSortOrder;
+          case 1: return _audiobooksSortOrder;
+          case 2: return _seriesSortOrder;
+          default: return 'alpha';
+        }
+      case LibraryMediaType.radio:
+        return _radioSortOrder;
+      case LibraryMediaType.podcasts:
+        return _podcastsSortOrder;
+    }
+  }
+
+  /// Get sort icon based on current sort order
+  IconData _getSortIcon(String sortOrder) {
+    switch (sortOrder) {
+      case 'alpha':
+        return Icons.sort_by_alpha;
+      case 'alpha_desc':
+        return Icons.sort_by_alpha; // Same icon, rotation handled in widget
+      case 'year':
+      case 'year_desc':
+        return Icons.calendar_today;
+      case 'artist':
+        return Icons.person;
+      case 'album':
+        return Icons.album;
+      case 'duration':
+        return Icons.timer;
+      case 'tracks':
+      case 'books':
+        return Icons.format_list_numbered;
+      default:
+        return Icons.sort;
+    }
+  }
+
+  /// Set sort order and persist to settings
+  Future<void> _setSortOrder(String order) async {
+    final tabIndex = _selectedTabIndex.value;
+    setState(() {
+      switch (_selectedMediaType) {
+        case LibraryMediaType.music:
+          switch (tabIndex) {
+            case 0:
+              _artistsSortOrder = order;
+              // Artists sorted inline in tab builder - setState triggers rebuild
+              break;
+            case 1:
+              _albumsSortOrder = order;
+              // Albums sorted inline in tab builder - setState triggers rebuild
+              break;
+            case 2:
+              _tracksSortOrder = order;
+              _sortAllTracks();
+              break;
+            case 3:
+              _playlistsSortOrder = order;
+              _sortPlaylists();
+              break;
+          }
+          break;
+        case LibraryMediaType.books:
+          switch (tabIndex) {
+            case 0:
+              _authorsSortOrder = order;
+              // Authors sorted inline in tab builder - setState triggers rebuild
+              break;
+            case 1:
+              _audiobooksSortOrder = order;
+              _sortAudiobooks();
+              break;
+            case 2:
+              _seriesSortOrder = order;
+              // Series sorted inline in tab builder - setState triggers rebuild
+              break;
+          }
+          break;
+        case LibraryMediaType.radio:
+          _radioSortOrder = order;
+          // Radio sorted inline in tab builder - setState triggers rebuild
+          break;
+        case LibraryMediaType.podcasts:
+          _podcastsSortOrder = order;
+          // Podcasts sorted inline in tab builder - setState triggers rebuild
+          break;
+      }
+    });
+
+    // Persist to settings
+    switch (_selectedMediaType) {
+      case LibraryMediaType.music:
+        switch (tabIndex) {
+          case 0: await SettingsService.setLibraryArtistsSortOrder(order); break;
+          case 1: await SettingsService.setLibraryAlbumsSortOrder(order); break;
+          case 2: await SettingsService.setLibraryTracksSortOrder(order); break;
+          case 3: await SettingsService.setLibraryPlaylistsSortOrder(order); break;
+        }
+        break;
+      case LibraryMediaType.books:
+        switch (tabIndex) {
+          case 0: await SettingsService.setLibraryAuthorsSortOrder(order); break;
+          case 1: await SettingsService.setLibraryAudiobooksSortOrder(order); break;
+          case 2: await SettingsService.setLibrarySeriesSortOrder(order); break;
+        }
+        break;
+      case LibraryMediaType.radio:
+        await SettingsService.setLibraryRadioSortOrder(order);
+        break;
+      case LibraryMediaType.podcasts:
+        await SettingsService.setLibraryPodcastsSortOrder(order);
+        break;
+    }
+  }
+
+  /// Get sort options for current tab
+  List<PopupMenuEntry<String>> _getSortOptions() {
+    final tabIndex = _selectedTabIndex.value;
+    final currentSort = _getCurrentSortOrder();
+
+    switch (_selectedMediaType) {
+      case LibraryMediaType.music:
+        switch (tabIndex) {
+          case 0: // Artists
+            return [
+              _buildSortOption('alpha', 'A-Z', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('alpha_desc', 'Z-A', Icons.sort_by_alpha, currentSort),
+            ];
+          case 1: // Albums
+            return [
+              _buildSortOption('alpha', 'A-Z', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('alpha_desc', 'Z-A', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('year', 'Year (Newest)', Icons.calendar_today, currentSort),
+              _buildSortOption('year_desc', 'Year (Oldest)', Icons.calendar_today, currentSort),
+              _buildSortOption('artist', 'By Artist', Icons.person, currentSort),
+            ];
+          case 2: // Tracks
+            return [
+              _buildSortOption('alpha', 'A-Z', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('artist', 'By Artist', Icons.person, currentSort),
+              _buildSortOption('album', 'By Album', Icons.album, currentSort),
+              _buildSortOption('duration', 'Duration', Icons.timer, currentSort),
+            ];
+          case 3: // Playlists
+            return [
+              _buildSortOption('alpha', 'A-Z', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('alpha_desc', 'Z-A', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('tracks', 'Track Count', Icons.format_list_numbered, currentSort),
+            ];
+          default:
+            return [];
+        }
+      case LibraryMediaType.books:
+        switch (tabIndex) {
+          case 0: // Authors
+            return [
+              _buildSortOption('alpha', 'A-Z', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('alpha_desc', 'Z-A', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('books', 'Book Count', Icons.format_list_numbered, currentSort),
+            ];
+          case 1: // All Books
+            return [
+              _buildSortOption('alpha', 'A-Z', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('year', 'Year', Icons.calendar_today, currentSort),
+            ];
+          case 2: // Series
+            return [
+              _buildSortOption('alpha', 'A-Z', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('alpha_desc', 'Z-A', Icons.sort_by_alpha, currentSort),
+              _buildSortOption('books', 'Book Count', Icons.format_list_numbered, currentSort),
+            ];
+          default:
+            return [];
+        }
+      case LibraryMediaType.radio:
+        return [
+          _buildSortOption('alpha', 'A-Z', Icons.sort_by_alpha, currentSort),
+          _buildSortOption('alpha_desc', 'Z-A', Icons.sort_by_alpha, currentSort),
+        ];
+      case LibraryMediaType.podcasts:
+        return [
+          _buildSortOption('alpha', 'A-Z', Icons.sort_by_alpha, currentSort),
+          _buildSortOption('alpha_desc', 'Z-A', Icons.sort_by_alpha, currentSort),
+        ];
+    }
+  }
+
+  PopupMenuItem<String> _buildSortOption(String value, String label, IconData icon, String currentSort) {
+    final isSelected = currentSort == value;
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: isSelected ? Theme.of(context).colorScheme.primary : null,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Theme.of(context).colorScheme.primary : null,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+          const Spacer(),
+          if (isSelected)
+            Icon(
+              Icons.check,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Inline action buttons for sort, favorites and view mode (right side of row 2)
   Widget _buildInlineActionButtons(ColorScheme colorScheme) {
+    final currentSort = _getCurrentSortOrder();
+    final sortIcon = _getSortIcon(currentSort);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(width: 8),
-        // Favorites toggle (only for music and books)
-        if (_selectedMediaType == LibraryMediaType.music || _selectedMediaType == LibraryMediaType.books)
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: SizedBox(
-              width: 36,
-              height: 36,
-              child: Material(
-                color: _showFavoritesOnly ? Colors.red : colorScheme.background,
-                elevation: 2,
-                shadowColor: Colors.black26,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  onTap: () => _toggleFavoritesMode(!_showFavoritesOnly),
-                  customBorder: const CircleBorder(),
-                  child: Icon(
-                    _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
-                    size: 18,
-                    color: _showFavoritesOnly ? Colors.white : colorScheme.onSurface,
-                  ),
+        // Sort button with popup menu
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Material(
+              color: colorScheme.background,
+              elevation: 2,
+              shadowColor: Colors.black26,
+              shape: const CircleBorder(),
+              child: PopupMenuButton<String>(
+                onSelected: _setSortOrder,
+                itemBuilder: (context) => _getSortOptions(),
+                position: PopupMenuPosition.under,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Icon(
+                  sortIcon,
+                  size: 18,
+                  color: colorScheme.onSurface,
                 ),
               ),
             ),
           ),
+        ),
+        // Favorites toggle (all media types support favorites)
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Material(
+              color: _showFavoritesOnly ? Colors.red : colorScheme.background,
+              elevation: 2,
+              shadowColor: Colors.black26,
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: () => _toggleFavoritesMode(!_showFavoritesOnly),
+                customBorder: const CircleBorder(),
+                child: Icon(
+                  _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
+                  size: 18,
+                  color: _showFavoritesOnly ? Colors.white : colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ),
+        ),
         // View mode toggle
         SizedBox(
           width: 36,
@@ -1504,7 +1943,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         return [
           l10n.artists,
           l10n.albums,
-          if (_showFavoritesOnly) l10n.tracks,
+          l10n.tracks, // Always visible now
           l10n.playlists,
         ];
       case LibraryMediaType.books:
@@ -1525,23 +1964,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildTabAtIndex(BuildContext context, S l10n, int index) {
     switch (_selectedMediaType) {
       case LibraryMediaType.music:
-        if (_showFavoritesOnly) {
-          // Artists, Albums, Tracks, Playlists
-          switch (index) {
-            case 0: return _buildArtistsTab(context, l10n);
-            case 1: return _buildAlbumsTab(context, l10n);
-            case 2: return _buildTracksTab(context, l10n);
-            case 3: return _buildPlaylistsTab(context, l10n);
-            default: return const SizedBox();
-          }
-        } else {
-          // Artists, Albums, Playlists (no Tracks)
-          switch (index) {
-            case 0: return _buildArtistsTab(context, l10n);
-            case 1: return _buildAlbumsTab(context, l10n);
-            case 2: return _buildPlaylistsTab(context, l10n);
-            default: return const SizedBox();
-          }
+        // Always 4 tabs: Artists, Albums, Tracks, Playlists
+        switch (index) {
+          case 0: return _buildArtistsTab(context, l10n);
+          case 1: return _buildAlbumsTab(context, l10n);
+          case 2: return _buildTracksTab(context, l10n);
+          case 3: return _buildPlaylistsTab(context, l10n);
+          default: return const SizedBox();
         }
       case LibraryMediaType.books:
         switch (index) {
@@ -2520,14 +2949,27 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final maProvider = context.watch<MusicAssistantProvider>();
-    final podcasts = maProvider.podcasts;
+    final allPodcasts = maProvider.podcasts;
     final isLoading = maProvider.isLoadingPodcasts;
 
     if (isLoading) {
       return Center(child: CircularProgressIndicator(color: colorScheme.primary));
     }
 
+    // Filter by favorites if enabled
+    final podcasts = _showFavoritesOnly
+        ? allPodcasts.where((p) => p.favorite == true).toList()
+        : allPodcasts;
+
     if (podcasts.isEmpty) {
+      if (_showFavoritesOnly) {
+        return EmptyState.custom(
+          context: context,
+          icon: Icons.favorite_border,
+          title: l10n.noFavoritePodcasts,
+          subtitle: l10n.longPressPodcastHint,
+        );
+      }
       return EmptyState.custom(
         context: context,
         icon: MdiIcons.podcast,
@@ -2753,14 +3195,27 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final maProvider = context.watch<MusicAssistantProvider>();
-    final radioStations = maProvider.radioStations;
+    final allRadioStations = maProvider.radioStations;
     final isLoading = maProvider.isLoadingRadio;
 
     if (isLoading) {
       return Center(child: CircularProgressIndicator(color: colorScheme.primary));
     }
 
+    // Filter by favorites if enabled
+    final radioStations = _showFavoritesOnly
+        ? allRadioStations.where((s) => s.favorite == true).toList()
+        : allRadioStations;
+
     if (radioStations.isEmpty) {
+      if (_showFavoritesOnly) {
+        return EmptyState.custom(
+          context: context,
+          icon: Icons.favorite_border,
+          title: l10n.noFavoriteRadioStations,
+          subtitle: l10n.longPressRadioHint,
+        );
+      }
       return EmptyState.custom(
         context: context,
         icon: MdiIcons.radio,
@@ -2972,9 +3427,16 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               );
             }
 
-            // Sort artists alphabetically for letter scrollbar
-            final sortedArtists = List<Artist>.from(artists)
-              ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+            // Sort artists based on current sort order
+            final sortedArtists = List<Artist>.from(artists);
+            switch (_artistsSortOrder) {
+              case 'alpha':
+                sortedArtists.sort((a, b) => (a.name ?? '').toLowerCase().compareTo((b.name ?? '').toLowerCase()));
+                break;
+              case 'alpha_desc':
+                sortedArtists.sort((a, b) => (b.name ?? '').toLowerCase().compareTo((a.name ?? '').toLowerCase()));
+                break;
+            }
             final artistNames = sortedArtists.map((a) => a.name ?? '').toList();
 
             return RefreshIndicator(
@@ -3172,9 +3634,39 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           );
         }
 
-        // Sort albums alphabetically for letter scrollbar
-        final sortedAlbums = List<Album>.from(albums)
-          ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+        // Sort albums based on current sort order
+        final sortedAlbums = List<Album>.from(albums);
+        switch (_albumsSortOrder) {
+          case 'alpha':
+            sortedAlbums.sort((a, b) => (a.name ?? '').toLowerCase().compareTo((b.name ?? '').toLowerCase()));
+            break;
+          case 'alpha_desc':
+            sortedAlbums.sort((a, b) => (b.name ?? '').toLowerCase().compareTo((a.name ?? '').toLowerCase()));
+            break;
+          case 'year':
+            sortedAlbums.sort((a, b) {
+              final yearA = a.year ?? 0;
+              final yearB = b.year ?? 0;
+              return yearB.compareTo(yearA); // Newest first
+            });
+            break;
+          case 'year_desc':
+            sortedAlbums.sort((a, b) {
+              final yearA = a.year ?? 0;
+              final yearB = b.year ?? 0;
+              return yearA.compareTo(yearB); // Oldest first
+            });
+            break;
+          case 'artist':
+            sortedAlbums.sort((a, b) {
+              final artistA = a.artists.isNotEmpty ? a.artists.first.name ?? '' : '';
+              final artistB = b.artists.isNotEmpty ? b.artists.first.name ?? '' : '';
+              final artistCompare = artistA.toLowerCase().compareTo(artistB.toLowerCase());
+              if (artistCompare != 0) return artistCompare;
+              return (a.name ?? '').compareTo(b.name ?? '');
+            });
+            break;
+        }
         final albumNames = sortedAlbums.map((a) => a.name ?? '').toList();
 
         return RefreshIndicator(
@@ -3541,39 +4033,73 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     );
   }
 
-  // ============ TRACKS TAB (favorites only) ============
+  // ============ TRACKS TAB ============
   Widget _buildTracksTab(BuildContext context, S l10n) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    if (_isLoadingTracks) {
+    if (_isLoadingTracks && _allTracks.isEmpty) {
       return Center(child: CircularProgressIndicator(color: colorScheme.primary));
     }
 
-    if (_favoriteTracks.isEmpty) {
+    // Get the appropriate track list based on favorites mode
+    final List<Track> displayTracks;
+    if (_showFavoritesOnly) {
+      // Filter to favorites from already loaded tracks
+      displayTracks = _sortedAllTracks.where((t) => t.favorite == true).toList();
+    } else {
+      displayTracks = _sortedAllTracks;
+    }
+
+    if (displayTracks.isEmpty) {
+      if (_showFavoritesOnly) {
+        return EmptyState.custom(
+          context: context,
+          icon: Icons.favorite_border,
+          title: l10n.noFavoriteTracks,
+          subtitle: l10n.longPressTrackHint,
+        );
+      }
       return EmptyState.custom(
         context: context,
-        icon: Icons.favorite_border,
-        title: l10n.noFavoriteTracks,
-        subtitle: l10n.longPressTrackHint,
+        icon: Icons.music_note,
+        title: l10n.noTracks,
+        subtitle: l10n.addTracksHint,
+        onRefresh: _loadAllTracks,
       );
     }
 
-    // PERF: Use pre-sorted list (sorted once on load)
     return RefreshIndicator(
       color: colorScheme.primary,
       backgroundColor: colorScheme.background,
-      onRefresh: _loadFavoriteTracks,
-      child: ListView.builder(
-        key: const PageStorageKey<String>('library_tracks_list'),
-        cacheExtent: 1000,
-        addAutomaticKeepAlives: false, // Tiles don't need individual keep-alive
-        addRepaintBoundaries: false, // We add RepaintBoundary manually to tiles
-        padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.navBarOnly),
-        itemCount: _sortedFavoriteTracks.length,
-        itemBuilder: (context, index) {
-          final track = _sortedFavoriteTracks[index];
-          return _buildTrackTile(context, track);
-        },
+      onRefresh: _loadAllTracks,
+      child: LetterScrollbar(
+        controller: _tracksScrollController,
+        items: displayTracks.map((t) => t.name).toList(),
+        onDragStateChanged: _onLetterScrollbarDragChanged,
+        child: ListView.builder(
+          controller: _tracksScrollController,
+          key: PageStorageKey<String>('library_tracks_list_${_showFavoritesOnly ? 'fav' : 'all'}'),
+          cacheExtent: 1000,
+          addAutomaticKeepAlives: false,
+          addRepaintBoundaries: false,
+          padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.navBarOnly),
+          itemCount: displayTracks.length + (_hasMoreTracks && !_showFavoritesOnly ? 1 : 0),
+          itemBuilder: (context, index) {
+            // Show loading indicator at the end when loading more
+            if (index >= displayTracks.length) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: _isLoadingMoreTracks
+                      ? CircularProgressIndicator(color: colorScheme.primary)
+                      : const SizedBox(),
+                ),
+              );
+            }
+            final track = displayTracks[index];
+            return _buildTrackTile(context, track);
+          },
+        ),
       ),
     );
   }
@@ -3624,11 +4150,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: const Icon(
-        Icons.favorite,
-        color: Colors.red,
-        size: 20,
-      ),
+      trailing: track.favorite == true
+          ? const Icon(
+              Icons.favorite,
+              color: Colors.red,
+              size: 20,
+            )
+          : null,
       onTap: () async {
         final player = maProvider.selectedPlayer;
         if (player == null) {

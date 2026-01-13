@@ -1401,5 +1401,35 @@
         "type": "String"
       }
     }
+  },
+
+  "noTracks": "No tracks",
+  "@noTracks": {
+    "description": "Empty state title when no tracks exist in library"
+  },
+
+  "addTracksHint": "Add some music to your library to see tracks here",
+  "@addTracksHint": {
+    "description": "Hint for adding tracks to library"
+  },
+
+  "noFavoriteRadioStations": "No favorite radio stations",
+  "@noFavoriteRadioStations": {
+    "description": "Empty state when no favorite radio stations"
+  },
+
+  "longPressRadioHint": "Long-press a station and tap the heart to add it to favorites",
+  "@longPressRadioHint": {
+    "description": "Hint for favoriting radio stations"
+  },
+
+  "noFavoritePodcasts": "No favorite podcasts",
+  "@noFavoritePodcasts": {
+    "description": "Empty state when no favorite podcasts"
+  },
+
+  "longPressPodcastHint": "Long-press a podcast and tap the heart to add it to favorites",
+  "@longPressPodcastHint": {
+    "description": "Hint for favoriting podcasts"
   }
 }

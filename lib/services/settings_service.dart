@@ -76,6 +76,16 @@ class SettingsService {
   static const String _keyLibraryRadioViewMode = 'library_radio_view_mode'; // 'grid2', 'grid3', 'list'
   static const String _keyLibraryPodcastsViewMode = 'library_podcasts_view_mode'; // 'grid2', 'grid3', 'list'
 
+  // Library Sort Order Settings
+  static const String _keyLibraryArtistsSortOrder = 'library_artists_sort_order'; // 'alpha', 'alpha_desc'
+  static const String _keyLibraryAlbumsSortOrder = 'library_albums_sort_order'; // 'alpha', 'alpha_desc', 'year', 'year_desc', 'artist'
+  static const String _keyLibraryTracksSortOrder = 'library_tracks_sort_order'; // 'alpha', 'artist', 'album', 'duration'
+  static const String _keyLibraryPlaylistsSortOrder = 'library_playlists_sort_order'; // 'alpha', 'alpha_desc', 'tracks'
+  static const String _keyLibraryAuthorsSortOrder = 'library_authors_sort_order'; // 'alpha', 'alpha_desc', 'books'
+  static const String _keyLibrarySeriesSortOrder = 'library_series_sort_order'; // 'alpha', 'alpha_desc', 'books'
+  static const String _keyLibraryRadioSortOrder = 'library_radio_sort_order'; // 'alpha', 'alpha_desc'
+  static const String _keyLibraryPodcastsSortOrder = 'library_podcasts_sort_order'; // 'alpha', 'alpha_desc'
+
   // Audiobookshelf Direct Integration Settings
   static const String _keyAbsServerUrl = 'abs_server_url';
   static const String _keyAbsApiToken = 'abs_api_token';
@@ -726,6 +736,94 @@ class SettingsService {
   static Future<void> setSeriesAudiobooksViewMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keySeriesAudiobooksViewMode, mode);
+  }
+
+  // Library Sort Order Settings - Artists
+  static Future<String> getLibraryArtistsSortOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLibraryArtistsSortOrder) ?? 'alpha';
+  }
+
+  static Future<void> setLibraryArtistsSortOrder(String order) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLibraryArtistsSortOrder, order);
+  }
+
+  // Library Sort Order Settings - Albums
+  static Future<String> getLibraryAlbumsSortOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLibraryAlbumsSortOrder) ?? 'alpha';
+  }
+
+  static Future<void> setLibraryAlbumsSortOrder(String order) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLibraryAlbumsSortOrder, order);
+  }
+
+  // Library Sort Order Settings - Tracks
+  static Future<String> getLibraryTracksSortOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLibraryTracksSortOrder) ?? 'artist';
+  }
+
+  static Future<void> setLibraryTracksSortOrder(String order) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLibraryTracksSortOrder, order);
+  }
+
+  // Library Sort Order Settings - Playlists
+  static Future<String> getLibraryPlaylistsSortOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLibraryPlaylistsSortOrder) ?? 'alpha';
+  }
+
+  static Future<void> setLibraryPlaylistsSortOrder(String order) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLibraryPlaylistsSortOrder, order);
+  }
+
+  // Library Sort Order Settings - Authors
+  static Future<String> getLibraryAuthorsSortOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLibraryAuthorsSortOrder) ?? 'alpha';
+  }
+
+  static Future<void> setLibraryAuthorsSortOrder(String order) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLibraryAuthorsSortOrder, order);
+  }
+
+  // Library Sort Order Settings - Series
+  static Future<String> getLibrarySeriesSortOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLibrarySeriesSortOrder) ?? 'alpha';
+  }
+
+  static Future<void> setLibrarySeriesSortOrder(String order) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLibrarySeriesSortOrder, order);
+  }
+
+  // Library Sort Order Settings - Radio
+  static Future<String> getLibraryRadioSortOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLibraryRadioSortOrder) ?? 'alpha';
+  }
+
+  static Future<void> setLibraryRadioSortOrder(String order) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLibraryRadioSortOrder, order);
+  }
+
+  // Library Sort Order Settings - Podcasts
+  static Future<String> getLibraryPodcastsSortOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLibraryPodcastsSortOrder) ?? 'alpha';
+  }
+
+  static Future<void> setLibraryPodcastsSortOrder(String order) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLibraryPodcastsSortOrder, order);
   }
 
   // Audiobookshelf Settings
