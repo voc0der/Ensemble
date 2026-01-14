@@ -1082,7 +1082,7 @@ class MusicAssistantAPI {
       for (final item in providerRoot) {
         final itemMap = item as Map<String, dynamic>;
         final path = itemMap['path'] as String? ?? '';
-        final name = itemMap['name'] as String? ?? '';
+        final name = (itemMap['name'] as String?) ?? (itemMap['label'] as String?) ?? '';
         if (path != 'root' && name != '..') {
           discoveredLibraries.add({'path': path, 'name': name});
         }
@@ -1101,7 +1101,7 @@ class MusicAssistantAPI {
       for (final libraryItem in providerRoot) {
         final libraryMap = libraryItem as Map<String, dynamic>;
         final libraryPath = libraryMap['path'] as String? ?? '';
-        final libraryName = libraryMap['name'] as String? ?? '';
+        final libraryName = (libraryMap['name'] as String?) ?? (libraryMap['label'] as String?) ?? '';
 
         // Skip "root" (parent navigation) item
         if (libraryPath == 'root' || libraryName == '..') continue;
@@ -1121,7 +1121,7 @@ class MusicAssistantAPI {
         // Log library contents to find series
         for (final item in libraryContents) {
           final itemMap = item as Map<String, dynamic>;
-          final name = itemMap['name'] as String? ?? '';
+          final name = (itemMap['name'] as String?) ?? (itemMap['label'] as String?) ?? '';
           final path = itemMap['path'] as String? ?? '';
           _logger.log('📚   Library item: name=$name, path=$path');
         }
@@ -1129,7 +1129,7 @@ class MusicAssistantAPI {
         // Look for "Series" folder in the library
         for (final item in libraryContents) {
           final itemMap = item as Map<String, dynamic>;
-          final name = (itemMap['name'] as String? ?? '').toLowerCase();
+          final name = ((itemMap['name'] as String?) ?? (itemMap['label'] as String?) ?? '').toLowerCase();
           final path = itemMap['path'] as String? ?? '';
 
           if (name.contains('series') || path.contains('series')) {

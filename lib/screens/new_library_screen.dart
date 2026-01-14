@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show pi;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -1200,8 +1201,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     if (value) {
       _loadPlaylists(favoriteOnly: true);
       _loadFavoriteTracks();
+      _loadAudiobooks(favoriteOnly: true);
     } else {
       _loadPlaylists();
+      _loadAudiobooks();
     }
   }
 
@@ -1600,6 +1603,11 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     }
   }
 
+  /// Check if sort order is descending
+  bool _isSortDescending(String sortOrder) {
+    return sortOrder.endsWith('_desc');
+  }
+
   /// Set sort order and persist to settings
   Future<void> _setSortOrder(String order) async {
     final tabIndex = _selectedTabIndex.value;
@@ -1805,10 +1813,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                 itemBuilder: (context) => _getSortOptions(),
                 position: PopupMenuPosition.under,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Icon(
-                  sortIcon,
-                  size: 16,
-                  color: colorScheme.onSurface,
+                child: Transform.rotate(
+                  angle: _isSortDescending(currentSort) ? pi : 0,
+                  child: Icon(
+                    sortIcon,
+                    size: 16,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
               ),
             ),
@@ -1836,19 +1847,22 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           ),
         ),
         // View mode toggle
-        SizedBox(
-          width: 32,
-          height: 32,
-          child: Material(
-            color: fadedCircleColor,
-            shape: const CircleBorder(),
-            child: InkWell(
-              onTap: _cycleCurrentViewMode,
-              customBorder: const CircleBorder(),
-              child: Icon(
-                _getViewModeIcon(_getCurrentViewMode()),
-                size: 16,
-                color: colorScheme.onSurface,
+        Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: Material(
+              color: fadedCircleColor,
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: _cycleCurrentViewMode,
+                customBorder: const CircleBorder(),
+                child: Icon(
+                  _getViewModeIcon(_getCurrentViewMode()),
+                  size: 16,
+                  color: colorScheme.onSurface,
+                ),
               ),
             ),
           ),
