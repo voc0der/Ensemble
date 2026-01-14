@@ -1348,7 +1348,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   // ============ FILTER ROWS ============
   // Consistent height for filter rows
-  static const double _filterRowHeight = 36.0;
+  static const double _filterRowHeight = 48.0;
 
   Widget _buildFilterRows(ColorScheme colorScheme, S l10n, {required bool showLibraryTypeRow}) {
     return Column(
@@ -1795,74 +1795,70 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final sortIcon = _getSortIcon(currentSort);
     final fadedCircleColor = colorScheme.surfaceVariant.withOpacity(0.6);
 
+    // Material Design minimum touch target: 48x48
+    // Using 44x44 (acceptable for icon buttons) with 20px icons
+    const double buttonSize = 44.0;
+    const double iconSize = 20.0;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(width: 4),
         // Sort button with popup menu
-        Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: SizedBox(
-            width: 32,
-            height: 32,
-            child: Material(
-              color: fadedCircleColor,
-              shape: const CircleBorder(),
-              child: PopupMenuButton<String>(
-                onSelected: _setSortOrder,
-                itemBuilder: (context) => _getSortOptions(),
-                position: PopupMenuPosition.under,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Transform.rotate(
-                  angle: _isSortDescending(currentSort) ? pi : 0,
-                  child: Icon(
-                    sortIcon,
-                    size: 16,
-                    color: colorScheme.onSurface,
-                  ),
+        SizedBox(
+          width: buttonSize,
+          height: buttonSize,
+          child: Material(
+            color: fadedCircleColor,
+            shape: const CircleBorder(),
+            child: PopupMenuButton<String>(
+              onSelected: _setSortOrder,
+              itemBuilder: (context) => _getSortOptions(),
+              position: PopupMenuPosition.under,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Transform.rotate(
+                angle: _isSortDescending(currentSort) ? pi : 0,
+                child: Icon(
+                  sortIcon,
+                  size: iconSize,
+                  color: colorScheme.onSurface,
                 ),
               ),
             ),
           ),
         ),
         // Favorites toggle (all media types support favorites)
-        Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: SizedBox(
-            width: 32,
-            height: 32,
-            child: Material(
-              color: _showFavoritesOnly ? Colors.red : fadedCircleColor,
-              shape: const CircleBorder(),
-              child: InkWell(
-                onTap: () => _toggleFavoritesMode(!_showFavoritesOnly),
-                customBorder: const CircleBorder(),
-                child: Icon(
-                  _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
-                  size: 16,
-                  color: _showFavoritesOnly ? Colors.white : colorScheme.onSurface,
-                ),
+        SizedBox(
+          width: buttonSize,
+          height: buttonSize,
+          child: Material(
+            color: _showFavoritesOnly ? Colors.red : fadedCircleColor,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: () => _toggleFavoritesMode(!_showFavoritesOnly),
+              customBorder: const CircleBorder(),
+              child: Icon(
+                _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
+                size: iconSize,
+                color: _showFavoritesOnly ? Colors.white : colorScheme.onSurface,
               ),
             ),
           ),
         ),
         // View mode toggle
-        Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: SizedBox(
-            width: 32,
-            height: 32,
-            child: Material(
-              color: fadedCircleColor,
-              shape: const CircleBorder(),
-              child: InkWell(
-                onTap: _cycleCurrentViewMode,
-                customBorder: const CircleBorder(),
-                child: Icon(
-                  _getViewModeIcon(_getCurrentViewMode()),
-                  size: 16,
-                  color: colorScheme.onSurface,
-                ),
+        SizedBox(
+          width: buttonSize,
+          height: buttonSize,
+          child: Material(
+            color: fadedCircleColor,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: _cycleCurrentViewMode,
+              customBorder: const CircleBorder(),
+              child: Icon(
+                _getViewModeIcon(_getCurrentViewMode()),
+                size: iconSize,
+                color: colorScheme.onSurface,
               ),
             ),
           ),

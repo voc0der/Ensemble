@@ -947,7 +947,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                         onPressed: _toggleSortOrder,
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                       ),
                       // View mode toggle
                       IconButton(
@@ -968,7 +968,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                         onPressed: _cycleViewMode,
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                       ),
                     ],
                   ),
@@ -1004,7 +1004,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                           onPressed: _toggleSortOrder,
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                         ),
                         IconButton(
                           icon: Icon(
@@ -1024,7 +1024,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                           onPressed: _cycleViewMode,
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                         ),
                       ],
                     ],
@@ -1032,7 +1032,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                 ),
               ),
               _buildAlbumSliver(_providerAlbums),
-              const SliverToBoxAdapter(child: SizedBox(height: 140)), // Space for bottom nav + mini player
+              SliverToBoxAdapter(child: SizedBox(height: BottomSpacing.withMiniPlayer)), // Space for bottom nav + mini player
             ],
           ],
         ],

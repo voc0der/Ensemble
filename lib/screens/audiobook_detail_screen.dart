@@ -777,7 +777,7 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
             // Use MA chapters if available, otherwise use ABS chapters
             ..._buildChapterSection(book, colorScheme, textTheme),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 140)),
+            SliverToBoxAdapter(child: SizedBox(height: BottomSpacing.withMiniPlayer)),
           ],
         );
           },

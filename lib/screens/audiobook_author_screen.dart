@@ -287,7 +287,7 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
               ),
             ),
             _buildAudiobookSliver(),
-            const SliverToBoxAdapter(child: SizedBox(height: 140)),
+            SliverToBoxAdapter(child: SizedBox(height: BottomSpacing.withMiniPlayer)),
           ],
         ),
       ),

@@ -860,8 +860,8 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                   ),
 
                 // Bottom padding for mini player
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 100),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: BottomSpacing.withMiniPlayer),
                 ),
               ],
             );
