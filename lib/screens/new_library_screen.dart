@@ -2196,20 +2196,24 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                           ),
                           // Image covers icon when loaded
                           if (authorImageUrl != null)
-                            ClipOval(
-                              child: CachedNetworkImage(
-                                imageUrl: authorImageUrl,
-                                fit: BoxFit.cover,
-                                width: size,
-                                height: size,
-                                memCacheWidth: 256,
-                                memCacheHeight: 256,
-                                fadeInDuration: Duration.zero,
-                                fadeOutDuration: Duration.zero,
-                                // Transparent placeholder - icon shows through
-                                placeholder: (_, __) => const SizedBox.shrink(),
-                                // On error, shrink to show icon underneath
-                                errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                            SizedBox(
+                              width: size,
+                              height: size,
+                              child: ClipOval(
+                                child: CachedNetworkImage(
+                                  imageUrl: authorImageUrl,
+                                  fit: BoxFit.cover,
+                                  width: size,
+                                  height: size,
+                                  memCacheWidth: 256,
+                                  memCacheHeight: 256,
+                                  fadeInDuration: Duration.zero,
+                                  fadeOutDuration: Duration.zero,
+                                  // Transparent placeholder - icon shows through
+                                  placeholder: (_, __) => const SizedBox.shrink(),
+                                  // On error, shrink to show icon underneath
+                                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                                ),
                               ),
                             ),
                         ],

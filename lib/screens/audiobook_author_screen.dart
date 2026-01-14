@@ -150,10 +150,16 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
       },
       child: Scaffold(
         backgroundColor: colorScheme.surface,
-        body: CustomScrollView(
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            // Responsive cover size: 70% of screen width, clamped between 160-280 (same as artist detail)
+            final coverSize = (constraints.maxWidth * 0.7).clamp(160.0, 280.0);
+            final expandedHeight = coverSize + 100;
+
+            return CustomScrollView(
           slivers: [
             SliverAppBar(
-              expandedHeight: 200,
+              expandedHeight: expandedHeight,
               pinned: true,
               backgroundColor: colorScheme.surface,
               leading: IconButton(
@@ -172,8 +178,8 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
                     Hero(
                       tag: HeroTags.authorImage + widget.authorName + _heroTagSuffix,
                       child: Container(
-                        width: 200,
-                        height: 200,
+                        width: coverSize,
+                        height: coverSize,
                         decoration: BoxDecoration(
                           color: colorScheme.primaryContainer,
                           shape: BoxShape.circle,
@@ -183,24 +189,26 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
                               ? CachedNetworkImage(
                                   imageUrl: _authorImageUrl!,
                                   fit: BoxFit.cover,
-                                  width: 200,
-                                  height: 200,
+                                  width: coverSize,
+                                  height: coverSize,
+                                  memCacheWidth: 256,
+                                  memCacheHeight: 256,
                                   fadeInDuration: Duration.zero,
                                   fadeOutDuration: Duration.zero,
                                   placeholder: (_, __) => Icon(
                                     MdiIcons.accountOutline,
-                                    size: 100,
+                                    size: coverSize * 0.5,
                                     color: colorScheme.onPrimaryContainer,
                                   ),
                                   errorWidget: (_, __, ___) => Icon(
                                     MdiIcons.accountOutline,
-                                    size: 100,
+                                    size: coverSize * 0.5,
                                     color: colorScheme.onPrimaryContainer,
                                   ),
                                 )
                               : Icon(
                                   MdiIcons.accountOutline,
-                                  size: 100,
+                                  size: coverSize * 0.5,
                                   color: colorScheme.onPrimaryContainer,
                                 ),
                         ),
@@ -289,6 +297,8 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
             _buildAudiobookSliver(),
             SliverToBoxAdapter(child: SizedBox(height: BottomSpacing.withMiniPlayer)),
           ],
+            );
+          },
         ),
       ),
     );
