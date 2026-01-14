@@ -343,14 +343,26 @@ class MetadataService {
       }
     }
 
-    // Expand condensed initials like "J.R.R." to "J. R. R." for better splitting
-    // This handles "J.R.R. Tolkien" -> "J. R. R. Tolkien"
-    final expandedInitials = original.replaceAllMapped(
-      RegExp(r'([A-Z])\.([A-Z])'),
-      (m) => '${m.group(1)}. ${m.group(2)}',
+    // Normalize and expand initials for better matching
+    // Handles messy formats like "J. R.R Tolkien", "J.R.R. Tolkien", etc.
+    String normalized = original;
+
+    // First, normalize spacing around periods in initials: "R.R" -> "R. R", "J. R" -> "J. R"
+    // Match single letter followed by period and optional space, then another letter
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'([A-Z])\.(\s?)([A-Z])'),
+      (m) => '${m.group(1)}. ${m.group(3)}',
     );
-    if (expandedInitials != original && !variations.contains(expandedInitials)) {
-      variations.add(expandedInitials);
+
+    // Also handle single letters without periods followed by period-letter: "R.R" in "J. R.R"
+    // This catches the case where we have "R.R" as a unit
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'(\s)([A-Z])\.([A-Z])'),
+      (m) => '${m.group(1)}${m.group(2)}. ${m.group(3)}.',
+    );
+
+    if (normalized != original && !variations.contains(normalized)) {
+      variations.add(normalized);
     }
 
     // Remove common titles
@@ -381,8 +393,8 @@ class MetadataService {
       }
     }
 
-    // Split into parts for further variations (use expanded initials for better splitting)
-    final nameToSplit = expandedInitials != original ? expandedInitials : withoutSuffix;
+    // Split into parts for further variations (use normalized name for better splitting)
+    final nameToSplit = normalized != original ? normalized : withoutSuffix;
     final parts = nameToSplit.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
 
     if (parts.length >= 2) {
