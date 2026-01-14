@@ -426,15 +426,17 @@ class _GlobalPlayerOverlayState extends State<GlobalPlayerOverlay>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // Watch provider to trigger rebuilds when connection state changes
-    final provider = context.watch<MusicAssistantProvider>();
+    // PERF: Use select() to only rebuild when connection state or player changes
+    final (isConnected, hasSelectedPlayer) = context.select<MusicAssistantProvider, (bool, bool)>(
+      (p) => (p.isConnected, p.selectedPlayer != null),
+    );
 
     // Compute whether this is a first-time user ready for welcome screen.
     // This is SYNCHRONOUS - no setState needed - so it works in the same frame.
     final isFirstTimeUserReady = _settingsLoaded &&
         !_hasCompletedOnboarding &&
-        provider.isConnected &&
-        provider.selectedPlayer != null;
+        isConnected &&
+        hasSelectedPlayer;
 
     // Show welcome backdrop if:
     // 1. Already in hint mode (_isHintModeActive), OR

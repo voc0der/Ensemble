@@ -6,7 +6,6 @@ import '../../l10n/app_localizations.dart';
 import '../../providers/music_assistant_provider.dart';
 import '../../services/settings_service.dart';
 import '../../theme/design_tokens.dart';
-import '../../theme/theme_provider.dart';
 import '../../theme/palette_helper.dart';
 import '../../constants/timings.dart';
 import '../global_player_overlay.dart';
@@ -234,7 +233,6 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

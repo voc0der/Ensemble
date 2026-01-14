@@ -2953,9 +2953,12 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildPodcastsTab(BuildContext context, S l10n) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final maProvider = context.watch<MusicAssistantProvider>();
-    final allPodcasts = maProvider.podcasts;
-    final isLoading = maProvider.isLoadingPodcasts;
+    // PERF: Use select() to only rebuild when podcasts or loading state changes
+    final (allPodcasts, isLoading) = context.select<MusicAssistantProvider, (List<MediaItem>, bool)>(
+      (p) => (p.podcasts, p.isLoadingPodcasts),
+    );
+    // Use read() for methods that don't need reactive updates
+    final maProvider = context.read<MusicAssistantProvider>();
 
     if (isLoading) {
       return Center(child: CircularProgressIndicator(color: colorScheme.primary));
@@ -3199,9 +3202,12 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildRadioStationsTab(BuildContext context, S l10n) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final maProvider = context.watch<MusicAssistantProvider>();
-    final allRadioStations = maProvider.radioStations;
-    final isLoading = maProvider.isLoadingRadio;
+    // PERF: Use select() to only rebuild when radio stations or loading state changes
+    final (allRadioStations, isLoading) = context.select<MusicAssistantProvider, (List<MediaItem>, bool)>(
+      (p) => (p.radioStations, p.isLoadingRadio),
+    );
+    // Use read() for methods that don't need reactive updates
+    final maProvider = context.read<MusicAssistantProvider>();
 
     if (isLoading) {
       return Center(child: CircularProgressIndicator(color: colorScheme.primary));

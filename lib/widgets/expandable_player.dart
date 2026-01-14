@@ -1229,7 +1229,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
+    // PERF: Use select() to only rebuild when adaptive theme setting changes
+    final adaptiveTheme = context.select<ThemeProvider, bool>((p) => p.adaptiveTheme);
 
     return Consumer<MusicAssistantProvider>(
       builder: (context, maProvider, child) {
@@ -1247,7 +1248,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
             : null;
 
         // Extract colors for adaptive theme
-        if (themeProvider.adaptiveTheme && imageUrl != null) {
+        if (adaptiveTheme && imageUrl != null) {
           _extractColors(imageUrl);
         }
 
