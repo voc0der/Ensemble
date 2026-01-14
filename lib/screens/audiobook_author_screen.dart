@@ -191,8 +191,8 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
                                   fit: BoxFit.cover,
                                   width: coverSize,
                                   height: coverSize,
+                                  // Only set width - height scales proportionally to preserve aspect ratio
                                   memCacheWidth: 256,
-                                  memCacheHeight: 256,
                                   fadeInDuration: Duration.zero,
                                   fadeOutDuration: Duration.zero,
                                   placeholder: (_, __) => Icon(

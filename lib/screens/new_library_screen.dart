@@ -2122,8 +2122,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                     fit: BoxFit.cover,
                     width: 48,
                     height: 48,
+                    // Only set width - height scales proportionally to preserve aspect ratio
                     memCacheWidth: 128,
-                    memCacheHeight: 128,
                     fadeInDuration: Duration.zero,
                     fadeOutDuration: Duration.zero,
                     // Transparent placeholder - icon shows through
@@ -2205,8 +2205,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                                   fit: BoxFit.cover,
                                   width: size,
                                   height: size,
+                                  // Only set width - height scales proportionally to preserve aspect ratio
                                   memCacheWidth: 256,
-                                  memCacheHeight: 256,
                                   fadeInDuration: Duration.zero,
                                   fadeOutDuration: Duration.zero,
                                   // Transparent placeholder - icon shows through
