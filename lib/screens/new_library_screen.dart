@@ -4157,7 +4157,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             : null,
       ),
       title: Text(
-        track.artistsString,
+        track.name,
         style: textTheme.titleMedium?.copyWith(
           color: colorScheme.onSurface,
         ),
@@ -4165,20 +4165,34 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        track.name,
+        track.artistsString,
         style: textTheme.bodySmall?.copyWith(
           color: colorScheme.onSurface.withOpacity(0.7),
         ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: track.favorite == true
-          ? const Icon(
-              Icons.favorite,
-              color: StatusColors.favorite,
-              size: 20,
-            )
-          : null,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (track.favorite == true)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: Icon(
+                Icons.favorite,
+                color: StatusColors.favorite,
+                size: 18,
+              ),
+            ),
+          if (track.duration != null)
+            Text(
+              _formatTrackDuration(track.duration!),
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.5),
+              ),
+            ),
+        ],
+      ),
       onTap: () async {
         final player = maProvider.selectedPlayer;
         if (player == null) {
@@ -4201,6 +4215,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       },
       ),
     );
+  }
+
+  String _formatTrackDuration(Duration duration) {
+    final totalSeconds = duration.inSeconds;
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 }
 
