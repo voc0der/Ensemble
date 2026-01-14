@@ -9,6 +9,7 @@ import '../theme/theme_provider.dart';
 import '../utils/page_transitions.dart';
 import 'playlist_details_screen.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/design_tokens.dart';
 
 class LibraryPlaylistsScreen extends StatefulWidget {
   const LibraryPlaylistsScreen({super.key});
@@ -168,7 +169,7 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
           overflow: TextOverflow.ellipsis,
         ),
         trailing: playlist.favorite == true
-            ? const Icon(Icons.favorite, color: Colors.red, size: 20)
+            ? const Icon(Icons.favorite, color: StatusColors.favorite, size: 20)
             : null,
         onTap: () {
           updateAdaptiveColorsFromImage(context, imageUrl);

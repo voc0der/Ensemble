@@ -3931,7 +3931,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           overflow: TextOverflow.ellipsis,
         ),
         trailing: playlist.favorite == true
-            ? const Icon(Icons.favorite, color: Colors.red, size: 20)
+            ? const Icon(Icons.favorite, color: StatusColors.favorite, size: 20)
             : null,
         onTap: () {
           updateAdaptiveColorsFromImage(context, imageUrl);
@@ -4165,7 +4165,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       trailing: track.favorite == true
           ? const Icon(
               Icons.favorite,
-              color: Colors.red,
+              color: StatusColors.favorite,
               size: 20,
             )
           : null,
