@@ -343,6 +343,16 @@ class MetadataService {
       }
     }
 
+    // Expand condensed initials like "J.R.R." to "J. R. R." for better splitting
+    // This handles "J.R.R. Tolkien" -> "J. R. R. Tolkien"
+    final expandedInitials = original.replaceAllMapped(
+      RegExp(r'([A-Z])\.([A-Z])'),
+      (m) => '${m.group(1)}. ${m.group(2)}',
+    );
+    if (expandedInitials != original && !variations.contains(expandedInitials)) {
+      variations.add(expandedInitials);
+    }
+
     // Remove common titles
     final titles = ['Dr.', 'Dr', 'Mr.', 'Mr', 'Mrs.', 'Mrs', 'Ms.', 'Ms',
                     'Prof.', 'Prof', 'Professor', 'Sir', 'Dame', 'Lord', 'Lady'];
@@ -371,8 +381,9 @@ class MetadataService {
       }
     }
 
-    // Split into parts for further variations
-    final parts = withoutSuffix.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    // Split into parts for further variations (use expanded initials for better splitting)
+    final nameToSplit = expandedInitials != original ? expandedInitials : withoutSuffix;
+    final parts = nameToSplit.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
 
     if (parts.length >= 2) {
       // Try first + last only (skip middle names/initials)
@@ -381,26 +392,41 @@ class MetadataService {
         variations.add(firstLast);
       }
 
-      // If first part is an initial (like "J." or "J"), try expanding common patterns
-      if (parts.first.length <= 2 || (parts.first.length == 2 && parts.first.endsWith('.'))) {
-        // Try just last name
+      // Check if name starts with initials (single letter or letter with period)
+      bool isInitial(String s) => s.length == 1 || (s.length == 2 && s.endsWith('.'));
+
+      // If first part looks like an initial, try just the last name
+      if (isInitial(parts.first)) {
         if (!variations.contains(parts.last)) {
           variations.add(parts.last);
         }
       }
 
-      // Handle double-barreled first names like "J.K." or "J. K."
-      if (parts.length >= 3) {
-        final first = parts.first;
-        final second = parts[1];
-        // Check if first two parts are initials
-        if ((first.length <= 2 || first.endsWith('.')) &&
-            (second.length <= 2 || second.endsWith('.'))) {
-          // Try third part onwards as the name
-          final restOfName = parts.sublist(2).join(' ');
-          if (restOfName.isNotEmpty && !variations.contains(restOfName)) {
-            variations.add(restOfName);
-          }
+      // Handle multiple initials like "J. K. Rowling" or "J. R. R. Tolkien"
+      // Find where initials end and actual name begins
+      int initialsEnd = 0;
+      for (int i = 0; i < parts.length - 1; i++) {
+        if (isInitial(parts[i])) {
+          initialsEnd = i + 1;
+        } else {
+          break;
+        }
+      }
+
+      if (initialsEnd > 0 && initialsEnd < parts.length) {
+        // Try the non-initial part of the name
+        final restOfName = parts.sublist(initialsEnd).join(' ');
+        if (restOfName.isNotEmpty && !variations.contains(restOfName)) {
+          variations.add(restOfName);
+        }
+
+        // Also try initials without periods + last name (e.g., "JRR Tolkien", "JK Rowling")
+        final initialsNoPeriods = parts.sublist(0, initialsEnd)
+            .map((s) => s.replaceAll('.', ''))
+            .join('');
+        final compactInitials = '$initialsNoPeriods ${parts.last}';
+        if (!variations.contains(compactInitials)) {
+          variations.add(compactInitials);
         }
       }
     }
@@ -548,11 +574,13 @@ class MetadataService {
       }
     }
 
-    // 3. Try Wikipedia (only first variation to avoid too many requests)
-    final wikiResult = await _tryWikipedia(variations.first);
-    if (wikiResult != null) {
-      _authorImageCache[cacheKey] = wikiResult;
-      return wikiResult;
+    // 3. Try Wikipedia (try top 3 variations - best source for famous authors)
+    for (final name in variations.take(3)) {
+      final wikiResult = await _tryWikipedia(name);
+      if (wikiResult != null) {
+        _authorImageCache[cacheKey] = wikiResult;
+        return wikiResult;
+      }
     }
 
     // Cache the null result to avoid repeated failed lookups
