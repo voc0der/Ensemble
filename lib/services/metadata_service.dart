@@ -361,6 +361,13 @@ class MetadataService {
       (m) => '${m.group(1)}${m.group(2)}. ${m.group(3)}.',
     );
 
+    // Add periods to standalone single uppercase letters (initials without periods)
+    // "J. R. R Tolkien" -> "J. R. R. Tolkien"
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'(\s)([A-Z])(\s)'),
+      (m) => '${m.group(1)}${m.group(2)}.${m.group(3)}',
+    );
+
     if (normalized != original && !variations.contains(normalized)) {
       variations.add(normalized);
     }
