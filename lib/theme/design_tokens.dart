@@ -124,3 +124,51 @@ class Durations {
   static const Duration normal = Duration(milliseconds: 300);
   static const Duration slow = Duration(milliseconds: 500);
 }
+
+/// Button size tokens
+class ButtonSizes {
+  ButtonSizes._();
+
+  // Touch target sizes (Material Design minimum: 48x48)
+  static const double sm = 32.0;
+  static const double md = 36.0;
+  static const double lg = 44.0;
+  static const double xl = 48.0;
+  static const double xxl = 56.0;
+
+  // Icon sizes within buttons
+  static const double iconSm = 16.0;
+  static const double iconMd = 18.0;
+  static const double iconLg = 20.0;
+  static const double iconXl = 24.0;
+}
+
+/// Semantic status colors for consistent feedback
+/// Use with Theme brightness for proper contrast
+class StatusColors {
+  StatusColors._();
+
+  // Success states
+  static const Color success = Color(0xFF4CAF50);
+  static const Color successLight = Color(0xFF81C784);
+  static const Color successDark = Color(0xFF388E3C);
+
+  // Error states
+  static const Color error = Color(0xFFF44336);
+  static const Color errorLight = Color(0xFFE57373);
+  static const Color errorDark = Color(0xFFD32F2F);
+
+  // Warning states
+  static const Color warning = Color(0xFFFF9800);
+  static const Color warningLight = Color(0xFFFFB74D);
+  static const Color warningDark = Color(0xFFF57C00);
+
+  // Info states
+  static const Color info = Color(0xFF2196F3);
+  static const Color infoLight = Color(0xFF64B5F6);
+  static const Color infoDark = Color(0xFF1976D2);
+
+  // Favorites (heart icon)
+  static const Color favorite = Color(0xFFF44336);
+  static const Color favoriteActive = Color(0xFFE53935);
+}

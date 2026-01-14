@@ -21,6 +21,7 @@ import '../services/metadata_service.dart';
 import '../services/debug_logger.dart';
 import '../services/sync_service.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/design_tokens.dart';
 import 'album_details_screen.dart';
 import 'artist_details_screen.dart';
 import 'playlist_details_screen.dart';
@@ -1796,8 +1797,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final fadedCircleColor = colorScheme.surfaceVariant.withOpacity(0.6);
 
     // Compact touch targets for filter row buttons
-    const double buttonSize = 36.0;
-    const double iconSize = 18.0;
+    const double buttonSize = ButtonSizes.md;
+    const double iconSize = ButtonSizes.iconMd;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1832,7 +1833,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           width: buttonSize,
           height: buttonSize,
           child: Material(
-            color: _showFavoritesOnly ? Colors.red : fadedCircleColor,
+            color: _showFavoritesOnly ? StatusColors.favorite : fadedCircleColor,
             shape: const CircleBorder(),
             child: InkWell(
               onTap: () => _toggleFavoritesMode(!_showFavoritesOnly),

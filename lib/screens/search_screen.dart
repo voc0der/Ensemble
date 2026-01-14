@@ -22,6 +22,7 @@ import 'playlist_details_screen.dart';
 import 'audiobook_detail_screen.dart';
 import 'podcast_detail_screen.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/design_tokens.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -1222,7 +1223,7 @@ class SearchScreenState extends State<SearchScreen> {
                             style: FilledButton.styleFrom(
                               padding: EdgeInsets.zero,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(22),
+                                borderRadius: BorderRadius.circular(Radii.xxl),
                               ),
                             ),
                             child: Icon(
@@ -1438,7 +1439,7 @@ class SearchScreenState extends State<SearchScreen> {
                             style: FilledButton.styleFrom(
                               padding: EdgeInsets.zero,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(22),
+                                borderRadius: BorderRadius.circular(Radii.xxl),
                               ),
                             ),
                             child: Icon(
@@ -1632,7 +1633,7 @@ class SearchScreenState extends State<SearchScreen> {
                             style: FilledButton.styleFrom(
                               padding: EdgeInsets.zero,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(22),
+                                borderRadius: BorderRadius.circular(Radii.xxl),
                               ),
                             ),
                             child: Icon(
@@ -1997,7 +1998,7 @@ class SearchScreenState extends State<SearchScreen> {
                             style: FilledButton.styleFrom(
                               padding: EdgeInsets.zero,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(22),
+                                borderRadius: BorderRadius.circular(Radii.xxl),
                               ),
                             ),
                             child: Icon(

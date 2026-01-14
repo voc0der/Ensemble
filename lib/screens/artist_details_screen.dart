@@ -13,6 +13,7 @@ import '../services/settings_service.dart';
 import '../services/debug_logger.dart';
 import '../utils/page_transitions.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/design_tokens.dart';
 
 class ArtistDetailsScreen extends StatefulWidget {
   final Artist artist;
@@ -861,7 +862,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                           style: FilledButton.styleFrom(
                             padding: EdgeInsets.zero,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
+                              borderRadius: BorderRadius.circular(Radii.xxl),
                             ),
                           ),
                           child: Icon(

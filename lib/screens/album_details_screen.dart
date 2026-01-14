@@ -12,6 +12,7 @@ import '../services/recently_played_service.dart';
 import '../widgets/global_player_overlay.dart';
 import '../widgets/player_picker_sheet.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/design_tokens.dart';
 import 'artist_details_screen.dart';
 
 class AlbumDetailsScreen extends StatefulWidget {
@@ -1015,7 +1016,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                           style: FilledButton.styleFrom(
                             padding: EdgeInsets.zero,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25), // Circular
+                              borderRadius: BorderRadius.circular(Radii.xxl), // Circular
                             ),
                           ),
                           child: Icon(
@@ -1193,7 +1194,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                                         style: FilledButton.styleFrom(
                                           padding: EdgeInsets.zero,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(22),
+                                            borderRadius: BorderRadius.circular(Radii.xxl),
                                           ),
                                         ),
                                         child: Icon(

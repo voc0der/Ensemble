@@ -12,6 +12,7 @@ import '../services/debug_logger.dart';
 import '../services/recently_played_service.dart';
 import '../constants/hero_tags.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/design_tokens.dart';
 
 class AudiobookDetailScreen extends StatefulWidget {
   final Audiobook audiobook;
@@ -712,7 +713,7 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
                             style: FilledButton.styleFrom(
                               padding: EdgeInsets.zero,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
+                                borderRadius: BorderRadius.circular(Radii.xxl),
                               ),
                             ),
                             child: Icon(

@@ -11,6 +11,7 @@ import '../services/recently_played_service.dart';
 import '../widgets/global_player_overlay.dart';
 import '../widgets/player_picker_sheet.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/design_tokens.dart';
 
 class PlaylistDetailsScreen extends StatefulWidget {
   final Playlist playlist;
@@ -846,7 +847,7 @@ class _PlaylistDetailsScreenState extends State<PlaylistDetailsScreen> with Sing
                                 style: FilledButton.styleFrom(
                                   padding: EdgeInsets.zero,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25),
+                                    borderRadius: BorderRadius.circular(Radii.xxl),
                                   ),
                                 ),
                                 child: Icon(
@@ -1031,7 +1032,7 @@ class _PlaylistDetailsScreenState extends State<PlaylistDetailsScreen> with Sing
                                               style: FilledButton.styleFrom(
                                                 padding: EdgeInsets.zero,
                                                 shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(22),
+                                                  borderRadius: BorderRadius.circular(Radii.xxl),
                                                 ),
                                               ),
                                               child: Icon(
