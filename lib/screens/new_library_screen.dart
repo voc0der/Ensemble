@@ -3409,7 +3409,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   // ============ ARTISTS TAB ============
   Widget _buildArtistsTab(BuildContext context, S l10n) {
     // Use Selector for targeted rebuilds - only rebuild when artists or loading state changes
-    // Artist filtering (albumArtistsOnly) is now done at API level in library_provider
+    // Artist filtering (albumArtistsOnly) is done at API level
     return Selector<MusicAssistantProvider, (List<Artist>, bool)>(
       selector: (_, provider) => (provider.artists, provider.isLoading),
       builder: (context, data, _) {
