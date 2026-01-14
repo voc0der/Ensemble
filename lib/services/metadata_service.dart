@@ -511,59 +511,50 @@ class MetadataService {
 
   /// Try to fetch author image from Wikipedia
   static Future<String?> _tryWikipedia(String name) async {
-    // Try different search queries - sometimes "writer author" suffix helps, sometimes it hurts
-    final searchQueries = [
-      name,                        // Try exact name first
-      '$name author',              // Then with author
-      '$name writer',              // Then with writer
-      '$name novelist',            // Then with novelist
-    ];
+    try {
+      // Search for author - "writer author" suffix helps find the right page
+      final searchUri = Uri.https('en.wikipedia.org', '/w/api.php', {
+        'action': 'query',
+        'list': 'search',
+        'srsearch': '$name writer author',
+        'srlimit': '1',
+        'format': 'json',
+      });
+      final searchResponse = await http.get(searchUri).timeout(const Duration(seconds: 5));
 
-    for (final query in searchQueries) {
-      try {
-        final searchUri = Uri.https('en.wikipedia.org', '/w/api.php', {
-          'action': 'query',
-          'list': 'search',
-          'srsearch': query,
-          'srlimit': '1',
-          'format': 'json',
-        });
-        final searchResponse = await http.get(searchUri).timeout(const Duration(seconds: 5));
+      if (searchResponse.statusCode == 200) {
+        final searchData = json.decode(searchResponse.body);
+        final results = searchData['query']?['search'] as List?;
+        if (results != null && results.isNotEmpty) {
+          final pageTitle = results[0]['title'] as String?;
+          if (pageTitle != null) {
+            // Get page image
+            final imageUri = Uri.https('en.wikipedia.org', '/w/api.php', {
+              'action': 'query',
+              'titles': pageTitle,
+              'prop': 'pageimages',
+              'pithumbsize': '500',
+              'format': 'json',
+            });
+            final imageResponse = await http.get(imageUri).timeout(const Duration(seconds: 5));
 
-        if (searchResponse.statusCode == 200) {
-          final searchData = json.decode(searchResponse.body);
-          final results = searchData['query']?['search'] as List?;
-          if (results != null && results.isNotEmpty) {
-            final pageTitle = results[0]['title'] as String?;
-            if (pageTitle != null) {
-              // Get page image
-              final imageUri = Uri.https('en.wikipedia.org', '/w/api.php', {
-                'action': 'query',
-                'titles': pageTitle,
-                'prop': 'pageimages',
-                'pithumbsize': '500',
-                'format': 'json',
-              });
-              final imageResponse = await http.get(imageUri).timeout(const Duration(seconds: 5));
-
-              if (imageResponse.statusCode == 200) {
-                final imageData = json.decode(imageResponse.body);
-                final pages = imageData['query']?['pages'] as Map<String, dynamic>?;
-                if (pages != null && pages.isNotEmpty) {
-                  final page = pages.values.first as Map<String, dynamic>?;
-                  final thumbnail = page?['thumbnail'] as Map<String, dynamic>?;
-                  final imageUrl = thumbnail?['source'] as String?;
-                  if (imageUrl != null && imageUrl.isNotEmpty) {
-                    return imageUrl;
-                  }
+            if (imageResponse.statusCode == 200) {
+              final imageData = json.decode(imageResponse.body);
+              final pages = imageData['query']?['pages'] as Map<String, dynamic>?;
+              if (pages != null && pages.isNotEmpty) {
+                final page = pages.values.first as Map<String, dynamic>?;
+                final thumbnail = page?['thumbnail'] as Map<String, dynamic>?;
+                final imageUrl = thumbnail?['source'] as String?;
+                if (imageUrl != null && imageUrl.isNotEmpty) {
+                  return imageUrl;
                 }
               }
             }
           }
         }
-      } catch (e) {
-        _logger.warning('Wikipedia author image error for "$query": $e', context: 'Metadata');
       }
+    } catch (e) {
+      _logger.warning('Wikipedia author image error for "$name": $e', context: 'Metadata');
     }
     return null;
   }
