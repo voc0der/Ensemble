@@ -73,6 +73,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
   // Queue state
   PlayerQueue? _queue;
+  String? _queuePlayerId; // Track which player the queue belongs to
   bool _isLoadingQueue = false;
   bool _isQueueDragging = false; // True while queue item is being dragged
   bool _queuePanelTargetOpen = false; // Target state for queue panel (separate from animation value)
@@ -380,6 +381,18 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
     });
   }
 
+  /// Force collapse player to mini state, instantly closing queue panel if open.
+  /// Used for queue transfer where we want to go directly to mini player.
+  void forceCollapse() {
+    if (_isVerticalDragging) return;
+    // Instantly close queue panel without animation
+    _queuePanelController.value = 0;
+    _queuePanelTargetOpen = false;
+    // Collapse player
+    _controller.duration = _collapseDuration;
+    _controller.reverse();
+  }
+
   /// Handle vertical drag start - begin gesture-driven expansion
   void _handleVerticalDragStart(DragStartDetails details) {
     _isVerticalDragging = true;
@@ -512,9 +525,17 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       return;
     }
 
+    // Clear queue if player changed (e.g., after queue transfer)
+    if (_queuePlayerId != null && _queuePlayerId != player.playerId) {
+      debugPrint('🔀 Player changed from $_queuePlayerId to ${player.playerId}, clearing queue');
+      _queue = null;
+      _queuePlayerId = player.playerId;
+    }
+
     // 1. Show cached queue immediately (if available)
     // Only load from cache if we don't already have a queue (preserves optimistic updates)
     if (_queue == null) {
+      _queuePlayerId = player.playerId;
       final cachedQueue = await maProvider.getCachedQueue(player.playerId);
       if (cachedQueue != null && cachedQueue.items.isNotEmpty && mounted) {
         setState(() {
@@ -555,6 +576,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
             debugPrint('🔀 Queue changed, updating UI (reordered=$itemsReordered)');
             setState(() {
               _queue = freshQueue;
+              _queuePlayerId = player.playerId;
               _isLoadingQueue = false;
             });
           }

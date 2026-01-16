@@ -7,6 +7,7 @@ import '../../providers/music_assistant_provider.dart';
 import '../../models/player.dart';
 import '../../theme/design_tokens.dart';
 import '../common/empty_state.dart';
+import '../global_player_overlay.dart';
 
 /// Panel that displays the current playback queue with drag-to-reorder
 /// and swipe-left-to-delete functionality.
@@ -212,7 +213,9 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
   }
 
   List<Player> _getTargetPlayers() {
-    final sourcePlayerId = widget.queue?.playerId;
+    // Use selected player (current player) as source, not the queue's player ID
+    // This ensures correct filtering after queue transfer when player switches
+    final sourcePlayerId = widget.maProvider.selectedPlayer?.playerId;
     if (sourcePlayerId == null) return [];
     return widget.maProvider.availablePlayers
         .where((p) => p.playerId != sourcePlayerId && p.available)
@@ -223,11 +226,9 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
     final targetPlayers = _getTargetPlayers();
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Use album highlight color's hue/saturation, but at fixed darkness
-    // matching library dropdown. Use ~10% lightness since warm hues (orange/yellow)
-    // appear brighter than cool hues (purple/blue) at the same HSL lightness.
-    final hsl = HSLColor.fromColor(widget.primaryColor);
-    final menuBackground = hsl.withLightness(0.10).toColor();
+    // Use a lighter shade of the queue panel background color
+    final hsl = HSLColor.fromColor(widget.backgroundColor);
+    final menuBackground = hsl.withLightness((hsl.lightness + 0.04).clamp(0.0, 1.0)).toColor();
     // Use theme's onSurface for text (matches library dropdown styling)
     final menuTextColor = colorScheme.onSurface;
 
@@ -347,11 +348,14 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
 
       debugPrint('QueuePanel: Queue transferred to ${targetPlayer.name}');
 
-      // Switch to the target player
-      widget.maProvider.selectPlayer(targetPlayer);
+      // Clear source player's track cache since its queue was transferred away
+      widget.maProvider.clearPlayerTrackCache(sourcePlayerId);
 
-      // Close the queue panel after successful transfer
-      widget.onClose();
+      // Force collapse to mini player (closes queue instantly + collapses)
+      GlobalPlayerOverlay.forceCollapsePlayer();
+
+      // Switch to the target player - mini player will update to show new player
+      widget.maProvider.selectPlayer(targetPlayer);
     } catch (e) {
       debugPrint('QueuePanel: Error transferring queue: $e');
     }

@@ -501,6 +501,12 @@ class MusicAssistantProvider with ChangeNotifier {
     return getImageUrl(track, size: size);
   }
 
+  /// Clear cached track for a player (e.g., after queue transfer)
+  void clearPlayerTrackCache(String playerId) {
+    _cacheService.clearCachedTrackForPlayer(playerId);
+    notifyListeners();
+  }
+
   /// Number of pending offline actions
   int get pendingOfflineActionsCount => OfflineActionQueue.instance.pendingCount;
 

@@ -97,6 +97,12 @@ class GlobalPlayerOverlay extends StatefulWidget {
     globalPlayerKey.currentState?.collapse();
   }
 
+  /// Force collapse player to mini state, instantly closing queue panel if open.
+  /// Used for queue transfer where we want to go directly to mini player.
+  static void forceCollapsePlayer() {
+    globalPlayerKey.currentState?.forceCollapse();
+  }
+
   /// Check if the player is currently expanded
   static bool get isPlayerExpanded =>
       globalPlayerKey.currentState?.isExpanded ?? false;
