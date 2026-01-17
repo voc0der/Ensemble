@@ -17,6 +17,7 @@ enum SyncStatus {
 
 /// Service for background library synchronization
 /// Loads from database cache first, then syncs from MA API in background
+/// Supports per-provider sync for accurate client-side filtering
 class SyncService with ChangeNotifier {
   static SyncService? _instance;
   static final _logger = DebugLogger();
@@ -42,6 +43,13 @@ class SyncService with ChangeNotifier {
   List<Audiobook> _cachedAudiobooks = [];
   List<Playlist> _cachedPlaylists = [];
 
+  // Source provider tracking for client-side filtering
+  // Maps itemId -> list of provider instance IDs that provided the item
+  Map<String, List<String>> _albumSourceProviders = {};
+  Map<String, List<String>> _artistSourceProviders = {};
+  Map<String, List<String>> _audiobookSourceProviders = {};
+  Map<String, List<String>> _playlistSourceProviders = {};
+
   // Getters
   SyncStatus get status => _status;
   String? get lastError => _lastError;
@@ -54,8 +62,15 @@ class SyncService with ChangeNotifier {
   bool get hasCache => _cachedAlbums.isNotEmpty || _cachedArtists.isNotEmpty ||
                        _cachedAudiobooks.isNotEmpty || _cachedPlaylists.isNotEmpty;
 
+  // Source provider getters for client-side filtering
+  Map<String, List<String>> get albumSourceProviders => _albumSourceProviders;
+  Map<String, List<String>> get artistSourceProviders => _artistSourceProviders;
+  Map<String, List<String>> get audiobookSourceProviders => _audiobookSourceProviders;
+  Map<String, List<String>> get playlistSourceProviders => _playlistSourceProviders;
+
   /// Load library data from database cache (instant)
   /// Call this on app startup for immediate data
+  /// Also loads source provider info for client-side filtering
   Future<void> loadFromCache() async {
     if (!_db.isInitialized) {
       _logger.log('⚠️ Database not initialized, skipping cache load');
@@ -65,52 +80,73 @@ class SyncService with ChangeNotifier {
     try {
       _logger.log('📦 Loading library from database cache...');
 
-      // Load albums from cache
-      final albumData = await _db.getCachedItems('album');
-      _cachedAlbums = albumData.map((data) {
+      // Load albums from cache with source providers
+      final albumDataWithProviders = await _db.getCachedItemsWithProviders('album');
+      _cachedAlbums = [];
+      _albumSourceProviders = {};
+      for (final (data, providers) in albumDataWithProviders) {
         try {
-          return Album.fromJson(data);
+          final album = Album.fromJson(data);
+          _cachedAlbums.add(album);
+          if (providers.isNotEmpty) {
+            _albumSourceProviders[album.itemId] = providers;
+          }
         } catch (e) {
           _logger.log('⚠️ Failed to parse cached album: $e');
-          return null;
         }
-      }).whereType<Album>().toList();
+      }
 
-      // Load artists from cache
-      final artistData = await _db.getCachedItems('artist');
-      _cachedArtists = artistData.map((data) {
+      // Load artists from cache with source providers
+      final artistDataWithProviders = await _db.getCachedItemsWithProviders('artist');
+      _cachedArtists = [];
+      _artistSourceProviders = {};
+      for (final (data, providers) in artistDataWithProviders) {
         try {
-          return Artist.fromJson(data);
+          final artist = Artist.fromJson(data);
+          _cachedArtists.add(artist);
+          if (providers.isNotEmpty) {
+            _artistSourceProviders[artist.itemId] = providers;
+          }
         } catch (e) {
           _logger.log('⚠️ Failed to parse cached artist: $e');
-          return null;
         }
-      }).whereType<Artist>().toList();
+      }
 
-      // Load audiobooks from cache
-      final audiobookData = await _db.getCachedItems('audiobook');
-      _cachedAudiobooks = audiobookData.map((data) {
+      // Load audiobooks from cache with source providers
+      final audiobookDataWithProviders = await _db.getCachedItemsWithProviders('audiobook');
+      _cachedAudiobooks = [];
+      _audiobookSourceProviders = {};
+      for (final (data, providers) in audiobookDataWithProviders) {
         try {
-          return Audiobook.fromJson(data);
+          final audiobook = Audiobook.fromJson(data);
+          _cachedAudiobooks.add(audiobook);
+          if (providers.isNotEmpty) {
+            _audiobookSourceProviders[audiobook.itemId] = providers;
+          }
         } catch (e) {
           _logger.log('⚠️ Failed to parse cached audiobook: $e');
-          return null;
         }
-      }).whereType<Audiobook>().toList();
+      }
 
-      // Load playlists from cache
-      final playlistData = await _db.getCachedItems('playlist');
-      _cachedPlaylists = playlistData.map((data) {
+      // Load playlists from cache with source providers
+      final playlistDataWithProviders = await _db.getCachedItemsWithProviders('playlist');
+      _cachedPlaylists = [];
+      _playlistSourceProviders = {};
+      for (final (data, providers) in playlistDataWithProviders) {
         try {
-          return Playlist.fromJson(data);
+          final playlist = Playlist.fromJson(data);
+          _cachedPlaylists.add(playlist);
+          if (providers.isNotEmpty) {
+            _playlistSourceProviders[playlist.itemId] = providers;
+          }
         } catch (e) {
           _logger.log('⚠️ Failed to parse cached playlist: $e');
-          return null;
         }
-      }).whereType<Playlist>().toList();
+      }
 
       _logger.log('📦 Loaded ${_cachedAlbums.length} albums, ${_cachedArtists.length} artists, '
                   '${_cachedAudiobooks.length} audiobooks, ${_cachedPlaylists.length} playlists from cache');
+      _logger.log('📦 Source providers: ${_albumSourceProviders.length} albums, ${_artistSourceProviders.length} artists tracked');
       notifyListeners();
     } catch (e) {
       _logger.log('❌ Failed to load from cache: $e');
@@ -119,7 +155,12 @@ class SyncService with ChangeNotifier {
 
   /// Sync library data from MA API in background
   /// Updates database cache and notifies listeners when complete
-  Future<void> syncFromApi(MusicAssistantAPI api, {bool force = false}) async {
+  /// [providerInstanceIds] - list of provider IDs to sync (fetches each provider separately for accurate source tracking)
+  Future<void> syncFromApi(
+    MusicAssistantAPI api, {
+    bool force = false,
+    List<String>? providerInstanceIds,
+  }) async {
     if (_isSyncing) {
       _logger.log('🔄 Sync already in progress, skipping');
       return;
@@ -155,33 +196,114 @@ class SyncService with ChangeNotifier {
       final showOnlyArtistsWithAlbums = await SettingsService.getShowOnlyArtistsWithAlbums();
       _logger.log('🎨 Sync using albumArtistsOnly: $showOnlyArtistsWithAlbums');
 
-      // Fetch fresh data from MA API (in parallel for speed)
-      final results = await Future.wait([
-        api.getAlbums(limit: 1000),
-        api.getArtists(limit: 1000, albumArtistsOnly: showOnlyArtistsWithAlbums),
-        api.getAudiobooks(limit: 1000),
-        api.getPlaylists(limit: 1000),
-      ]);
-
-      final albums = results[0] as List<Album>;
-      final artists = results[1] as List<Artist>;
-      final audiobooks = results[2] as List<Audiobook>;
-      final playlists = results[3] as List<Playlist>;
-
-      _logger.log('📥 Fetched ${albums.length} albums, ${artists.length} artists, '
-                  '${audiobooks.length} audiobooks, ${playlists.length} playlists from MA');
-
       // Clear old cache before saving fresh data (removes stale items)
       await _db.clearCacheForType('album');
       await _db.clearCacheForType('artist');
       await _db.clearCacheForType('audiobook');
       await _db.clearCacheForType('playlist');
 
-      // Save to database cache
-      await _saveAlbumsToCache(albums);
-      await _saveArtistsToCache(artists);
-      await _saveAudiobooksToCache(audiobooks);
-      await _savePlaylistsToCache(playlists);
+      // Clear source provider maps
+      _albumSourceProviders = {};
+      _artistSourceProviders = {};
+      _audiobookSourceProviders = {};
+      _playlistSourceProviders = {};
+
+      // Collect all items (deduped by itemId, but tracking all source providers)
+      final albumMap = <String, Album>{};
+      final artistMap = <String, Artist>{};
+      final audiobookMap = <String, Audiobook>{};
+      final playlistMap = <String, Playlist>{};
+
+      // If specific providers are requested, sync each separately for accurate source tracking
+      if (providerInstanceIds != null && providerInstanceIds.isNotEmpty) {
+        _logger.log('🔒 Per-provider sync for ${providerInstanceIds.length} providers');
+
+        for (final providerId in providerInstanceIds) {
+          _logger.log('  📡 Syncing provider: $providerId');
+
+          // Fetch from this specific provider
+          final results = await Future.wait([
+            api.getAlbums(limit: 1000, providerInstanceIds: [providerId]),
+            api.getArtists(limit: 1000, albumArtistsOnly: showOnlyArtistsWithAlbums, providerInstanceIds: [providerId]),
+            api.getAudiobooks(limit: 1000, providerInstanceIds: [providerId]),
+            api.getPlaylists(limit: 1000, providerInstanceIds: [providerId]),
+          ]);
+
+          final albums = results[0] as List<Album>;
+          final artists = results[1] as List<Artist>;
+          final audiobooks = results[2] as List<Audiobook>;
+          final playlists = results[3] as List<Playlist>;
+
+          _logger.log('  📥 Got ${albums.length} albums, ${artists.length} artists from $providerId');
+
+          // Add to maps and track source provider
+          for (final album in albums) {
+            albumMap[album.itemId] = album;
+            _albumSourceProviders.putIfAbsent(album.itemId, () => []);
+            if (!_albumSourceProviders[album.itemId]!.contains(providerId)) {
+              _albumSourceProviders[album.itemId]!.add(providerId);
+            }
+          }
+          for (final artist in artists) {
+            artistMap[artist.itemId] = artist;
+            _artistSourceProviders.putIfAbsent(artist.itemId, () => []);
+            if (!_artistSourceProviders[artist.itemId]!.contains(providerId)) {
+              _artistSourceProviders[artist.itemId]!.add(providerId);
+            }
+          }
+          for (final audiobook in audiobooks) {
+            audiobookMap[audiobook.itemId] = audiobook;
+            _audiobookSourceProviders.putIfAbsent(audiobook.itemId, () => []);
+            if (!_audiobookSourceProviders[audiobook.itemId]!.contains(providerId)) {
+              _audiobookSourceProviders[audiobook.itemId]!.add(providerId);
+            }
+          }
+          for (final playlist in playlists) {
+            playlistMap[playlist.itemId] = playlist;
+            _playlistSourceProviders.putIfAbsent(playlist.itemId, () => []);
+            if (!_playlistSourceProviders[playlist.itemId]!.contains(providerId)) {
+              _playlistSourceProviders[playlist.itemId]!.add(providerId);
+            }
+          }
+        }
+      } else {
+        // No provider filter - fetch all at once (faster, but no source tracking)
+        _logger.log('📡 Fetching from all providers (no source tracking)');
+
+        final results = await Future.wait([
+          api.getAlbums(limit: 1000),
+          api.getArtists(limit: 1000, albumArtistsOnly: showOnlyArtistsWithAlbums),
+          api.getAudiobooks(limit: 1000),
+          api.getPlaylists(limit: 1000),
+        ]);
+
+        for (final album in results[0] as List<Album>) {
+          albumMap[album.itemId] = album;
+        }
+        for (final artist in results[1] as List<Artist>) {
+          artistMap[artist.itemId] = artist;
+        }
+        for (final audiobook in results[2] as List<Audiobook>) {
+          audiobookMap[audiobook.itemId] = audiobook;
+        }
+        for (final playlist in results[3] as List<Playlist>) {
+          playlistMap[playlist.itemId] = playlist;
+        }
+      }
+
+      final albums = albumMap.values.toList();
+      final artists = artistMap.values.toList();
+      final audiobooks = audiobookMap.values.toList();
+      final playlists = playlistMap.values.toList();
+
+      _logger.log('📥 Total: ${albums.length} albums, ${artists.length} artists, '
+                  '${audiobooks.length} audiobooks, ${playlists.length} playlists');
+
+      // Save to database cache with source provider info
+      await _saveAlbumsToCache(albums, _albumSourceProviders);
+      await _saveArtistsToCache(artists, _artistSourceProviders);
+      await _saveAudiobooksToCache(audiobooks, _audiobookSourceProviders);
+      await _savePlaylistsToCache(playlists, _playlistSourceProviders);
 
       // Update sync metadata
       await _db.updateSyncMetadata('albums', albums.length);
@@ -198,6 +320,7 @@ class SyncService with ChangeNotifier {
       _status = SyncStatus.completed;
 
       _logger.log('✅ Library sync complete');
+      _logger.log('📊 Source tracking: ${_albumSourceProviders.length} albums, ${_artistSourceProviders.length} artists have provider info');
     } catch (e) {
       _logger.log('❌ Library sync failed: $e');
       _status = SyncStatus.error;
@@ -208,15 +331,28 @@ class SyncService with ChangeNotifier {
     }
   }
 
-  /// Save albums to database cache
-  Future<void> _saveAlbumsToCache(List<Album> albums) async {
+  /// Save albums to database cache with source provider tracking
+  Future<void> _saveAlbumsToCache(List<Album> albums, Map<String, List<String>> sourceProviders) async {
     for (final album in albums) {
       try {
-        await _db.cacheItem(
-          itemType: 'album',
-          itemId: album.itemId,
-          data: album.toJson(),
-        );
+        final providers = sourceProviders[album.itemId];
+        // Save with first source provider (merging happens in DB layer)
+        for (final provider in providers ?? <String>[]) {
+          await _db.cacheItem(
+            itemType: 'album',
+            itemId: album.itemId,
+            data: album.toJson(),
+            sourceProvider: provider,
+          );
+        }
+        // If no source providers, still cache the item
+        if (providers == null || providers.isEmpty) {
+          await _db.cacheItem(
+            itemType: 'album',
+            itemId: album.itemId,
+            data: album.toJson(),
+          );
+        }
       } catch (e) {
         _logger.log('⚠️ Failed to cache album ${album.name}: $e');
       }
@@ -224,15 +360,26 @@ class SyncService with ChangeNotifier {
     _logger.log('💾 Saved ${albums.length} albums to cache');
   }
 
-  /// Save artists to database cache
-  Future<void> _saveArtistsToCache(List<Artist> artists) async {
+  /// Save artists to database cache with source provider tracking
+  Future<void> _saveArtistsToCache(List<Artist> artists, Map<String, List<String>> sourceProviders) async {
     for (final artist in artists) {
       try {
-        await _db.cacheItem(
-          itemType: 'artist',
-          itemId: artist.itemId,
-          data: artist.toJson(),
-        );
+        final providers = sourceProviders[artist.itemId];
+        for (final provider in providers ?? <String>[]) {
+          await _db.cacheItem(
+            itemType: 'artist',
+            itemId: artist.itemId,
+            data: artist.toJson(),
+            sourceProvider: provider,
+          );
+        }
+        if (providers == null || providers.isEmpty) {
+          await _db.cacheItem(
+            itemType: 'artist',
+            itemId: artist.itemId,
+            data: artist.toJson(),
+          );
+        }
       } catch (e) {
         _logger.log('⚠️ Failed to cache artist ${artist.name}: $e');
       }
@@ -240,15 +387,26 @@ class SyncService with ChangeNotifier {
     _logger.log('💾 Saved ${artists.length} artists to cache');
   }
 
-  /// Save audiobooks to database cache
-  Future<void> _saveAudiobooksToCache(List<Audiobook> audiobooks) async {
+  /// Save audiobooks to database cache with source provider tracking
+  Future<void> _saveAudiobooksToCache(List<Audiobook> audiobooks, Map<String, List<String>> sourceProviders) async {
     for (final audiobook in audiobooks) {
       try {
-        await _db.cacheItem(
-          itemType: 'audiobook',
-          itemId: audiobook.itemId,
-          data: audiobook.toJson(),
-        );
+        final providers = sourceProviders[audiobook.itemId];
+        for (final provider in providers ?? <String>[]) {
+          await _db.cacheItem(
+            itemType: 'audiobook',
+            itemId: audiobook.itemId,
+            data: audiobook.toJson(),
+            sourceProvider: provider,
+          );
+        }
+        if (providers == null || providers.isEmpty) {
+          await _db.cacheItem(
+            itemType: 'audiobook',
+            itemId: audiobook.itemId,
+            data: audiobook.toJson(),
+          );
+        }
       } catch (e) {
         _logger.log('⚠️ Failed to cache audiobook ${audiobook.name}: $e');
       }
@@ -256,15 +414,26 @@ class SyncService with ChangeNotifier {
     _logger.log('💾 Saved ${audiobooks.length} audiobooks to cache');
   }
 
-  /// Save playlists to database cache
-  Future<void> _savePlaylistsToCache(List<Playlist> playlists) async {
+  /// Save playlists to database cache with source provider tracking
+  Future<void> _savePlaylistsToCache(List<Playlist> playlists, Map<String, List<String>> sourceProviders) async {
     for (final playlist in playlists) {
       try {
-        await _db.cacheItem(
-          itemType: 'playlist',
-          itemId: playlist.itemId,
-          data: playlist.toJson(),
-        );
+        final providers = sourceProviders[playlist.itemId];
+        for (final provider in providers ?? <String>[]) {
+          await _db.cacheItem(
+            itemType: 'playlist',
+            itemId: playlist.itemId,
+            data: playlist.toJson(),
+            sourceProvider: provider,
+          );
+        }
+        if (providers == null || providers.isEmpty) {
+          await _db.cacheItem(
+            itemType: 'playlist',
+            itemId: playlist.itemId,
+            data: playlist.toJson(),
+          );
+        }
       } catch (e) {
         _logger.log('⚠️ Failed to cache playlist ${playlist.name}: $e');
       }
@@ -273,8 +442,9 @@ class SyncService with ChangeNotifier {
   }
 
   /// Force a fresh sync (for pull-to-refresh)
-  Future<void> forceSync(MusicAssistantAPI api) async {
-    await syncFromApi(api, force: true);
+  /// [providerInstanceIds] - optional list of provider IDs to filter by (null = all providers)
+  Future<void> forceSync(MusicAssistantAPI api, {List<String>? providerInstanceIds}) async {
+    await syncFromApi(api, force: true, providerInstanceIds: providerInstanceIds);
   }
 
   /// Clear all cached data
@@ -286,11 +456,75 @@ class SyncService with ChangeNotifier {
     _cachedArtists = [];
     _cachedAudiobooks = [];
     _cachedPlaylists = [];
+    _albumSourceProviders = {};
+    _artistSourceProviders = {};
+    _audiobookSourceProviders = {};
+    _playlistSourceProviders = {};
     _lastSyncTime = null;
     _status = SyncStatus.idle;
     notifyListeners();
     _logger.log('🗑️ Library cache cleared');
   }
+
+  // ============================================
+  // Client-side filtering methods
+  // ============================================
+
+  /// Filter albums by source provider (instant, no network)
+  /// Returns all albums if no source tracking data available
+  List<Album> getAlbumsFilteredByProviders(Set<String> enabledProviderIds) {
+    if (enabledProviderIds.isEmpty || _albumSourceProviders.isEmpty) {
+      return _cachedAlbums;
+    }
+    return _cachedAlbums.where((album) {
+      final sources = _albumSourceProviders[album.itemId];
+      if (sources == null || sources.isEmpty) return true; // No tracking = show
+      return sources.any((s) => enabledProviderIds.contains(s));
+    }).toList();
+  }
+
+  /// Filter artists by source provider (instant, no network)
+  List<Artist> getArtistsFilteredByProviders(Set<String> enabledProviderIds) {
+    if (enabledProviderIds.isEmpty || _artistSourceProviders.isEmpty) {
+      return _cachedArtists;
+    }
+    return _cachedArtists.where((artist) {
+      final sources = _artistSourceProviders[artist.itemId];
+      if (sources == null || sources.isEmpty) return true;
+      return sources.any((s) => enabledProviderIds.contains(s));
+    }).toList();
+  }
+
+  /// Filter audiobooks by source provider (instant, no network)
+  List<Audiobook> getAudiobooksFilteredByProviders(Set<String> enabledProviderIds) {
+    if (enabledProviderIds.isEmpty || _audiobookSourceProviders.isEmpty) {
+      return _cachedAudiobooks;
+    }
+    return _cachedAudiobooks.where((audiobook) {
+      final sources = _audiobookSourceProviders[audiobook.itemId];
+      if (sources == null || sources.isEmpty) return true;
+      return sources.any((s) => enabledProviderIds.contains(s));
+    }).toList();
+  }
+
+  /// Filter playlists by source provider (instant, no network)
+  List<Playlist> getPlaylistsFilteredByProviders(Set<String> enabledProviderIds) {
+    if (enabledProviderIds.isEmpty || _playlistSourceProviders.isEmpty) {
+      return _cachedPlaylists;
+    }
+    return _cachedPlaylists.where((playlist) {
+      final sources = _playlistSourceProviders[playlist.itemId];
+      if (sources == null || sources.isEmpty) return true;
+      return sources.any((s) => enabledProviderIds.contains(s));
+    }).toList();
+  }
+
+  /// Check if we have source provider tracking data
+  bool get hasSourceTracking =>
+      _albumSourceProviders.isNotEmpty ||
+      _artistSourceProviders.isNotEmpty ||
+      _audiobookSourceProviders.isNotEmpty ||
+      _playlistSourceProviders.isNotEmpty;
 
   /// Get albums (from cache or empty if not loaded)
   List<Album> getAlbums() => _cachedAlbums;

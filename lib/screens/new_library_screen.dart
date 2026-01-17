@@ -7,6 +7,7 @@ import 'package:palette_generator/palette_generator.dart';
 import '../providers/music_assistant_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../models/media_item.dart';
+import '../models/provider_instance.dart';
 import '../widgets/global_player_overlay.dart';
 import '../widgets/album_card.dart';
 import '../widgets/artist_avatar.dart';
@@ -147,6 +148,11 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   // Options menu overlay - stored to close on navigation
   OverlayEntry? _optionsMenuOverlay;
 
+  // Per-tab provider filter (session-only, empty = use all providers)
+  // Key format: "mediaType_tabIndex" e.g. "music_0" for artists, "books_1" for audiobooks
+  final Map<String, Set<String>> _tabProviderFilters = {};
+  Timer? _providerFilterDebounce;
+
   // Scroll controllers for letter scrollbar
   final ScrollController _artistsScrollController = ScrollController();
   final ScrollController _albumsScrollController = ScrollController();
@@ -217,6 +223,86 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   void _closeOptionsMenu() {
     _optionsMenuOverlay?.remove();
     _optionsMenuOverlay = null;
+  }
+
+  /// Get the filter key for the current tab (e.g., "music_0" for artists)
+  String _getCurrentTabFilterKey() {
+    return '${_selectedMediaType.name}_${_selectedTabIndex.value}';
+  }
+
+  /// Get the category name for the current tab (used for provider content lookup)
+  String _getCurrentCategoryName() {
+    switch (_selectedMediaType) {
+      case LibraryMediaType.music:
+        switch (_selectedTabIndex.value) {
+          case 0: return 'artists';
+          case 1: return 'albums';
+          case 2: return 'tracks';
+          case 3: return 'playlists';
+          default: return 'artists';
+        }
+      case LibraryMediaType.books:
+        switch (_selectedTabIndex.value) {
+          case 0: return 'audiobooks'; // Authors tab shows audiobooks
+          case 1: return 'audiobooks';
+          case 2: return 'audiobooks'; // Series tab shows audiobooks
+          default: return 'audiobooks';
+        }
+      case LibraryMediaType.podcasts:
+        return 'playlists'; // Podcasts are playlists
+      case LibraryMediaType.radio:
+        return 'radio';
+    }
+  }
+
+  /// Get enabled provider IDs for the current tab
+  Set<String> _getEnabledProvidersForCurrentTab() {
+    final key = _getCurrentTabFilterKey();
+    return _tabProviderFilters[key] ?? <String>{};
+  }
+
+  /// Handle provider toggle from the options menu
+  /// Uses hybrid approach:
+  /// 1. Instant client-side filtering using SyncService source tracking (immediate UI update)
+  /// 2. Background server sync to refresh source tracking data (ensures accuracy)
+  void _handleProviderToggle(String providerId, bool enabled) {
+    final maProvider = context.read<MusicAssistantProvider>();
+
+    // Instant UI update - client-side filtering will use the new enabled set
+    // The toggle updates MusicAssistantProvider.enabledProviderIds which we read during build
+    maProvider.toggleProviderEnabled(providerId, enabled);
+
+    // Immediately rebuild the UI with client-side filtering
+    setState(() {});
+
+    // Cancel any pending debounce for background sync
+    _providerFilterDebounce?.cancel();
+
+    // Schedule debounced background sync to refresh source tracking data
+    // This ensures the source provider data stays accurate
+    _providerFilterDebounce = Timer(const Duration(milliseconds: 1500), () async {
+      if (mounted) {
+        DebugLogger().log('🔄 Background sync to refresh source tracking...');
+        await maProvider.forceLibrarySync();
+        if (mounted) {
+          setState(() {});
+        }
+      }
+    });
+  }
+
+  /// Filter a list of items by the current tab's provider filter
+  List<T> _filterByTabProviders<T>(List<T> items, Set<String> enabledProviders) {
+    if (enabledProviders.isEmpty) return items; // Empty = all enabled
+
+    return items.where((item) {
+      if (item is MediaItem) {
+        final mappings = item.providerMappings;
+        if (mappings == null || mappings.isEmpty) return true; // No mappings = show it
+        return mappings.any((m) => enabledProviders.contains(m.providerInstance));
+      }
+      return true;
+    }).toList();
   }
 
   void _onTracksScroll() {
@@ -591,6 +677,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   @override
   void dispose() {
     _colorExtractionDebounce?.cancel();
+    _providerFilterDebounce?.cancel();
     _closeOptionsMenu();
     navigationProvider.removeListener(_onNavigationChanged);
     _pageController.dispose();
@@ -611,11 +698,27 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   Future<void> _loadPlaylists({bool? favoriteOnly}) async {
     final maProvider = context.read<MusicAssistantProvider>();
-    final playlists = await maProvider.getPlaylists(
-      limit: 100,
-      favoriteOnly: favoriteOnly,
-      orderBy: _playlistsSortOrder,
-    );
+    final syncService = SyncService.instance;
+    final enabledProviders = maProvider.enabledProviderIds.toSet();
+
+    // Use SyncService's client-side filtering for instant updates with source tracking
+    List<Playlist> playlists;
+    if (syncService.hasSourceTracking && enabledProviders.isNotEmpty) {
+      // Client-side filtering using source tracking (instant, differentiates same-type providers)
+      playlists = syncService.getPlaylistsFilteredByProviders(enabledProviders);
+      // Apply favorite filter client-side
+      if (favoriteOnly == true) {
+        playlists = playlists.where((p) => p.favorite == true).toList();
+      }
+    } else {
+      // Fallback to API fetch when source tracking not available
+      playlists = await maProvider.getPlaylists(
+        limit: 100,
+        favoriteOnly: favoriteOnly,
+        orderBy: _playlistsSortOrder,
+      );
+    }
+
     if (mounted) {
       setState(() {
         _playlists = playlists;
@@ -764,11 +867,26 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     });
 
     final maProvider = context.read<MusicAssistantProvider>();
-    _logger.log('📚 Calling getAudiobooks...');
-    final audiobooks = await maProvider.getAudiobooks(
-      limit: 10000,  // Large limit to get all audiobooks
-      favoriteOnly: favoriteOnly,
-    );
+    final syncService = SyncService.instance;
+    final enabledProviders = maProvider.enabledProviderIds.toSet();
+
+    List<Audiobook> audiobooks;
+
+    // Use SyncService's client-side filtering for instant updates with source tracking
+    if (syncService.hasSourceTracking && enabledProviders.isNotEmpty) {
+      _logger.log('📚 Using SyncService client-side filtering');
+      audiobooks = syncService.getAudiobooksFilteredByProviders(enabledProviders);
+      // Apply favorite filter client-side
+      if (favoriteOnly == true) {
+        audiobooks = audiobooks.where((b) => b.favorite == true).toList();
+      }
+    } else {
+      _logger.log('📚 Calling getAudiobooks from API...');
+      audiobooks = await maProvider.getAudiobooks(
+        limit: 10000,  // Large limit to get all audiobooks
+        favoriteOnly: favoriteOnly,
+      );
+    }
     _logger.log('📚 Returned ${audiobooks.length} audiobooks');
     if (audiobooks.isNotEmpty) {
       _logger.log('📚 First audiobook: ${audiobooks.first.name} by ${audiobooks.first.authorsString}');
@@ -1542,6 +1660,12 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     final RenderBox overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
     final Offset position = button.localToGlobal(Offset.zero, ancestor: overlay);
 
+    // Get providers relevant to the current tab
+    final maProvider = context.read<MusicAssistantProvider>();
+    final relevantProviders = maProvider.getRelevantProvidersForCategory(_getCurrentCategoryName());
+    // Use global provider filter (server-side filtering)
+    final enabledProviders = maProvider.enabledProviderIds.toSet();
+
     _optionsMenuOverlay = OverlayEntry(
       builder: (context) => _OptionsMenuOverlay(
         position: position,
@@ -1570,6 +1694,9 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           _toggleArtistsWithAlbumsFilter(!_showOnlyArtistsWithAlbums);
         },
         onDismiss: _closeOptionsMenu,
+        relevantProviders: relevantProviders,
+        enabledProviderIds: enabledProviders,
+        onProviderToggled: _handleProviderToggle,
       ),
     );
 
@@ -3367,20 +3494,27 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildArtistsTab(BuildContext context, S l10n) {
     // Use Selector for targeted rebuilds - only rebuild when artists or loading state changes
     // Artist filtering (albumArtistsOnly) is done at API level
-    return Selector<MusicAssistantProvider, (List<Artist>, bool)>(
-      selector: (_, provider) => (provider.artists, provider.isLoading),
+    return Selector<MusicAssistantProvider, (List<Artist>, bool, Set<String>)>(
+      selector: (_, provider) => (provider.artists, provider.isLoading, provider.enabledProviderIds.toSet()),
       builder: (context, data, _) {
-            final (allArtists, isLoading) = data;
+            final (allArtists, isLoading, enabledProviders) = data;
             final colorScheme = Theme.of(context).colorScheme;
 
             if (isLoading) {
               return Center(child: CircularProgressIndicator(color: colorScheme.primary));
             }
 
-            // Filter by favorites if enabled (artist filter is done at API level)
-            final artists = _showFavoritesOnly
-                ? allArtists.where((a) => a.favorite == true).toList()
+            // Client-side filtering using SyncService source tracking for instant updates
+            // This properly differentiates between multiple accounts of the same provider type
+            final syncService = SyncService.instance;
+            final filteredArtists = syncService.hasSourceTracking && enabledProviders.isNotEmpty
+                ? syncService.getArtistsFilteredByProviders(enabledProviders)
                 : allArtists;
+
+            // Filter by favorites if enabled
+            final artists = _showFavoritesOnly
+                ? filteredArtists.where((a) => a.favorite == true).toList()
+                : filteredArtists;
 
             if (artists.isEmpty) {
               if (_showFavoritesOnly) {
@@ -3571,20 +3705,26 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   // ============ ALBUMS TAB ============
   Widget _buildAlbumsTab(BuildContext context, S l10n) {
     // Use Selector for targeted rebuilds - only rebuild when albums or loading state changes
-    return Selector<MusicAssistantProvider, (List<Album>, bool)>(
-      selector: (_, provider) => (provider.albums, provider.isLoading),
+    return Selector<MusicAssistantProvider, (List<Album>, bool, Set<String>)>(
+      selector: (_, provider) => (provider.albums, provider.isLoading, provider.enabledProviderIds.toSet()),
       builder: (context, data, _) {
-        final (allAlbums, isLoading) = data;
+        final (allAlbums, isLoading, enabledProviders) = data;
         final colorScheme = Theme.of(context).colorScheme;
 
         if (isLoading) {
           return Center(child: CircularProgressIndicator(color: colorScheme.primary));
         }
 
+        // Client-side filtering using SyncService source tracking for instant updates
+        final syncService = SyncService.instance;
+        final filteredAlbums = syncService.hasSourceTracking && enabledProviders.isNotEmpty
+            ? syncService.getAlbumsFilteredByProviders(enabledProviders)
+            : allAlbums;
+
         // Filter by favorites if enabled
         final albums = _showFavoritesOnly
-            ? allAlbums.where((a) => a.favorite == true).toList()
-            : allAlbums;
+            ? filteredAlbums.where((a) => a.favorite == true).toList()
+            : filteredAlbums;
 
         if (albums.isEmpty) {
           if (_showFavoritesOnly) {
@@ -3733,6 +3873,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       return Center(child: CircularProgressIndicator(color: colorScheme.primary));
     }
 
+    // Provider filtering is done server-side via API calls
     if (_playlists.isEmpty) {
       if (_showFavoritesOnly) {
         return EmptyState.custom(
@@ -3981,6 +4122,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     }
 
     // Get the appropriate track list based on favorites mode
+    // Provider filtering is done server-side via API calls
     final List<Track> displayTracks;
     if (_showFavoritesOnly) {
       // Use the dedicated favorites list that was loaded by _loadFavoriteTracks()
@@ -4196,6 +4338,10 @@ class _OptionsMenuOverlay extends StatefulWidget {
   final VoidCallback onFavoritesToggled;
   final VoidCallback onArtistsFilterToggled;
   final VoidCallback onDismiss;
+  // Provider filter
+  final List<(ProviderInstance, int)> relevantProviders;
+  final Set<String> enabledProviderIds;
+  final void Function(String providerId, bool enabled) onProviderToggled;
 
   const _OptionsMenuOverlay({
     required this.position,
@@ -4216,6 +4362,9 @@ class _OptionsMenuOverlay extends StatefulWidget {
     required this.onFavoritesToggled,
     required this.onArtistsFilterToggled,
     required this.onDismiss,
+    required this.relevantProviders,
+    required this.enabledProviderIds,
+    required this.onProviderToggled,
   });
 
   @override
@@ -4228,6 +4377,7 @@ class _OptionsMenuOverlayState extends State<_OptionsMenuOverlay>
   late String _currentViewMode;
   late bool _showFavoritesOnly;
   late bool _showOnlyArtistsWithAlbums;
+  late Set<String> _localEnabledProviders;
   late AnimationController _animController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
@@ -4239,6 +4389,7 @@ class _OptionsMenuOverlayState extends State<_OptionsMenuOverlay>
     _currentViewMode = widget.currentViewMode;
     _showFavoritesOnly = widget.showFavoritesOnly;
     _showOnlyArtistsWithAlbums = widget.showOnlyArtistsWithAlbums;
+    _localEnabledProviders = Set.from(widget.enabledProviderIds);
 
     _animController = AnimationController(
       duration: const Duration(milliseconds: 150),
@@ -4304,6 +4455,43 @@ class _OptionsMenuOverlayState extends State<_OptionsMenuOverlay>
       _showOnlyArtistsWithAlbums = !_showOnlyArtistsWithAlbums;
     });
     widget.onArtistsFilterToggled();
+  }
+
+  void _handleProviderTap(String providerId) {
+    final isCurrentlyEnabled = _localEnabledProviders.isEmpty ||
+                                _localEnabledProviders.contains(providerId);
+
+    // Don't allow disabling the last provider
+    if (isCurrentlyEnabled) {
+      // If all are enabled (empty set), we're switching to selective mode
+      if (_localEnabledProviders.isEmpty) {
+        // Enable all except this one
+        final allIds = widget.relevantProviders.map((p) => p.$1.instanceId).toSet();
+        if (allIds.length <= 1) return; // Can't disable the only provider
+        _localEnabledProviders = allIds..remove(providerId);
+      } else {
+        // Already in selective mode - disable this one
+        if (_localEnabledProviders.length <= 1) return; // Can't disable the last one
+        _localEnabledProviders.remove(providerId);
+      }
+    } else {
+      // Enable this provider
+      _localEnabledProviders.add(providerId);
+      // If all providers are now enabled, clear the set (means "all")
+      final allIds = widget.relevantProviders.map((p) => p.$1.instanceId).toSet();
+      if (_localEnabledProviders.containsAll(allIds)) {
+        _localEnabledProviders.clear();
+      }
+    }
+
+    setState(() {});
+    widget.onProviderToggled(providerId, !isCurrentlyEnabled);
+  }
+
+  bool _isProviderEnabled(String providerId) {
+    // Empty set means all are enabled
+    if (_localEnabledProviders.isEmpty) return true;
+    return _localEnabledProviders.contains(providerId);
   }
 
   @override
@@ -4520,6 +4708,85 @@ class _OptionsMenuOverlayState extends State<_OptionsMenuOverlay>
                           ),
                         ),
                       ),
+
+                    // Providers section (only show if there are multiple providers WITH items)
+                    if (widget.relevantProviders.where((p) => p.$2 > 0).length > 1) ...[
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 4),
+                        child: Text(
+                          'Providers',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface.withOpacity(0.5),
+                          ),
+                        ),
+                      ),
+                      // Only show providers that have items
+                      ...widget.relevantProviders.where((p) => p.$2 > 0).map((providerData) {
+                        final (provider, itemCount) = providerData;
+                        final isEnabled = _isProviderEnabled(provider.instanceId);
+
+                        return InkWell(
+                          onTap: () => _handleProviderTap(provider.instanceId),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Row(
+                              children: [
+                                // Checkmark on left - fixed width
+                                SizedBox(
+                                  width: 24,
+                                  child: isEnabled
+                                      ? Icon(Icons.check, size: 18, color: colorScheme.primary)
+                                      : null,
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  isEnabled ? Icons.cloud : Icons.cloud_outlined,
+                                  size: 18,
+                                  color: isEnabled
+                                      ? colorScheme.primary
+                                      : colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    provider.name,
+                                    style: TextStyle(
+                                      color: isEnabled ? colorScheme.primary : null,
+                                      fontWeight: isEnabled ? FontWeight.w600 : FontWeight.normal,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                // Item count badge
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isEnabled
+                                        ? colorScheme.primary.withOpacity(0.1)
+                                        : colorScheme.surfaceVariant.withOpacity(0.5),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    itemCount.toString(),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: isEnabled
+                                          ? colorScheme.primary
+                                          : colorScheme.onSurface.withOpacity(0.5),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+
                         const SizedBox(height: 8),
                       ],
                     ),

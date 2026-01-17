@@ -856,9 +856,24 @@ class $LibraryCacheTable extends LibraryCache
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_deleted" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _sourceProvidersMeta =
+      const VerificationMeta('sourceProviders');
   @override
-  List<GeneratedColumn> get $columns =>
-      [cacheKey, itemType, itemId, data, lastSynced, isDeleted];
+  late final GeneratedColumn<String> sourceProviders = GeneratedColumn<String>(
+      'source_providers', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  @override
+  List<GeneratedColumn> get $columns => [
+        cacheKey,
+        itemType,
+        itemId,
+        data,
+        lastSynced,
+        isDeleted,
+        sourceProviders
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -905,6 +920,12 @@ class $LibraryCacheTable extends LibraryCache
       context.handle(_isDeletedMeta,
           isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta));
     }
+    if (data.containsKey('source_providers')) {
+      context.handle(
+          _sourceProvidersMeta,
+          sourceProviders.isAcceptableOrUnknown(
+              data['source_providers']!, _sourceProvidersMeta));
+    }
     return context;
   }
 
@@ -926,6 +947,8 @@ class $LibraryCacheTable extends LibraryCache
           .read(DriftSqlType.dateTime, data['${effectivePrefix}last_synced'])!,
       isDeleted: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_deleted'])!,
+      sourceProviders: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}source_providers'])!,
     );
   }
 
@@ -954,13 +977,18 @@ class LibraryCacheData extends DataClass
 
   /// Whether this item was deleted on the server
   final bool isDeleted;
+
+  /// Provider instance IDs that provided this item (JSON array)
+  /// Used for client-side filtering by source provider
+  final String sourceProviders;
   const LibraryCacheData(
       {required this.cacheKey,
       required this.itemType,
       required this.itemId,
       required this.data,
       required this.lastSynced,
-      required this.isDeleted});
+      required this.isDeleted,
+      required this.sourceProviders});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -970,6 +998,7 @@ class LibraryCacheData extends DataClass
     map['data'] = Variable<String>(data);
     map['last_synced'] = Variable<DateTime>(lastSynced);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    map['source_providers'] = Variable<String>(sourceProviders);
     return map;
   }
 
@@ -981,6 +1010,7 @@ class LibraryCacheData extends DataClass
       data: Value(data),
       lastSynced: Value(lastSynced),
       isDeleted: Value(isDeleted),
+      sourceProviders: Value(sourceProviders),
     );
   }
 
@@ -994,6 +1024,7 @@ class LibraryCacheData extends DataClass
       data: serializer.fromJson<String>(json['data']),
       lastSynced: serializer.fromJson<DateTime>(json['lastSynced']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      sourceProviders: serializer.fromJson<String>(json['sourceProviders']),
     );
   }
   @override
@@ -1006,6 +1037,7 @@ class LibraryCacheData extends DataClass
       'data': serializer.toJson<String>(data),
       'lastSynced': serializer.toJson<DateTime>(lastSynced),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'sourceProviders': serializer.toJson<String>(sourceProviders),
     };
   }
 
@@ -1015,7 +1047,8 @@ class LibraryCacheData extends DataClass
           String? itemId,
           String? data,
           DateTime? lastSynced,
-          bool? isDeleted}) =>
+          bool? isDeleted,
+          String? sourceProviders}) =>
       LibraryCacheData(
         cacheKey: cacheKey ?? this.cacheKey,
         itemType: itemType ?? this.itemType,
@@ -1023,6 +1056,7 @@ class LibraryCacheData extends DataClass
         data: data ?? this.data,
         lastSynced: lastSynced ?? this.lastSynced,
         isDeleted: isDeleted ?? this.isDeleted,
+        sourceProviders: sourceProviders ?? this.sourceProviders,
       );
   LibraryCacheData copyWithCompanion(LibraryCacheCompanion data) {
     return LibraryCacheData(
@@ -1033,6 +1067,9 @@ class LibraryCacheData extends DataClass
       lastSynced:
           data.lastSynced.present ? data.lastSynced.value : this.lastSynced,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      sourceProviders: data.sourceProviders.present
+          ? data.sourceProviders.value
+          : this.sourceProviders,
     );
   }
 
@@ -1044,14 +1081,15 @@ class LibraryCacheData extends DataClass
           ..write('itemId: $itemId, ')
           ..write('data: $data, ')
           ..write('lastSynced: $lastSynced, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('sourceProviders: $sourceProviders')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(cacheKey, itemType, itemId, data, lastSynced, isDeleted);
+  int get hashCode => Object.hash(
+      cacheKey, itemType, itemId, data, lastSynced, isDeleted, sourceProviders);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1061,7 +1099,8 @@ class LibraryCacheData extends DataClass
           other.itemId == this.itemId &&
           other.data == this.data &&
           other.lastSynced == this.lastSynced &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.sourceProviders == this.sourceProviders);
 }
 
 class LibraryCacheCompanion extends UpdateCompanion<LibraryCacheData> {
@@ -1071,6 +1110,7 @@ class LibraryCacheCompanion extends UpdateCompanion<LibraryCacheData> {
   final Value<String> data;
   final Value<DateTime> lastSynced;
   final Value<bool> isDeleted;
+  final Value<String> sourceProviders;
   final Value<int> rowid;
   const LibraryCacheCompanion({
     this.cacheKey = const Value.absent(),
@@ -1079,6 +1119,7 @@ class LibraryCacheCompanion extends UpdateCompanion<LibraryCacheData> {
     this.data = const Value.absent(),
     this.lastSynced = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.sourceProviders = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LibraryCacheCompanion.insert({
@@ -1088,6 +1129,7 @@ class LibraryCacheCompanion extends UpdateCompanion<LibraryCacheData> {
     required String data,
     required DateTime lastSynced,
     this.isDeleted = const Value.absent(),
+    this.sourceProviders = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : cacheKey = Value(cacheKey),
         itemType = Value(itemType),
@@ -1101,6 +1143,7 @@ class LibraryCacheCompanion extends UpdateCompanion<LibraryCacheData> {
     Expression<String>? data,
     Expression<DateTime>? lastSynced,
     Expression<bool>? isDeleted,
+    Expression<String>? sourceProviders,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1110,6 +1153,7 @@ class LibraryCacheCompanion extends UpdateCompanion<LibraryCacheData> {
       if (data != null) 'data': data,
       if (lastSynced != null) 'last_synced': lastSynced,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (sourceProviders != null) 'source_providers': sourceProviders,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1121,6 +1165,7 @@ class LibraryCacheCompanion extends UpdateCompanion<LibraryCacheData> {
       Value<String>? data,
       Value<DateTime>? lastSynced,
       Value<bool>? isDeleted,
+      Value<String>? sourceProviders,
       Value<int>? rowid}) {
     return LibraryCacheCompanion(
       cacheKey: cacheKey ?? this.cacheKey,
@@ -1129,6 +1174,7 @@ class LibraryCacheCompanion extends UpdateCompanion<LibraryCacheData> {
       data: data ?? this.data,
       lastSynced: lastSynced ?? this.lastSynced,
       isDeleted: isDeleted ?? this.isDeleted,
+      sourceProviders: sourceProviders ?? this.sourceProviders,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1154,6 +1200,9 @@ class LibraryCacheCompanion extends UpdateCompanion<LibraryCacheData> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (sourceProviders.present) {
+      map['source_providers'] = Variable<String>(sourceProviders.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1169,6 +1218,7 @@ class LibraryCacheCompanion extends UpdateCompanion<LibraryCacheData> {
           ..write('data: $data, ')
           ..write('lastSynced: $lastSynced, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('sourceProviders: $sourceProviders, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3507,6 +3557,7 @@ typedef $$LibraryCacheTableCreateCompanionBuilder = LibraryCacheCompanion
   required String data,
   required DateTime lastSynced,
   Value<bool> isDeleted,
+  Value<String> sourceProviders,
   Value<int> rowid,
 });
 typedef $$LibraryCacheTableUpdateCompanionBuilder = LibraryCacheCompanion
@@ -3517,6 +3568,7 @@ typedef $$LibraryCacheTableUpdateCompanionBuilder = LibraryCacheCompanion
   Value<String> data,
   Value<DateTime> lastSynced,
   Value<bool> isDeleted,
+  Value<String> sourceProviders,
   Value<int> rowid,
 });
 
@@ -3546,6 +3598,10 @@ class $$LibraryCacheTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get sourceProviders => $composableBuilder(
+      column: $table.sourceProviders,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$LibraryCacheTableOrderingComposer
@@ -3574,6 +3630,10 @@ class $$LibraryCacheTableOrderingComposer
 
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get sourceProviders => $composableBuilder(
+      column: $table.sourceProviders,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$LibraryCacheTableAnnotationComposer
@@ -3602,6 +3662,9 @@ class $$LibraryCacheTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceProviders => $composableBuilder(
+      column: $table.sourceProviders, builder: (column) => column);
 }
 
 class $$LibraryCacheTableTableManager extends RootTableManager<
@@ -3636,6 +3699,7 @@ class $$LibraryCacheTableTableManager extends RootTableManager<
             Value<String> data = const Value.absent(),
             Value<DateTime> lastSynced = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String> sourceProviders = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               LibraryCacheCompanion(
@@ -3645,6 +3709,7 @@ class $$LibraryCacheTableTableManager extends RootTableManager<
             data: data,
             lastSynced: lastSynced,
             isDeleted: isDeleted,
+            sourceProviders: sourceProviders,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -3654,6 +3719,7 @@ class $$LibraryCacheTableTableManager extends RootTableManager<
             required String data,
             required DateTime lastSynced,
             Value<bool> isDeleted = const Value.absent(),
+            Value<String> sourceProviders = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               LibraryCacheCompanion.insert(
@@ -3663,6 +3729,7 @@ class $$LibraryCacheTableTableManager extends RootTableManager<
             data: data,
             lastSynced: lastSynced,
             isDeleted: isDeleted,
+            sourceProviders: sourceProviders,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
