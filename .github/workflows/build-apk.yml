@@ -62,7 +62,7 @@ jobs:
         continue-on-error: true
 
       - name: Setup signing keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: secrets.KEYSTORE_BASE64 != ''
         run: |
           # Decode keystore from secret (persistent key for consistent signatures)
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
