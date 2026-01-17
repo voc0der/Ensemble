@@ -32,6 +32,19 @@ class ErrorHandler {
     _logger.log('❌ Error in $context: $error');
 
     final errorStr = error.toString().toLowerCase();
+    // mTLS / client certificate required
+    if (errorStr.contains("missingclientcertificateexception") ||
+        (errorStr.contains("client certificate") && errorStr.contains("required")) ||
+        errorStr.contains("certificate_required") ||
+        (errorStr.contains("certificate") && errorStr.contains("required"))) {
+      return ErrorInfo(
+        type: ErrorType.authentication,
+        userMessage: "Client certificate required. Please select a certificate on your device.",
+        technicalMessage: error.toString(),
+        canRetry: true,
+      );
+    }
+
 
     // Connection errors
     if (errorStr.contains('not connected') ||

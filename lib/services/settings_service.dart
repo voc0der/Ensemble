@@ -73,6 +73,7 @@ class SettingsService {
   static const String _keyServerUrl = 'server_url';
   static const String _keyAuthServerUrl = 'auth_server_url';
   static const String _keyWebSocketPort = 'websocket_port';
+  static const String _keyAndroidMtlsKeyAlias = 'android_mtls_keychain_alias';
   static const String _keyAuthToken = 'auth_token';
   static const String _keyMaAuthToken = 'ma_auth_token'; // Music Assistant native auth token
   static const String _keyAuthCredentials = 'auth_credentials'; // NEW: Serialized auth strategy credentials
@@ -217,6 +218,19 @@ class SettingsService {
     } else {
       await prefs.setInt(_keyWebSocketPort, port);
     }
+  }
+
+  // Android KeyChain mTLS client certificate alias (Android only)
+  static Future<String?> getAndroidMtlsKeyAlias() async {
+    return _getString(_keyAndroidMtlsKeyAlias);
+  }
+
+  static Future<void> setAndroidMtlsKeyAlias(String? alias) async {
+    await _setString(_keyAndroidMtlsKeyAlias, alias, removeIfEmpty: true);
+  }
+
+  static Future<void> clearAndroidMtlsKeyAlias() async {
+    await _remove(_keyAndroidMtlsKeyAlias);
   }
 
   // Get authentication token for stream requests (securely stored)

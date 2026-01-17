@@ -13,6 +13,9 @@ import 'settings_service.dart';
 import 'device_id_service.dart';
 import 'retry_helper.dart';
 import 'auth/auth_manager.dart';
+import 'security/android_keychain.dart';
+import 'security/native_keychain_websocket_channel.dart';
+import 'security/missing_client_certificate.dart';
 
 enum MAConnectionState {
   disconnected,
@@ -186,12 +189,73 @@ class MusicAssistantAPI {
         _logger.log('Connection: No authentication configured');
       }
 
-      // Use WebSocket.connect with headers, then wrap in IOWebSocketChannel
-      final webSocket = await WebSocket.connect(
-        wsUrl,
-        headers: headers.isNotEmpty ? headers : null,
-      );
-      _channel = IOWebSocketChannel(webSocket);
+      // WebSocket connection strategy:
+      // - Default: Dart WebSocket.connect
+      // - Android + WSS + mTLS KeyChain alias: Native OkHttp WebSocket (can use KeyChain private keys)
+      // - Android + WSS and handshake indicates client cert required: prompt KeyChain, store alias, retry native
+      final bool mtlsCandidate = Platform.isAndroid && useSecure;
+      String? mtlsAlias = mtlsCandidate ? await SettingsService.getAndroidMtlsKeyAlias() : null;
+
+      bool looksLikeClientCertRequired(Object e) {
+        final msg = e.toString().toLowerCase();
+        return msg.contains('certificate_required') ||
+            msg.contains('certificate required') ||
+            msg.contains('no required ssl certificate') ||
+            msg.contains('client certificate') && msg.contains('required') ||
+            msg.contains('alert certificate') && msg.contains('required');
+      }
+
+      Future<WebSocketChannel> connectDartWs() async {
+        final webSocket = await WebSocket.connect(
+          wsUrl,
+          headers: headers.isNotEmpty ? headers : null,
+        );
+        return IOWebSocketChannel(webSocket);
+      }
+
+      Future<WebSocketChannel> connectNativeWs(String alias) async {
+        return await NativeKeyChainWebSocketChannel.connect(
+          alias: alias,
+          url: wsUrl,
+          headers: headers.isNotEmpty ? headers : null,
+        );
+      }
+
+      Future<String?> promptForAlias() async {
+        final uriForPicker = Uri.parse(wsUrl);
+        final host = uriForPicker.host;
+        final port = uriForPicker.hasPort ? uriForPicker.port : 443;
+        _logger.log('mTLS: Prompting Android KeyChain for client certificate (host=$host, port=$port)');
+        return await AndroidKeyChain.selectClientCertificate(host: host, port: port);
+      }
+
+      try {
+        if (mtlsCandidate && mtlsAlias != null && mtlsAlias.isNotEmpty) {
+          _logger.log('mTLS: Using stored Android KeyChain alias for WebSocket');
+          _channel = await connectNativeWs(mtlsAlias);
+        } else {
+          _channel = await connectDartWs();
+        }
+      } catch (e) {
+        // If we tried a stored alias and it failed, clear it and attempt prompting once.
+        if (mtlsCandidate && mtlsAlias != null && mtlsAlias.isNotEmpty) {
+          _logger.log('mTLS: Stored alias connect failed, clearing alias and retrying. Error: $e');
+          await SettingsService.clearAndroidMtlsKeyAlias();
+          mtlsAlias = null;
+        }
+
+        if (mtlsCandidate && mtlsAlias == null && looksLikeClientCertRequired(e)) {
+          final picked = await promptForAlias();
+          if (picked == null || picked.isEmpty) {
+            throw MissingClientCertificateException('Client certificate required (selection canceled).');
+          }
+          await SettingsService.setAndroidMtlsKeyAlias(picked);
+          _logger.log('mTLS: Selected KeyChain alias stored; reconnecting via native WebSocket');
+          _channel = await connectNativeWs(picked);
+        } else {
+          rethrow;
+        }
+      }
 
       // Wait for server info message before considering connected
       _connectionCompleter = Completer<void>();
