@@ -4448,14 +4448,14 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   /// Load radio stations from the library
-  Future<void> loadRadioStations() async {
+  Future<void> loadRadioStations({String? orderBy}) async {
     if (!isConnected || _api == null) return;
 
     try {
       _isLoadingRadio = true;
       notifyListeners();
 
-      _radioStations = await _api!.getRadioStations(limit: 100);
+      _radioStations = await _api!.getRadioStations(limit: 100, orderBy: orderBy);
       _isLoadingRadio = false;
       notifyListeners();
     } catch (e) {
@@ -4465,14 +4465,14 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadPodcasts() async {
+  Future<void> loadPodcasts({String? orderBy}) async {
     if (!isConnected || _api == null) return;
 
     try {
       _isLoadingPodcasts = true;
       notifyListeners();
 
-      _podcasts = await _api!.getPodcasts(limit: 100);
+      _podcasts = await _api!.getPodcasts(limit: 100, orderBy: orderBy);
 
       _logger.log('🎙️ Loaded ${_podcasts.length} podcasts');
       _isLoadingPodcasts = false;
@@ -4515,7 +4515,7 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadArtists({int? limit, int? offset, String? search}) async {
+  Future<void> loadArtists({int? limit, int? offset, String? search, String? orderBy}) async {
     if (!isConnected) return;
 
     try {
@@ -4528,6 +4528,7 @@ class MusicAssistantProvider with ChangeNotifier {
         offset: offset,
         search: search,
         albumArtistsOnly: false, // Show ALL library artists, not just those with albums
+        orderBy: orderBy,
       );
 
       _isLoading = false;
@@ -4545,6 +4546,7 @@ class MusicAssistantProvider with ChangeNotifier {
     int? offset,
     String? search,
     String? artistId,
+    String? orderBy,
   }) async {
     if (!isConnected) return;
 
@@ -4558,6 +4560,7 @@ class MusicAssistantProvider with ChangeNotifier {
         offset: offset,
         search: search,
         artistId: artistId,
+        orderBy: orderBy,
       );
 
       _isLoading = false;
@@ -4596,10 +4599,10 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   /// Get playlists with provider filtering applied
-  Future<List<Playlist>> getPlaylists({int? limit, bool? favoriteOnly}) async {
+  Future<List<Playlist>> getPlaylists({int? limit, bool? favoriteOnly, String? orderBy}) async {
     if (_api == null) return [];
     try {
-      final playlists = await _api!.getPlaylists(limit: limit, favoriteOnly: favoriteOnly);
+      final playlists = await _api!.getPlaylists(limit: limit, favoriteOnly: favoriteOnly, orderBy: orderBy);
       return filterByProvider(playlists);
     } catch (e) {
       _logger.log('❌ Failed to fetch playlists: $e');
