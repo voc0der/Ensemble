@@ -181,7 +181,10 @@ class MusicAssistantAPI {
       _logger.log('Final WebSocket URL: $wsUrl');
 
       // Get authentication headers from AuthManager
-      final headers = authManager.getWebSocketHeaders();
+      final authHeaders = authManager.getWebSocketHeaders();
+
+      // Convert Map<String, dynamic> to Map<String, String> for WebSocket
+      final headers = authHeaders.map((key, value) => MapEntry(key, value.toString()));
 
       if (headers.isNotEmpty) {
         _logger.log('Connection: Using authentication');

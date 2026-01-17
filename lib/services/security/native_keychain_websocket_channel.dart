@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show unawaited;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'android_keychain.dart';
@@ -18,6 +19,15 @@ class NativeKeyChainWebSocketChannel implements WebSocketChannel {
 
   @override
   final String? protocol;
+
+  @override
+  int? get closeCode => null;
+
+  @override
+  String? get closeReason => null;
+
+  @override
+  Future<void> get ready => Future.value();
 
   NativeKeyChainWebSocketChannel._({
     required this.stream,
@@ -131,6 +141,13 @@ class _NativeWebSocketSink implements WebSocketSink {
     } else {
       // Be strict: MA expects text JSON frames.
       unawaited(onSend(data.toString()));
+    }
+  }
+
+  @override
+  Future addStream(Stream stream) async {
+    await for (final data in stream) {
+      add(data);
     }
   }
 
