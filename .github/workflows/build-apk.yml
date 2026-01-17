@@ -61,34 +61,15 @@ jobs:
         run: flutter analyze
         continue-on-error: true
 
-      - name: Setup signing keystore
-        if: secrets.KEYSTORE_BASE64 != ''
-        run: |
-          # Decode keystore from secret (persistent key for consistent signatures)
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
-
-          # Create key.properties file
-          cat > android/key.properties << EOF
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=upload-keystore.jks
-          EOF
-
       - name: Build APK
         run: |
           # Use init.gradle to force Maven mirrors (workaround for Maven Central 403)
           mkdir -p ~/.gradle
           cp android/init.gradle ~/.gradle/init.gradle
 
-          # Build release if keystore is available, otherwise build debug
-          if [ -f android/key.properties ]; then
-            echo "Building signed release APK..."
-            flutter build apk --release
-          else
-            echo "No keystore found, building debug APK..."
-            flutter build apk --debug
-          fi
+          # Build debug APK (no signing required)
+          echo "Building debug APK for testing..."
+          flutter build apk --debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
