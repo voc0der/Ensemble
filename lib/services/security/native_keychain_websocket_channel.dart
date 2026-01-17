@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show unawaited;
+import 'package:stream_channel/stream_channel.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'android_keychain.dart';
@@ -10,7 +11,7 @@ import 'android_keychain.dart';
 /// Dart's `WebSocket.connect()` cannot use client private keys stored in the
 /// Android system KeyChain, so we bridge WebSocket operations through a native
 /// OkHttp WebSocket that is configured with a KeyChain alias.
-class NativeKeyChainWebSocketChannel implements WebSocketChannel {
+class NativeKeyChainWebSocketChannel extends StreamChannelMixin implements WebSocketChannel {
   @override
   final Stream<dynamic> stream;
 
