@@ -8,6 +8,7 @@ import '../constants/network.dart';
 import '../constants/timings.dart' show Timings, LibraryConstants;
 import '../models/media_item.dart';
 import '../models/player.dart';
+import '../models/provider_instance.dart';
 import 'debug_logger.dart';
 import 'settings_service.dart';
 import 'device_id_service.dart';
@@ -377,6 +378,7 @@ class MusicAssistantAPI {
     bool? favoriteOnly,
     bool albumArtistsOnly = true,
     String? orderBy,
+    List<String>? providerInstanceIds,
   }) async {
     try {
       final args = {
@@ -386,6 +388,8 @@ class MusicAssistantAPI {
         if (favoriteOnly != null) 'favorite': favoriteOnly,
         'album_artists_only': albumArtistsOnly,
         if (orderBy != null) 'order_by': orderBy,
+        if (providerInstanceIds != null && providerInstanceIds.isNotEmpty)
+          'provider': providerInstanceIds,
       };
       _logger.log('🔍 API getArtists args: $args');
       final response = await _sendCommand(
@@ -407,7 +411,11 @@ class MusicAssistantAPI {
     }
   }
 
-  Future<List<Artist>> getRandomArtists({int limit = 10, bool albumArtistsOnly = true}) async {
+  Future<List<Artist>> getRandomArtists({
+    int limit = 10,
+    bool albumArtistsOnly = true,
+    List<String>? providerInstanceIds,
+  }) async {
     try {
       final response = await _sendCommand(
         'music/artists/library_items',
@@ -415,6 +423,8 @@ class MusicAssistantAPI {
           'limit': limit,
           'order_by': 'random',
           'album_artists_only': albumArtistsOnly,
+          if (providerInstanceIds != null && providerInstanceIds.isNotEmpty)
+            'provider': providerInstanceIds,
         },
       );
 
@@ -437,6 +447,7 @@ class MusicAssistantAPI {
     bool? favoriteOnly,
     String? artistId,
     String? orderBy,
+    List<String>? providerInstanceIds,
   }) async {
     try {
       final args = <String, dynamic>{
@@ -446,6 +457,8 @@ class MusicAssistantAPI {
         if (favoriteOnly != null) 'favorite': favoriteOnly,
         if (artistId != null) 'artist_id': artistId,
         if (orderBy != null) 'order_by': orderBy,
+        if (providerInstanceIds != null && providerInstanceIds.isNotEmpty)
+          'provider': providerInstanceIds,
       };
       _logger.log('🔍 API getAlbums args: $args');
 
@@ -475,6 +488,7 @@ class MusicAssistantAPI {
     String? artistId,
     String? albumId,
     String? orderBy,
+    List<String>? providerInstanceIds,
   }) async {
     try {
       final response = await _sendCommand(
@@ -487,6 +501,8 @@ class MusicAssistantAPI {
           if (artistId != null) 'artist': artistId,
           if (albumId != null) 'album': albumId,
           if (orderBy != null) 'order_by': orderBy,
+          if (providerInstanceIds != null && providerInstanceIds.isNotEmpty)
+            'provider': providerInstanceIds,
         },
       );
 
@@ -734,48 +750,113 @@ class MusicAssistantAPI {
     String? search,
     bool? favoriteOnly,
     String? authorId,
+    List<String>? providerInstanceIds,
   }) async {
     try {
-      // Check if library filtering is enabled
+      final allAudiobooks = <Audiobook>[];
+      final seenIds = <String>{};
+
+      // Check if library filtering is enabled (for ABS providers)
       final enabledLibraries = await SettingsService.getEnabledAbsLibraries();
 
-      // If specific libraries are enabled, use browse API for filtering
+      // Extract ABS provider IDs from library paths
+      final absProviderIds = <String>{};
       if (enabledLibraries != null && enabledLibraries.isNotEmpty) {
-        return await _getAudiobooksFromBrowse(enabledLibraries, favoriteOnly: favoriteOnly);
-      }
-
-      // Otherwise use the faster MA API (returns all audiobooks)
-      final args = <String, dynamic>{
-        if (limit != null) 'limit': limit,
-        if (offset != null) 'offset': offset,
-        if (search != null) 'search': search,
-        if (favoriteOnly != null) 'favorite': favoriteOnly,
-        if (authorId != null) 'author_id': authorId,
-      };
-
-      final response = await _sendCommand(
-        'music/audiobooks/library_items',
-        args: args,
-      );
-
-      // Check for error in response
-      if (response.containsKey('error_code')) {
-        return [];
-      }
-
-      final items = response['result'] as List<dynamic>?;
-      if (items == null) return [];
-
-      final audiobooks = <Audiobook>[];
-      for (int i = 0; i < items.length; i++) {
-        try {
-          final book = Audiobook.fromJson(items[i] as Map<String, dynamic>);
-          audiobooks.add(book);
-        } catch (e) {
-          // Skip items that fail to parse
+        for (final libPath in enabledLibraries) {
+          final providerEnd = libPath.indexOf('://');
+          if (providerEnd != -1) {
+            absProviderIds.add(libPath.substring(0, providerEnd));
+          }
         }
       }
-      return audiobooks;
+
+      _logger.log('📚 getAudiobooks: absProviderIds=$absProviderIds, providerInstanceIds=$providerInstanceIds');
+
+      // PART 1: Fetch from ABS providers using browse API (for library filtering support)
+      if (enabledLibraries != null && enabledLibraries.isNotEmpty) {
+        // If specific providers are requested, filter libraries to only matching ABS providers
+        var librariesToBrowse = enabledLibraries;
+        if (providerInstanceIds != null && providerInstanceIds.isNotEmpty) {
+          librariesToBrowse = enabledLibraries.where((libPath) {
+            final providerEnd = libPath.indexOf('://');
+            if (providerEnd == -1) return false;
+            final providerId = libPath.substring(0, providerEnd);
+            return providerInstanceIds.contains(providerId);
+          }).toList();
+        }
+
+        if (librariesToBrowse.isNotEmpty) {
+          final browseBooks = await _getAudiobooksFromBrowse(librariesToBrowse, favoriteOnly: favoriteOnly);
+          for (final book in browseBooks) {
+            if (!seenIds.contains(book.itemId)) {
+              seenIds.add(book.itemId);
+              allAudiobooks.add(book);
+            }
+          }
+          _logger.log('📚 Got ${browseBooks.length} audiobooks from ABS browse API');
+        }
+      }
+
+      // PART 2: Fetch from non-ABS providers using library_items API
+      // This gets audiobooks from Spotify, Plex, Jellyfin, etc.
+      List<String>? nonAbsProviders;
+      if (providerInstanceIds != null && providerInstanceIds.isNotEmpty) {
+        // Filter to only non-ABS providers from the requested list
+        nonAbsProviders = providerInstanceIds.where((id) => !absProviderIds.contains(id)).toList();
+      } else if (absProviderIds.isNotEmpty) {
+        // No specific providers requested, but we have ABS - need to also fetch from non-ABS
+        // Pass null to get all, then we'll deduplicate
+        nonAbsProviders = null; // Will fetch all
+      }
+
+      // Only call library_items API if:
+      // 1. No ABS libraries configured (traditional mode), OR
+      // 2. We have non-ABS providers to query
+      final shouldFetchFromApi = enabledLibraries == null ||
+                                  enabledLibraries.isEmpty ||
+                                  (nonAbsProviders == null && absProviderIds.isNotEmpty) ||
+                                  (nonAbsProviders != null && nonAbsProviders.isNotEmpty);
+
+      if (shouldFetchFromApi) {
+        final args = <String, dynamic>{
+          if (limit != null) 'limit': limit,
+          if (offset != null) 'offset': offset,
+          if (search != null) 'search': search,
+          if (favoriteOnly != null) 'favorite': favoriteOnly,
+          if (authorId != null) 'author_id': authorId,
+          if (nonAbsProviders != null && nonAbsProviders.isNotEmpty)
+            'provider': nonAbsProviders,
+        };
+
+        final response = await _sendCommand(
+          'music/audiobooks/library_items',
+          args: args,
+        );
+
+        if (!response.containsKey('error_code')) {
+          final items = response['result'] as List<dynamic>?;
+          if (items != null) {
+            int addedCount = 0;
+            for (int i = 0; i < items.length; i++) {
+              try {
+                final book = Audiobook.fromJson(items[i] as Map<String, dynamic>);
+                // Deduplicate by itemId
+                if (!seenIds.contains(book.itemId)) {
+                  seenIds.add(book.itemId);
+                  allAudiobooks.add(book);
+                  addedCount++;
+                }
+              } catch (e) {
+                // Skip items that fail to parse
+              }
+            }
+            _logger.log('📚 Got $addedCount audiobooks from library_items API');
+          }
+        }
+      }
+
+      _logger.log('📚 Total audiobooks: ${allAudiobooks.length}');
+      return allAudiobooks;
     } catch (e, stack) {
       _logger.log('Error getting audiobooks: $e');
       _logger.log('Stack: $stack');
@@ -1353,13 +1434,18 @@ class MusicAssistantAPI {
   }
 
   /// Get random albums
-  Future<List<Album>> getRandomAlbums({int limit = 10}) async {
+  Future<List<Album>> getRandomAlbums({
+    int limit = 10,
+    List<String>? providerInstanceIds,
+  }) async {
     try {
       final response = await _sendCommand(
         'music/albums/library_items',
         args: {
           'limit': limit,
           'order_by': 'random',
+          if (providerInstanceIds != null && providerInstanceIds.isNotEmpty)
+            'provider': providerInstanceIds,
         },
       );
 
@@ -1476,6 +1562,7 @@ class MusicAssistantAPI {
     String? search,
     bool? favoriteOnly,
     String? orderBy,
+    List<String>? providerInstanceIds,
   }) async {
     try {
       final response = await _sendCommand(
@@ -1486,6 +1573,8 @@ class MusicAssistantAPI {
           if (search != null) 'search': search,
           if (favoriteOnly != null) 'favorite': favoriteOnly,
           if (orderBy != null) 'order_by': orderBy,
+          if (providerInstanceIds != null && providerInstanceIds.isNotEmpty)
+            'provider': providerInstanceIds,
         },
       );
 
@@ -3290,6 +3379,39 @@ class MusicAssistantAPI {
     } catch (e) {
       _logger.log('❌ Error fetching state: $e');
       // Don't throw - this should be non-fatal
+    }
+  }
+
+  /// Get all music provider instances configured in Music Assistant
+  /// Returns only music providers (spotify, tidal, filesystem, etc.) not player/metadata providers
+  Future<List<ProviderInstance>> getMusicProviders() async {
+    try {
+      final response = await _sendCommand('providers');
+
+      final result = response['result'];
+      if (result == null) {
+        _logger.log('⚠️ providers command returned no result');
+        return [];
+      }
+
+      final List<dynamic> providers = result is List ? result : [];
+      final musicProviders = <ProviderInstance>[];
+
+      for (final providerData in providers) {
+        if (providerData is Map<String, dynamic>) {
+          final instance = ProviderInstance.fromJson(providerData);
+          // Only include music providers (not player providers, metadata providers, etc.)
+          if (instance.isMusicProvider) {
+            musicProviders.add(instance);
+          }
+        }
+      }
+
+      _logger.log('🎵 Found ${musicProviders.length} music providers: ${musicProviders.map((p) => p.name).join(", ")}');
+      return musicProviders;
+    } catch (e) {
+      _logger.log('❌ Error getting music providers: $e');
+      return [];
     }
   }
 

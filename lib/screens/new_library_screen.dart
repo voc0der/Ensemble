@@ -210,6 +210,16 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
     // Close options menu when navigating away from Library
     navigationProvider.addListener(_onNavigationChanged);
+
+    // Listen to SyncService for library data updates
+    SyncService.instance.addListener(_onSyncServiceChanged);
+  }
+
+  void _onSyncServiceChanged() {
+    // Rebuild when SyncService data changes (e.g., after sync completes)
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _onNavigationChanged() {
@@ -249,7 +259,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           default: return 'audiobooks';
         }
       case LibraryMediaType.podcasts:
-        return 'playlists'; // Podcasts are playlists
+        return 'podcasts';
       case LibraryMediaType.radio:
         return 'radio';
     }
@@ -279,8 +289,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     _providerFilterDebounce?.cancel();
 
     // Schedule debounced background sync to refresh source tracking data
-    // This ensures the source provider data stays accurate
-    _providerFilterDebounce = Timer(const Duration(milliseconds: 1500), () async {
+    // Uses 800ms delay to allow multiple rapid toggles before syncing
+    _providerFilterDebounce = Timer(const Duration(milliseconds: 800), () async {
       if (mounted) {
         DebugLogger().log('🔄 Background sync to refresh source tracking...');
         await maProvider.forceLibrarySync();
@@ -693,6 +703,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     _seriesScrollController.dispose();
     _podcastsScrollController.dispose();
     _radioScrollController.dispose();
+    SyncService.instance.removeListener(_onSyncServiceChanged);
     super.dispose();
   }
 
@@ -703,7 +714,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
     // Use SyncService's client-side filtering for instant updates with source tracking
     List<Playlist> playlists;
-    if (syncService.hasSourceTracking && enabledProviders.isNotEmpty) {
+    if (enabledProviders.isNotEmpty) {
       // Client-side filtering using source tracking (instant, differentiates same-type providers)
       playlists = syncService.getPlaylistsFilteredByProviders(enabledProviders);
       // Apply favorite filter client-side
@@ -711,12 +722,12 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         playlists = playlists.where((p) => p.favorite == true).toList();
       }
     } else {
-      // Fallback to API fetch when source tracking not available
-      playlists = await maProvider.getPlaylists(
-        limit: 100,
-        favoriteOnly: favoriteOnly,
-        orderBy: _playlistsSortOrder,
-      );
+      // No provider filter active - use cached playlists
+      playlists = syncService.cachedPlaylists;
+      // Apply favorite filter client-side
+      if (favoriteOnly == true) {
+        playlists = playlists.where((p) => p.favorite == true).toList();
+      }
     }
 
     if (mounted) {
@@ -873,7 +884,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     List<Audiobook> audiobooks;
 
     // Use SyncService's client-side filtering for instant updates with source tracking
-    if (syncService.hasSourceTracking && enabledProviders.isNotEmpty) {
+    if (enabledProviders.isNotEmpty) {
       _logger.log('📚 Using SyncService client-side filtering');
       audiobooks = syncService.getAudiobooksFilteredByProviders(enabledProviders);
       // Apply favorite filter client-side
@@ -881,11 +892,13 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
         audiobooks = audiobooks.where((b) => b.favorite == true).toList();
       }
     } else {
-      _logger.log('📚 Calling getAudiobooks from API...');
-      audiobooks = await maProvider.getAudiobooks(
-        limit: 10000,  // Large limit to get all audiobooks
-        favoriteOnly: favoriteOnly,
-      );
+      // No provider filter active - use cached audiobooks
+      _logger.log('📚 Using cached audiobooks (no filter)');
+      audiobooks = syncService.cachedAudiobooks;
+      // Apply favorite filter client-side
+      if (favoriteOnly == true) {
+        audiobooks = audiobooks.where((b) => b.favorite == true).toList();
+      }
     }
     _logger.log('📚 Returned ${audiobooks.length} audiobooks');
     if (audiobooks.isNotEmpty) {
@@ -2037,98 +2050,117 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   // ============ BOOKS TABS ============
   Widget _buildBooksAuthorsTab(BuildContext context, S l10n) {
-    final colorScheme = Theme.of(context).colorScheme;
+    // Use Selector to rebuild when enabledProviderIds changes
+    return Selector<MusicAssistantProvider, Set<String>>(
+      selector: (_, provider) => provider.enabledProviderIds.toSet(),
+      builder: (context, enabledProviders, _) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final syncService = SyncService.instance;
 
-    if (_isLoadingAudiobooks) {
-      return Center(child: CircularProgressIndicator(color: colorScheme.primary));
-    }
+        if (_isLoadingAudiobooks) {
+          return Center(child: CircularProgressIndicator(color: colorScheme.primary));
+        }
 
-    // Filter by favorites if enabled
-    final audiobooks = _showFavoritesOnly
-        ? _audiobooks.where((a) => a.favorite == true).toList()
-        : _audiobooks;
+        // Client-side filtering using SyncService source tracking for instant updates
+        var audiobooks = enabledProviders.isNotEmpty
+            ? syncService.getAudiobooksFilteredByProviders(enabledProviders)
+            : syncService.cachedAudiobooks;
 
-    if (audiobooks.isEmpty) {
-      if (_showFavoritesOnly) {
-        return EmptyState.custom(
-          context: context,
-          icon: Icons.favorite_border,
-          title: l10n.noFavoriteAudiobooks,
-          subtitle: l10n.tapHeartAudiobook,
+        // Filter by favorites if enabled
+        if (_showFavoritesOnly) {
+          audiobooks = audiobooks.where((a) => a.favorite == true).toList();
+        }
+
+        if (audiobooks.isEmpty) {
+          if (_showFavoritesOnly) {
+            return EmptyState.custom(
+              context: context,
+              icon: Icons.favorite_border,
+              title: l10n.noFavoriteAudiobooks,
+              subtitle: l10n.tapHeartAudiobook,
+            );
+          }
+          return EmptyState.custom(
+            context: context,
+            icon: MdiIcons.bookOutline,
+            title: l10n.noAudiobooks,
+            subtitle: l10n.addAudiobooksHint,
+            onRefresh: () => _loadAudiobooks(),
+          );
+        }
+
+        // Group filtered audiobooks by author
+        final groupedByAuthor = <String, List<Audiobook>>{};
+        for (final book in audiobooks) {
+          final authorName = book.authorsString;
+          groupedByAuthor.putIfAbsent(authorName, () => []).add(book);
+        }
+
+        // Sort authors based on current sort order
+        final sortedAuthorNames = groupedByAuthor.keys.toList();
+        switch (_authorsSortOrder) {
+          case 'alpha':
+            sortedAuthorNames.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+            break;
+          case 'alpha_desc':
+            sortedAuthorNames.sort((a, b) => b.toLowerCase().compareTo(a.toLowerCase()));
+            break;
+          case 'books':
+            sortedAuthorNames.sort((a, b) {
+              final aCount = groupedByAuthor[a]?.length ?? 0;
+              final bCount = groupedByAuthor[b]?.length ?? 0;
+              if (bCount != aCount) return bCount.compareTo(aCount);
+              return a.toLowerCase().compareTo(b.toLowerCase());
+            });
+            break;
+        }
+
+        // Match music artists tab layout - no header, direct list/grid
+        return RefreshIndicator(
+          color: colorScheme.primary,
+          backgroundColor: colorScheme.background,
+          onRefresh: () => _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null),
+          child: LetterScrollbar(
+            controller: _authorsScrollController,
+            items: sortedAuthorNames,
+            onDragStateChanged: _onLetterScrollbarDragChanged,
+            bottomPadding: BottomSpacing.withMiniPlayer,
+            child: _authorsViewMode == 'list'
+                ? ListView.builder(
+                    controller: _authorsScrollController,
+                    key: PageStorageKey<String>('books_authors_list_${enabledProviders.length}'),
+                    cacheExtent: 1000,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: false,
+                    itemCount: sortedAuthorNames.length,
+                    padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.withMiniPlayer),
+                    itemBuilder: (context, index) {
+                      final authorName = sortedAuthorNames[index];
+                      return _buildAuthorListTile(authorName, groupedByAuthor[authorName]!, l10n);
+                    },
+                  )
+                : GridView.builder(
+                    controller: _authorsScrollController,
+                    key: PageStorageKey<String>('books_authors_grid_${enabledProviders.length}'),
+                    cacheExtent: 1000,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: false,
+                    padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: _authorsViewMode == 'grid3' ? 3 : 2,
+                      childAspectRatio: _authorsViewMode == 'grid3' ? 0.75 : 0.80, // Match music artists
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    itemCount: sortedAuthorNames.length,
+                    itemBuilder: (context, index) {
+                      final authorName = sortedAuthorNames[index];
+                      return _buildAuthorCard(authorName, groupedByAuthor[authorName]!, l10n);
+                    },
+                  ),
+          ),
         );
-      }
-      return EmptyState.custom(
-        context: context,
-        icon: MdiIcons.bookOutline,
-        title: l10n.noAudiobooks,
-        subtitle: l10n.addAudiobooksHint,
-        onRefresh: () => _loadAudiobooks(),
-      );
-    }
-
-    // Sort authors based on current sort order
-    final sortedAuthorNames = List<String>.from(_sortedAuthorNames);
-    switch (_authorsSortOrder) {
-      case 'alpha':
-        sortedAuthorNames.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-        break;
-      case 'alpha_desc':
-        sortedAuthorNames.sort((a, b) => b.toLowerCase().compareTo(a.toLowerCase()));
-        break;
-      case 'books':
-        sortedAuthorNames.sort((a, b) {
-          final aCount = _groupedAudiobooksByAuthor[a]?.length ?? 0;
-          final bCount = _groupedAudiobooksByAuthor[b]?.length ?? 0;
-          if (bCount != aCount) return bCount.compareTo(aCount);
-          return a.toLowerCase().compareTo(b.toLowerCase());
-        });
-        break;
-    }
-
-    // Match music artists tab layout - no header, direct list/grid
-    return RefreshIndicator(
-      color: colorScheme.primary,
-      backgroundColor: colorScheme.background,
-      onRefresh: () => _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null),
-      child: LetterScrollbar(
-        controller: _authorsScrollController,
-        items: sortedAuthorNames,
-        onDragStateChanged: _onLetterScrollbarDragChanged,
-        bottomPadding: BottomSpacing.withMiniPlayer,
-        child: _authorsViewMode == 'list'
-            ? ListView.builder(
-                controller: _authorsScrollController,
-                key: const PageStorageKey<String>('books_authors_list'),
-                cacheExtent: 1000,
-                addAutomaticKeepAlives: false,
-                addRepaintBoundaries: false,
-                itemCount: sortedAuthorNames.length,
-                padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.withMiniPlayer),
-                itemBuilder: (context, index) {
-                  final authorName = sortedAuthorNames[index];
-                  return _buildAuthorListTile(authorName, _groupedAudiobooksByAuthor[authorName]!, l10n);
-                },
-              )
-            : GridView.builder(
-                controller: _authorsScrollController,
-                key: const PageStorageKey<String>('books_authors_grid'),
-                cacheExtent: 1000,
-                addAutomaticKeepAlives: false,
-                addRepaintBoundaries: false,
-                padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: _authorsViewMode == 'grid3' ? 3 : 2,
-                  childAspectRatio: _authorsViewMode == 'grid3' ? 0.75 : 0.80, // Match music artists
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: sortedAuthorNames.length,
-                itemBuilder: (context, index) {
-                  final authorName = sortedAuthorNames[index];
-                  return _buildAuthorCard(authorName, _groupedAudiobooksByAuthor[authorName]!, l10n);
-                },
-              ),
-      ),
+      },
     );
   }
 
@@ -2387,79 +2419,104 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   }
 
   Widget _buildAllBooksTab(BuildContext context, S l10n) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final maProvider = context.read<MusicAssistantProvider>();
+    // Use Selector to rebuild when enabledProviderIds changes
+    return Selector<MusicAssistantProvider, Set<String>>(
+      selector: (_, provider) => provider.enabledProviderIds.toSet(),
+      builder: (context, enabledProviders, _) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final maProvider = context.read<MusicAssistantProvider>();
+        final syncService = SyncService.instance;
 
-    if (_isLoadingAudiobooks) {
-      return Center(child: CircularProgressIndicator(color: colorScheme.primary));
-    }
+        if (_isLoadingAudiobooks) {
+          return Center(child: CircularProgressIndicator(color: colorScheme.primary));
+        }
 
-    // Filter by favorites if enabled
-    var audiobooks = _showFavoritesOnly
-        ? _audiobooks.where((a) => a.favorite == true).toList()
-        : List<Audiobook>.from(_audiobooks);
+        // Client-side filtering using SyncService source tracking for instant updates
+        var audiobooks = enabledProviders.isNotEmpty
+            ? syncService.getAudiobooksFilteredByProviders(enabledProviders)
+            : syncService.cachedAudiobooks;
 
-    if (audiobooks.isEmpty) {
-      if (_showFavoritesOnly) {
-        return EmptyState.custom(
-          context: context,
-          icon: Icons.favorite_border,
-          title: l10n.noFavoriteAudiobooks,
-          subtitle: l10n.tapHeartAudiobook,
+        // Filter by favorites if enabled
+        if (_showFavoritesOnly) {
+          audiobooks = audiobooks.where((a) => a.favorite == true).toList();
+        }
+
+        // Apply sort order
+        if (_audiobooksSortOrder == 'year') {
+          audiobooks.sort((a, b) {
+            if (a.year == null && b.year == null) return a.name.compareTo(b.name);
+            if (a.year == null) return 1;
+            if (b.year == null) return -1;
+            return a.year!.compareTo(b.year!);
+          });
+        } else {
+          audiobooks.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        }
+
+        if (audiobooks.isEmpty) {
+          if (_showFavoritesOnly) {
+            return EmptyState.custom(
+              context: context,
+              icon: Icons.favorite_border,
+              title: l10n.noFavoriteAudiobooks,
+              subtitle: l10n.tapHeartAudiobook,
+            );
+          }
+          return EmptyState.custom(
+            context: context,
+            icon: MdiIcons.bookOutline,
+            title: l10n.noAudiobooks,
+            subtitle: l10n.addAudiobooksHint,
+            onRefresh: () => _loadAudiobooks(),
+          );
+        }
+
+        final audiobookNames = audiobooks.map((a) => a.name).toList();
+
+        // Match music albums tab layout - no header, direct list/grid
+        return RefreshIndicator(
+          color: colorScheme.primary,
+          backgroundColor: colorScheme.background,
+          onRefresh: () => _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null),
+          child: LetterScrollbar(
+            controller: _audiobooksScrollController,
+            items: audiobookNames,
+            onDragStateChanged: _onLetterScrollbarDragChanged,
+            bottomPadding: BottomSpacing.withMiniPlayer,
+            child: _audiobooksViewMode == 'list'
+                ? ListView.builder(
+                    controller: _audiobooksScrollController,
+                    key: PageStorageKey<String>('all_books_list_${_showFavoritesOnly ? 'fav' : 'all'}_${enabledProviders.length}'),
+                    cacheExtent: 1000,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: false,
+                    itemCount: audiobooks.length,
+                    padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.withMiniPlayer),
+                    itemBuilder: (context, index) {
+                      return _buildAudiobookListTile(context, audiobooks[index], maProvider);
+                    },
+                  )
+                : GridView.builder(
+                    controller: _audiobooksScrollController,
+                    key: PageStorageKey<String>('all_books_grid_${_showFavoritesOnly ? 'fav' : 'all'}_$_audiobooksViewMode\_${enabledProviders.length}'),
+                    cacheExtent: 1000,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: false,
+                    padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: _audiobooksViewMode == 'grid3' ? 3 : 2,
+                      childAspectRatio: _audiobooksViewMode == 'grid3' ? 0.70 : 0.75, // Match music albums
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    itemCount: audiobooks.length,
+                    itemBuilder: (context, index) {
+                      return _buildAudiobookCard(context, audiobooks[index], maProvider);
+                    },
+                  ),
+          ),
         );
-      }
-      return EmptyState.custom(
-        context: context,
-        icon: MdiIcons.bookOutline,
-        title: l10n.noAudiobooks,
-        subtitle: l10n.addAudiobooksHint,
-        onRefresh: () => _loadAudiobooks(),
-      );
-    }
-
-    // PERF: Use pre-sorted list (sorted once on load or when sort order changes)
-    // Match music albums tab layout - no header, direct list/grid
-    return RefreshIndicator(
-      color: colorScheme.primary,
-      backgroundColor: colorScheme.background,
-      onRefresh: () => _loadAudiobooks(favoriteOnly: _showFavoritesOnly ? true : null),
-      child: LetterScrollbar(
-        controller: _audiobooksScrollController,
-        items: _audiobookNames,
-        onDragStateChanged: _onLetterScrollbarDragChanged,
-        bottomPadding: BottomSpacing.withMiniPlayer,
-        child: _audiobooksViewMode == 'list'
-            ? ListView.builder(
-                controller: _audiobooksScrollController,
-                key: PageStorageKey<String>('all_books_list_${_showFavoritesOnly ? 'fav' : 'all'}'),
-                cacheExtent: 1000,
-                addAutomaticKeepAlives: false,
-                addRepaintBoundaries: false,
-                itemCount: _sortedAudiobooks.length,
-                padding: EdgeInsets.only(left: 8, right: 8, top: 16, bottom: BottomSpacing.withMiniPlayer),
-                itemBuilder: (context, index) {
-                  return _buildAudiobookListTile(context, _sortedAudiobooks[index], maProvider);
-                },
-              )
-            : GridView.builder(
-                controller: _audiobooksScrollController,
-                key: PageStorageKey<String>('all_books_grid_${_showFavoritesOnly ? 'fav' : 'all'}_$_audiobooksViewMode'),
-                cacheExtent: 1000,
-                addAutomaticKeepAlives: false,
-                addRepaintBoundaries: false,
-                padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: BottomSpacing.withMiniPlayer),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: _audiobooksViewMode == 'grid3' ? 3 : 2,
-                  childAspectRatio: _audiobooksViewMode == 'grid3' ? 0.70 : 0.75, // Match music albums
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: _sortedAudiobooks.length,
-                itemBuilder: (context, index) {
-                  return _buildAudiobookCard(context, _sortedAudiobooks[index], maProvider);
-                },
-              ),
-      ),
+      },
     );
   }
 
@@ -3029,9 +3086,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildPodcastsTab(BuildContext context, S l10n) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    // PERF: Use select() to only rebuild when podcasts or loading state changes
-    final (allPodcasts, isLoading) = context.select<MusicAssistantProvider, (List<MediaItem>, bool)>(
-      (p) => (p.podcasts, p.isLoadingPodcasts),
+    // PERF: Use select() to only rebuild when podcasts, loading state, or enabled providers changes
+    // Use podcastsUnfiltered to avoid double-filtering with MA's provider filter
+    final (allPodcasts, isLoading, enabledProviders) = context.select<MusicAssistantProvider, (List<MediaItem>, bool, Set<String>)>(
+      (p) => (p.podcastsUnfiltered, p.isLoadingPodcasts, p.enabledProviderIds.toSet()),
     );
     // Use read() for methods that don't need reactive updates
     final maProvider = context.read<MusicAssistantProvider>();
@@ -3040,10 +3098,20 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       return Center(child: CircularProgressIndicator(color: colorScheme.primary));
     }
 
+    // Filter by enabled providers using providerMappings
+    final filteredPodcasts = enabledProviders.isNotEmpty
+        ? allPodcasts.where((p) {
+            final mappings = p.providerMappings;
+            if (mappings == null || mappings.isEmpty) return false;
+            // Only match if the item is IN the library for an enabled provider
+            return mappings.any((m) => m.inLibrary && enabledProviders.contains(m.providerInstance));
+          }).toList()
+        : allPodcasts;
+
     // Filter by favorites if enabled
     final podcasts = _showFavoritesOnly
-        ? allPodcasts.where((p) => p.favorite == true).toList()
-        : allPodcasts;
+        ? filteredPodcasts.where((p) => p.favorite == true).toList()
+        : filteredPodcasts;
 
     if (podcasts.isEmpty) {
       if (_showFavoritesOnly) {
@@ -3283,9 +3351,10 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
   Widget _buildRadioStationsTab(BuildContext context, S l10n) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    // PERF: Use select() to only rebuild when radio stations or loading state changes
-    final (allRadioStations, isLoading) = context.select<MusicAssistantProvider, (List<MediaItem>, bool)>(
-      (p) => (p.radioStations, p.isLoadingRadio),
+    // PERF: Use select() to only rebuild when radio stations, loading state, or enabled providers changes
+    // Use radioStationsUnfiltered to avoid double-filtering with MA's provider filter
+    final (allRadioStations, isLoading, enabledProviders) = context.select<MusicAssistantProvider, (List<MediaItem>, bool, Set<String>)>(
+      (p) => (p.radioStationsUnfiltered, p.isLoadingRadio, p.enabledProviderIds.toSet()),
     );
     // Use read() for methods that don't need reactive updates
     final maProvider = context.read<MusicAssistantProvider>();
@@ -3294,10 +3363,19 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       return Center(child: CircularProgressIndicator(color: colorScheme.primary));
     }
 
+    // Filter by enabled providers using providerMappings
+    final filteredRadioStations = enabledProviders.isNotEmpty
+        ? allRadioStations.where((s) {
+            final mappings = s.providerMappings;
+            if (mappings == null || mappings.isEmpty) return false;
+            return mappings.any((m) => enabledProviders.contains(m.providerInstance));
+          }).toList()
+        : allRadioStations;
+
     // Filter by favorites if enabled
     final radioStations = _showFavoritesOnly
-        ? allRadioStations.where((s) => s.favorite == true).toList()
-        : allRadioStations;
+        ? filteredRadioStations.where((s) => s.favorite == true).toList()
+        : filteredRadioStations;
 
     if (radioStations.isEmpty) {
       if (_showFavoritesOnly) {
@@ -3492,24 +3570,24 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   // ============ ARTISTS TAB ============
   Widget _buildArtistsTab(BuildContext context, S l10n) {
-    // Use Selector for targeted rebuilds - only rebuild when artists or loading state changes
-    // Artist filtering (albumArtistsOnly) is done at API level
-    return Selector<MusicAssistantProvider, (List<Artist>, bool, Set<String>)>(
-      selector: (_, provider) => (provider.artists, provider.isLoading, provider.enabledProviderIds.toSet()),
+    // Use Selector for targeted rebuilds - only rebuild when loading state or providers change
+    // Always use SyncService data for consistency (it has the complete library)
+    return Selector<MusicAssistantProvider, (bool, Set<String>)>(
+      selector: (_, provider) => (provider.isLoading, provider.enabledProviderIds.toSet()),
       builder: (context, data, _) {
-            final (allArtists, isLoading, enabledProviders) = data;
+            final (isLoading, enabledProviders) = data;
             final colorScheme = Theme.of(context).colorScheme;
+            final syncService = SyncService.instance;
 
-            if (isLoading) {
+            // Show loading only if actually loading AND no cached data available
+            if (isLoading && syncService.cachedArtists.isEmpty) {
               return Center(child: CircularProgressIndicator(color: colorScheme.primary));
             }
 
-            // Client-side filtering using SyncService source tracking for instant updates
-            // This properly differentiates between multiple accounts of the same provider type
-            final syncService = SyncService.instance;
-            final filteredArtists = syncService.hasSourceTracking && enabledProviders.isNotEmpty
+            // Always use SyncService data - it has the complete library with source tracking
+            final filteredArtists = enabledProviders.isNotEmpty
                 ? syncService.getArtistsFilteredByProviders(enabledProviders)
-                : allArtists;
+                : syncService.cachedArtists;
 
             // Filter by favorites if enabled
             final artists = _showFavoritesOnly
@@ -3531,10 +3609,14 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               );
             }
 
-            // Trust server-side sorting - don't re-sort client-side
-            // Server handles: name, name_desc, timestamp_added, timestamp_added_desc,
-            // last_played, last_played_desc, play_count, play_count_desc
-            final sortedArtists = artists;
+            // Apply client-side sorting since we're combining data from multiple providers
+            final sortedArtists = List<Artist>.from(artists);
+            if (_artistsSortOrder == 'name_desc') {
+              sortedArtists.sort((a, b) => (b.sortName ?? b.name ?? '').toLowerCase().compareTo((a.sortName ?? a.name ?? '').toLowerCase()));
+            } else {
+              // Default: name ascending
+              sortedArtists.sort((a, b) => (a.sortName ?? a.name ?? '').toLowerCase().compareTo((b.sortName ?? b.name ?? '').toLowerCase()));
+            }
             final artistNames = sortedArtists.map((a) => a.name ?? '').toList();
 
             return RefreshIndicator(
@@ -3704,22 +3786,24 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
 
   // ============ ALBUMS TAB ============
   Widget _buildAlbumsTab(BuildContext context, S l10n) {
-    // Use Selector for targeted rebuilds - only rebuild when albums or loading state changes
-    return Selector<MusicAssistantProvider, (List<Album>, bool, Set<String>)>(
-      selector: (_, provider) => (provider.albums, provider.isLoading, provider.enabledProviderIds.toSet()),
+    // Use Selector for targeted rebuilds - only rebuild when loading state or providers change
+    // Always use SyncService data for consistency (it has the complete library)
+    return Selector<MusicAssistantProvider, (bool, Set<String>)>(
+      selector: (_, provider) => (provider.isLoading, provider.enabledProviderIds.toSet()),
       builder: (context, data, _) {
-        final (allAlbums, isLoading, enabledProviders) = data;
+        final (isLoading, enabledProviders) = data;
         final colorScheme = Theme.of(context).colorScheme;
+        final syncService = SyncService.instance;
 
-        if (isLoading) {
+        // Show loading only if actually loading AND no cached data available
+        if (isLoading && syncService.cachedAlbums.isEmpty) {
           return Center(child: CircularProgressIndicator(color: colorScheme.primary));
         }
 
-        // Client-side filtering using SyncService source tracking for instant updates
-        final syncService = SyncService.instance;
-        final filteredAlbums = syncService.hasSourceTracking && enabledProviders.isNotEmpty
+        // Always use SyncService data - it has the complete library with source tracking
+        final filteredAlbums = enabledProviders.isNotEmpty
             ? syncService.getAlbumsFilteredByProviders(enabledProviders)
-            : allAlbums;
+            : syncService.cachedAlbums;
 
         // Filter by favorites if enabled
         final albums = _showFavoritesOnly
@@ -3741,10 +3825,38 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           );
         }
 
-        // Trust server-side sorting - don't re-sort client-side
-        // Server handles: name, name_desc, year, year_desc, artist_name, artist_name_desc,
-        // timestamp_added, timestamp_added_desc, last_played, last_played_desc, play_count, play_count_desc
-        final sortedAlbums = albums;
+        // Apply client-side sorting since we're combining data from multiple providers
+        final sortedAlbums = List<Album>.from(albums);
+        switch (_albumsSortOrder) {
+          case 'name_desc':
+            sortedAlbums.sort((a, b) => (b.sortName ?? b.name ?? '').toLowerCase().compareTo((a.sortName ?? a.name ?? '').toLowerCase()));
+            break;
+          case 'year':
+            sortedAlbums.sort((a, b) {
+              if (a.year == null && b.year == null) return (a.name ?? '').compareTo(b.name ?? '');
+              if (a.year == null) return 1;
+              if (b.year == null) return -1;
+              return a.year!.compareTo(b.year!);
+            });
+            break;
+          case 'year_desc':
+            sortedAlbums.sort((a, b) {
+              if (a.year == null && b.year == null) return (a.name ?? '').compareTo(b.name ?? '');
+              if (a.year == null) return 1;
+              if (b.year == null) return -1;
+              return b.year!.compareTo(a.year!);
+            });
+            break;
+          case 'artist_name':
+            sortedAlbums.sort((a, b) => (a.artistsString).toLowerCase().compareTo((b.artistsString).toLowerCase()));
+            break;
+          case 'artist_name_desc':
+            sortedAlbums.sort((a, b) => (b.artistsString).toLowerCase().compareTo((a.artistsString).toLowerCase()));
+            break;
+          default:
+            // Default: name ascending
+            sortedAlbums.sort((a, b) => (a.sortName ?? a.name ?? '').toLowerCase().compareTo((b.sortName ?? b.name ?? '').toLowerCase()));
+        }
         final albumNames = sortedAlbums.map((a) => a.name ?? '').toList();
 
         return RefreshIndicator(
@@ -4709,8 +4821,9 @@ class _OptionsMenuOverlayState extends State<_OptionsMenuOverlay>
                         ),
                       ),
 
-                    // Providers section (only show if there are multiple providers WITH items)
-                    if (widget.relevantProviders.where((p) => p.$2 > 0).length > 1) ...[
+                    // Providers section - only shown if multiple providers support this category
+                    // relevantProviders is pre-filtered by capability (e.g., radio providers won't appear in Artists)
+                    if (widget.relevantProviders.length > 1) ...[
                       const Divider(height: 1),
                       Padding(
                         padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 4),
@@ -4723,8 +4836,8 @@ class _OptionsMenuOverlayState extends State<_OptionsMenuOverlay>
                           ),
                         ),
                       ),
-                      // Only show providers that have items
-                      ...widget.relevantProviders.where((p) => p.$2 > 0).map((providerData) {
+                      // Show all providers that support this category (allows toggling any on/off)
+                      ...widget.relevantProviders.map((providerData) {
                         final (provider, itemCount) = providerData;
                         final isEnabled = _isProviderEnabled(provider.instanceId);
 

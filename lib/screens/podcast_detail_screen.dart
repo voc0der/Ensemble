@@ -66,7 +66,6 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
 
     try {
       final newState = !_isInLibrary;
-      bool success;
 
       if (newState) {
         // Add to library - MUST use non-library provider
@@ -97,12 +96,35 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
           }
         }
 
+        // OPTIMISTIC UPDATE: Update UI immediately
+        setState(() {
+          _isInLibrary = newState;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(S.of(context)!.addedToLibrary),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+
         _logger.log('Adding podcast to library: provider=$actualProvider, itemId=$actualItemId');
-        success = await maProvider.addToLibrary(
+        // Fire and forget - API call happens in background
+        maProvider.addToLibrary(
           mediaType: 'podcast',
           provider: actualProvider,
           itemId: actualItemId,
-        );
+        ).catchError((e) {
+          _logger.log('❌ Failed to add podcast to library: $e');
+          // Revert on failure
+          if (mounted) {
+            setState(() {
+              _isInLibrary = !newState;
+            });
+          }
+        });
       } else {
         // Remove from library
         int? libraryItemId;
@@ -123,13 +145,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
           return;
         }
 
-        success = await maProvider.removeFromLibrary(
-          mediaType: 'podcast',
-          libraryItemId: libraryItemId,
-        );
-      }
-
-      if (success) {
+        // OPTIMISTIC UPDATE: Update UI immediately
         setState(() {
           _isInLibrary = newState;
         });
@@ -137,13 +153,25 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                _isInLibrary ? S.of(context)!.addedToLibrary : S.of(context)!.removedFromLibrary,
-              ),
+              content: Text(S.of(context)!.removedFromLibrary),
               duration: const Duration(seconds: 1),
             ),
           );
         }
+
+        // Fire and forget - API call happens in background
+        maProvider.removeFromLibrary(
+          mediaType: 'podcast',
+          libraryItemId: libraryItemId,
+        ).catchError((e) {
+          _logger.log('❌ Failed to remove podcast from library: $e');
+          // Revert on failure
+          if (mounted) {
+            setState(() {
+              _isInLibrary = !newState;
+            });
+          }
+        });
       }
     } catch (e) {
       _logger.log('Error toggling podcast library: $e');
@@ -190,10 +218,38 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
     try {
       final maProvider = context.read<MusicAssistantProvider>();
       if (maProvider.api != null) {
-        final episodes = await maProvider.api!.getPodcastEpisodes(
-          widget.podcast.itemId,
-          provider: widget.podcast.provider,
-        );
+        List<MediaItem> episodes = [];
+
+        // Try loading with the podcast's own ID and provider first
+        try {
+          episodes = await maProvider.api!.getPodcastEpisodes(
+            widget.podcast.itemId,
+            provider: widget.podcast.provider,
+          );
+        } catch (e) {
+          _logger.log('🎙️ Primary episode load failed: $e');
+        }
+
+        // If that failed and we have provider mappings, try those
+        if (episodes.isEmpty && widget.podcast.providerMappings != null) {
+          for (final mapping in widget.podcast.providerMappings!) {
+            if (mapping.itemId.isNotEmpty && mapping.providerInstance.isNotEmpty) {
+              try {
+                _logger.log('🎙️ Trying provider mapping: ${mapping.providerInstance}');
+                episodes = await maProvider.api!.getPodcastEpisodes(
+                  mapping.itemId,
+                  provider: mapping.providerInstance,
+                );
+                if (episodes.isNotEmpty) {
+                  _logger.log('🎙️ Loaded episodes via provider mapping');
+                  break;
+                }
+              } catch (e) {
+                _logger.log('🎙️ Provider mapping failed: $e');
+              }
+            }
+          }
+        }
 
         if (mounted) {
           _logger.log('🎙️ Loaded ${episodes.length} episodes for ${widget.podcast.name}');

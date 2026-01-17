@@ -797,6 +797,18 @@ class SEs extends S {
   String get unknownLibrary => 'Biblioteca desconocida';
 
   @override
+  String get musicProviders => 'Music Providers';
+
+  @override
+  String get musicProvidersDescription => 'Choose which accounts to show in your library';
+
+  @override
+  String get libraryRefreshing => 'Refreshing library...';
+
+  @override
+  String get cannotDisableLastProvider => 'Cannot disable the last provider';
+
+  @override
   String get noSeriesFound => 'No se encontraron series';
 
   @override

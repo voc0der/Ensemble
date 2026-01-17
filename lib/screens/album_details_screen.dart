@@ -223,7 +223,6 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
 
     try {
       final newState = !_isInLibrary;
-      bool success;
 
       if (newState) {
         // Add to library - MUST use non-library provider
@@ -254,12 +253,35 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
           }
         }
 
+        // OPTIMISTIC UPDATE: Update UI immediately
+        setState(() {
+          _isInLibrary = newState;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(S.of(context)!.addedToLibrary),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+
         _logger.log('Adding album to library: provider=$actualProvider, itemId=$actualItemId');
-        success = await maProvider.addToLibrary(
+        // Fire and forget - API call happens in background
+        maProvider.addToLibrary(
           mediaType: 'album',
           provider: actualProvider,
           itemId: actualItemId,
-        );
+        ).catchError((e) {
+          _logger.log('❌ Failed to add album to library: $e');
+          // Revert on failure
+          if (mounted) {
+            setState(() {
+              _isInLibrary = !newState;
+            });
+          }
+        });
       } else {
         // Remove from library
         int? libraryItemId;
@@ -280,13 +302,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
           return;
         }
 
-        success = await maProvider.removeFromLibrary(
-          mediaType: 'album',
-          libraryItemId: libraryItemId,
-        );
-      }
-
-      if (success) {
+        // OPTIMISTIC UPDATE: Update UI immediately
         setState(() {
           _isInLibrary = newState;
         });
@@ -294,13 +310,25 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                _isInLibrary ? S.of(context)!.addedToLibrary : S.of(context)!.removedFromLibrary,
-              ),
+              content: Text(S.of(context)!.removedFromLibrary),
               duration: const Duration(seconds: 1),
             ),
           );
         }
+
+        // Fire and forget - API call happens in background
+        maProvider.removeFromLibrary(
+          mediaType: 'album',
+          libraryItemId: libraryItemId,
+        ).catchError((e) {
+          _logger.log('❌ Failed to remove album from library: $e');
+          // Revert on failure
+          if (mounted) {
+            setState(() {
+              _isInLibrary = !newState;
+            });
+          }
+        });
       }
     } catch (e) {
       _logger.log('Error toggling album library: $e');

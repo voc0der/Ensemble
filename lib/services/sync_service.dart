@@ -196,17 +196,43 @@ class SyncService with ChangeNotifier {
       final showOnlyArtistsWithAlbums = await SettingsService.getShowOnlyArtistsWithAlbums();
       _logger.log('🎨 Sync using albumArtistsOnly: $showOnlyArtistsWithAlbums');
 
-      // Clear old cache before saving fresh data (removes stale items)
-      await _db.clearCacheForType('album');
-      await _db.clearCacheForType('artist');
-      await _db.clearCacheForType('audiobook');
-      await _db.clearCacheForType('playlist');
+      // Only clear cache for full syncs (no specific providers)
+      // Partial syncs preserve items from disabled providers for instant toggle-on
+      final isPartialSync = providerInstanceIds != null && providerInstanceIds.isNotEmpty;
+      if (!isPartialSync) {
+        await _db.clearCacheForType('album');
+        await _db.clearCacheForType('artist');
+        await _db.clearCacheForType('audiobook');
+        await _db.clearCacheForType('playlist');
+      }
 
-      // Clear source provider maps
-      _albumSourceProviders = {};
-      _artistSourceProviders = {};
-      _audiobookSourceProviders = {};
-      _playlistSourceProviders = {};
+      // Build NEW source tracking maps - don't modify existing until sync is complete
+      // This prevents UI flicker from partial tracking during sync
+      final syncingProviders = providerInstanceIds?.toSet() ?? <String>{};
+      final newAlbumSourceProviders = <String, List<String>>{};
+      final newArtistSourceProviders = <String, List<String>>{};
+      final newAudiobookSourceProviders = <String, List<String>>{};
+      final newPlaylistSourceProviders = <String, List<String>>{};
+
+      // For partial syncs, copy tracking from non-syncing providers
+      if (isPartialSync) {
+        for (final entry in _albumSourceProviders.entries) {
+          final preserved = entry.value.where((p) => !syncingProviders.contains(p)).toList();
+          if (preserved.isNotEmpty) newAlbumSourceProviders[entry.key] = preserved;
+        }
+        for (final entry in _artistSourceProviders.entries) {
+          final preserved = entry.value.where((p) => !syncingProviders.contains(p)).toList();
+          if (preserved.isNotEmpty) newArtistSourceProviders[entry.key] = preserved;
+        }
+        for (final entry in _audiobookSourceProviders.entries) {
+          final preserved = entry.value.where((p) => !syncingProviders.contains(p)).toList();
+          if (preserved.isNotEmpty) newAudiobookSourceProviders[entry.key] = preserved;
+        }
+        for (final entry in _playlistSourceProviders.entries) {
+          final preserved = entry.value.where((p) => !syncingProviders.contains(p)).toList();
+          if (preserved.isNotEmpty) newPlaylistSourceProviders[entry.key] = preserved;
+        }
+      }
 
       // Collect all items (deduped by itemId, but tracking all source providers)
       final albumMap = <String, Album>{};
@@ -234,35 +260,35 @@ class SyncService with ChangeNotifier {
           final audiobooks = results[2] as List<Audiobook>;
           final playlists = results[3] as List<Playlist>;
 
-          _logger.log('  📥 Got ${albums.length} albums, ${artists.length} artists from $providerId');
+          _logger.log('  📥 Got ${albums.length} albums, ${artists.length} artists, ${audiobooks.length} audiobooks from $providerId');
 
-          // Add to maps and track source provider
+          // Add to maps and track source provider in NEW tracking maps
           for (final album in albums) {
             albumMap[album.itemId] = album;
-            _albumSourceProviders.putIfAbsent(album.itemId, () => []);
-            if (!_albumSourceProviders[album.itemId]!.contains(providerId)) {
-              _albumSourceProviders[album.itemId]!.add(providerId);
+            newAlbumSourceProviders.putIfAbsent(album.itemId, () => []);
+            if (!newAlbumSourceProviders[album.itemId]!.contains(providerId)) {
+              newAlbumSourceProviders[album.itemId]!.add(providerId);
             }
           }
           for (final artist in artists) {
             artistMap[artist.itemId] = artist;
-            _artistSourceProviders.putIfAbsent(artist.itemId, () => []);
-            if (!_artistSourceProviders[artist.itemId]!.contains(providerId)) {
-              _artistSourceProviders[artist.itemId]!.add(providerId);
+            newArtistSourceProviders.putIfAbsent(artist.itemId, () => []);
+            if (!newArtistSourceProviders[artist.itemId]!.contains(providerId)) {
+              newArtistSourceProviders[artist.itemId]!.add(providerId);
             }
           }
           for (final audiobook in audiobooks) {
             audiobookMap[audiobook.itemId] = audiobook;
-            _audiobookSourceProviders.putIfAbsent(audiobook.itemId, () => []);
-            if (!_audiobookSourceProviders[audiobook.itemId]!.contains(providerId)) {
-              _audiobookSourceProviders[audiobook.itemId]!.add(providerId);
+            newAudiobookSourceProviders.putIfAbsent(audiobook.itemId, () => []);
+            if (!newAudiobookSourceProviders[audiobook.itemId]!.contains(providerId)) {
+              newAudiobookSourceProviders[audiobook.itemId]!.add(providerId);
             }
           }
           for (final playlist in playlists) {
             playlistMap[playlist.itemId] = playlist;
-            _playlistSourceProviders.putIfAbsent(playlist.itemId, () => []);
-            if (!_playlistSourceProviders[playlist.itemId]!.contains(providerId)) {
-              _playlistSourceProviders[playlist.itemId]!.add(providerId);
+            newPlaylistSourceProviders.putIfAbsent(playlist.itemId, () => []);
+            if (!newPlaylistSourceProviders[playlist.itemId]!.contains(providerId)) {
+              newPlaylistSourceProviders[playlist.itemId]!.add(providerId);
             }
           }
         }
@@ -299,11 +325,11 @@ class SyncService with ChangeNotifier {
       _logger.log('📥 Total: ${albums.length} albums, ${artists.length} artists, '
                   '${audiobooks.length} audiobooks, ${playlists.length} playlists');
 
-      // Save to database cache with source provider info
-      await _saveAlbumsToCache(albums, _albumSourceProviders);
-      await _saveArtistsToCache(artists, _artistSourceProviders);
-      await _saveAudiobooksToCache(audiobooks, _audiobookSourceProviders);
-      await _savePlaylistsToCache(playlists, _playlistSourceProviders);
+      // Save to database cache with source provider info (using NEW tracking maps)
+      await _saveAlbumsToCache(albums, newAlbumSourceProviders);
+      await _saveArtistsToCache(artists, newArtistSourceProviders);
+      await _saveAudiobooksToCache(audiobooks, newAudiobookSourceProviders);
+      await _savePlaylistsToCache(playlists, newPlaylistSourceProviders);
 
       // Update sync metadata
       await _db.updateSyncMetadata('albums', albums.length);
@@ -312,15 +338,49 @@ class SyncService with ChangeNotifier {
       await _db.updateSyncMetadata('playlists', playlists.length);
 
       // Update in-memory cache
-      _cachedAlbums = albums;
-      _cachedArtists = artists;
-      _cachedAudiobooks = audiobooks;
-      _cachedPlaylists = playlists;
+      if (isPartialSync) {
+        // Partial sync: merge with existing cache to preserve items from disabled providers
+        final albumIds = albums.map((a) => a.itemId).toSet();
+        final artistIds = artists.map((a) => a.itemId).toSet();
+        final audiobookIds = audiobooks.map((a) => a.itemId).toSet();
+        final playlistIds = playlists.map((p) => p.itemId).toSet();
+
+        // Keep items not in current sync, add/update items from sync
+        _cachedAlbums = [
+          ..._cachedAlbums.where((a) => !albumIds.contains(a.itemId)),
+          ...albums,
+        ];
+        _cachedArtists = [
+          ..._cachedArtists.where((a) => !artistIds.contains(a.itemId)),
+          ...artists,
+        ];
+        _cachedAudiobooks = [
+          ..._cachedAudiobooks.where((a) => !audiobookIds.contains(a.itemId)),
+          ...audiobooks,
+        ];
+        _cachedPlaylists = [
+          ..._cachedPlaylists.where((p) => !playlistIds.contains(p.itemId)),
+          ...playlists,
+        ];
+      } else {
+        // Full sync: replace entire cache
+        _cachedAlbums = albums;
+        _cachedArtists = artists;
+        _cachedAudiobooks = audiobooks;
+        _cachedPlaylists = playlists;
+      }
+      // Atomically swap in the new source tracking maps
+      // This ensures filtering always sees complete data, never partial
+      _albumSourceProviders = newAlbumSourceProviders;
+      _artistSourceProviders = newArtistSourceProviders;
+      _audiobookSourceProviders = newAudiobookSourceProviders;
+      _playlistSourceProviders = newPlaylistSourceProviders;
+
       _lastSyncTime = DateTime.now();
       _status = SyncStatus.completed;
 
       _logger.log('✅ Library sync complete');
-      _logger.log('📊 Source tracking: ${_albumSourceProviders.length} albums, ${_artistSourceProviders.length} artists have provider info');
+      _logger.log('📊 Source tracking: ${_albumSourceProviders.length} albums, ${_artistSourceProviders.length} artists, ${_audiobookSourceProviders.length} audiobooks have provider info');
     } catch (e) {
       _logger.log('❌ Library sync failed: $e');
       _status = SyncStatus.error;
@@ -471,50 +531,56 @@ class SyncService with ChangeNotifier {
   // ============================================
 
   /// Filter albums by source provider (instant, no network)
-  /// Returns all albums if no source tracking data available
+  /// Empty enabledProviderIds = all providers enabled, show everything
+  /// Items without source tracking are HIDDEN (strict mode) to ensure accurate filtering
   List<Album> getAlbumsFilteredByProviders(Set<String> enabledProviderIds) {
-    if (enabledProviderIds.isEmpty || _albumSourceProviders.isEmpty) {
+    // Empty set = all providers enabled, show everything
+    if (enabledProviderIds.isEmpty) {
       return _cachedAlbums;
     }
     return _cachedAlbums.where((album) {
       final sources = _albumSourceProviders[album.itemId];
-      if (sources == null || sources.isEmpty) return true; // No tracking = show
+      // STRICT MODE: Hide items without tracking to ensure accurate filtering
+      if (sources == null || sources.isEmpty) return false;
       return sources.any((s) => enabledProviderIds.contains(s));
     }).toList();
   }
 
   /// Filter artists by source provider (instant, no network)
   List<Artist> getArtistsFilteredByProviders(Set<String> enabledProviderIds) {
-    if (enabledProviderIds.isEmpty || _artistSourceProviders.isEmpty) {
+    if (enabledProviderIds.isEmpty) {
       return _cachedArtists;
     }
     return _cachedArtists.where((artist) {
       final sources = _artistSourceProviders[artist.itemId];
-      if (sources == null || sources.isEmpty) return true;
+      // STRICT MODE: Hide items without tracking
+      if (sources == null || sources.isEmpty) return false;
       return sources.any((s) => enabledProviderIds.contains(s));
     }).toList();
   }
 
   /// Filter audiobooks by source provider (instant, no network)
   List<Audiobook> getAudiobooksFilteredByProviders(Set<String> enabledProviderIds) {
-    if (enabledProviderIds.isEmpty || _audiobookSourceProviders.isEmpty) {
+    if (enabledProviderIds.isEmpty) {
       return _cachedAudiobooks;
     }
     return _cachedAudiobooks.where((audiobook) {
       final sources = _audiobookSourceProviders[audiobook.itemId];
-      if (sources == null || sources.isEmpty) return true;
+      // STRICT MODE: Hide items without tracking
+      if (sources == null || sources.isEmpty) return false;
       return sources.any((s) => enabledProviderIds.contains(s));
     }).toList();
   }
 
   /// Filter playlists by source provider (instant, no network)
   List<Playlist> getPlaylistsFilteredByProviders(Set<String> enabledProviderIds) {
-    if (enabledProviderIds.isEmpty || _playlistSourceProviders.isEmpty) {
+    if (enabledProviderIds.isEmpty) {
       return _cachedPlaylists;
     }
     return _cachedPlaylists.where((playlist) {
       final sources = _playlistSourceProviders[playlist.itemId];
-      if (sources == null || sources.isEmpty) return true;
+      // STRICT MODE: Hide items without tracking
+      if (sources == null || sources.isEmpty) return false;
       return sources.any((s) => enabledProviderIds.contains(s));
     }).toList();
   }

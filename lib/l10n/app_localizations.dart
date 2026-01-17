@@ -1563,6 +1563,30 @@ abstract class S {
   /// **'Unknown Library'**
   String get unknownLibrary;
 
+  /// No description provided for @musicProviders.
+  ///
+  /// In en, this message translates to:
+  /// **'Music Providers'**
+  String get musicProviders;
+
+  /// No description provided for @musicProvidersDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which accounts to show in your library'**
+  String get musicProvidersDescription;
+
+  /// No description provided for @libraryRefreshing.
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshing library...'**
+  String get libraryRefreshing;
+
+  /// No description provided for @cannotDisableLastProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot disable the last provider'**
+  String get cannotDisableLastProvider;
+
   /// No description provided for @noSeriesFound.
   ///
   /// In en, this message translates to:

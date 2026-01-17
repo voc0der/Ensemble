@@ -213,6 +213,20 @@ class CacheService {
     _logger.log('🗑️ Home artist caches invalidated');
   }
 
+  /// Clear discover caches (call when provider filter changes)
+  /// This ensures discover rows are refetched with the new provider filter
+  void clearDiscoverCaches() {
+    _cachedDiscoverArtists = null;
+    _discoverArtistsLastFetched = null;
+    _cachedDiscoverAlbums = null;
+    _discoverAlbumsLastFetched = null;
+    _cachedRecentAlbums = null;
+    _recentAlbumsLastFetched = null;
+    _searchCache.clear();
+    _searchCacheTime.clear();
+    _logger.log('🗑️ Discover caches cleared for provider filter change');
+  }
+
   // ============================================================================
   // DETAIL SCREEN CACHING
   // ============================================================================

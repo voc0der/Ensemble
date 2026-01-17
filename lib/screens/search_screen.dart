@@ -169,6 +169,27 @@ class SearchScreenState extends State<SearchScreen> {
     return filters;
   }
 
+  /// Filter search results by enabled providers (only when in-library mode is on)
+  /// Uses the client-side provider toggles from the library screen
+  Map<String, List<MediaItem>> _filterByEnabledProviders(
+    Map<String, List<MediaItem>> results,
+    Set<String> enabledProviders,
+  ) {
+    if (enabledProviders.isEmpty) return results; // No filter = show all
+
+    bool isItemAllowed(MediaItem item) {
+      final mappings = item.providerMappings;
+      if (mappings == null || mappings.isEmpty) return true; // No mappings = show
+      // Item is allowed if it has inLibrary=true for any enabled provider
+      return mappings.any((m) => m.inLibrary && enabledProviders.contains(m.providerInstance));
+    }
+
+    return {
+      for (final entry in results.entries)
+        entry.key: entry.value.where(isItemAllowed).toList(),
+    };
+  }
+
   /// Animate to a specific filter
   void _animateToFilter(String filter) {
     final filters = _getAvailableFilters();
@@ -428,12 +449,21 @@ class SearchScreenState extends State<SearchScreen> {
       }
 
       if (mounted) {
+        // Combine all results
+        var combinedResults = {
+          ...results,
+          'radios': allRadios.values.toList(),
+          'podcasts': allPodcasts.values.toList(),
+        };
+
+        // When "in library" mode is on, also filter by enabled providers
+        if (_libraryOnly) {
+          final enabledProviders = provider.enabledProviderIds.toSet();
+          combinedResults = _filterByEnabledProviders(combinedResults, enabledProviders);
+        }
+
         setState(() {
-          _searchResults = {
-            ...results,
-            'radios': allRadios.values.toList(),
-            'podcasts': allPodcasts.values.toList(),
-          };
+          _searchResults = combinedResults;
           _isSearching = false;
           _hasSearched = true;
           _cachedListItems.clear(); // PERF: Clear cache on new results

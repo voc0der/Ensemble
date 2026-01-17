@@ -16,6 +16,10 @@ class ProviderMapping {
   final String providerInstance;
   final bool available;
   final Map<String, dynamic>? audioFormat;
+  /// Whether this item is in the library for this specific provider instance.
+  /// True = this provider "owns" the item (user added it from this account)
+  /// False = item exists but wasn't added from this provider
+  final bool inLibrary;
 
   ProviderMapping({
     required this.itemId,
@@ -23,6 +27,7 @@ class ProviderMapping {
     required this.providerInstance,
     required this.available,
     this.audioFormat,
+    this.inLibrary = true,
   });
 
   factory ProviderMapping.fromJson(Map<String, dynamic> json) {
@@ -32,6 +37,8 @@ class ProviderMapping {
       providerInstance: json['provider_instance'] as String? ?? '',
       available: json['available'] as bool? ?? true,
       audioFormat: json['audio_format'] as Map<String, dynamic>?,
+      // Parse in_library field - MA uses 1/0 or true/false
+      inLibrary: json['in_library'] == true || json['in_library'] == 1,
     );
   }
 
@@ -42,6 +49,7 @@ class ProviderMapping {
       'provider_instance': providerInstance,
       'available': available,
       if (audioFormat != null) 'audio_format': audioFormat,
+      'in_library': inLibrary,
     };
   }
 }

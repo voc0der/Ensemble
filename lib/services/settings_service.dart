@@ -161,6 +161,10 @@ class SettingsService {
   static const String _keyEnabledAbsLibraries = 'enabled_abs_libraries'; // JSON list of library paths
   static const String _keyDiscoveredAbsLibraries = 'discovered_abs_libraries'; // JSON list of {path, name}
 
+  // Music Provider Filter Settings
+  static const String _keyEnabledMusicProviders = 'enabled_music_providers'; // JSON list of provider instance IDs
+  static const String _keyDiscoveredMusicProviders = 'discovered_music_providers'; // JSON list of {instanceId, domain, name}
+
   // Hint System Settings
   static const String _keyShowHints = 'show_hints'; // Master toggle for hints
   static const String _keyHasUsedPlayerReveal = 'has_used_player_reveal'; // Track if user has pulled to reveal players
@@ -787,6 +791,81 @@ class SettingsService {
     }
 
     await setEnabledAbsLibraries(enabled);
+  }
+
+  // Music Provider Filter Settings
+
+  /// Get list of enabled music provider instance IDs (null = all enabled)
+  /// Returns null if no filter is set (all providers enabled by default)
+  static Future<List<String>?> getEnabledMusicProviders() async {
+    final prefs = await _getPrefs();
+    final json = prefs.getString(_keyEnabledMusicProviders);
+    if (json == null) return null; // null means all providers are enabled
+    try {
+      final list = jsonDecode(json) as List<dynamic>;
+      return list.cast<String>();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Set list of enabled music provider instance IDs
+  /// Pass null or call clearEnabledMusicProviders() to enable all providers
+  static Future<void> setEnabledMusicProviders(List<String> providerIds) async {
+    final prefs = await _getPrefs();
+    await prefs.setString(_keyEnabledMusicProviders, jsonEncode(providerIds));
+  }
+
+  /// Clear enabled providers (reverts to all enabled)
+  static Future<void> clearEnabledMusicProviders() async {
+    final prefs = await _getPrefs();
+    await prefs.remove(_keyEnabledMusicProviders);
+  }
+
+  /// Get discovered music providers [{instanceId, domain, name}]
+  static Future<List<Map<String, String>>?> getDiscoveredMusicProviders() async {
+    final prefs = await _getPrefs();
+    final json = prefs.getString(_keyDiscoveredMusicProviders);
+    if (json == null) return null;
+    try {
+      final list = jsonDecode(json) as List<dynamic>;
+      return list.map((e) => Map<String, String>.from(e as Map)).toList();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Save discovered music providers
+  static Future<void> setDiscoveredMusicProviders(List<Map<String, String>> providers) async {
+    final prefs = await _getPrefs();
+    await prefs.setString(_keyDiscoveredMusicProviders, jsonEncode(providers));
+  }
+
+  /// Check if a specific music provider is enabled
+  static Future<bool> isMusicProviderEnabled(String instanceId) async {
+    final enabled = await getEnabledMusicProviders();
+    if (enabled == null) return true; // All enabled by default
+    return enabled.contains(instanceId);
+  }
+
+  /// Toggle a specific music provider
+  /// allProviderIds should contain all available provider instance IDs
+  static Future<void> toggleMusicProvider(String instanceId, bool enable, List<String> allProviderIds) async {
+    var enabled = await getEnabledMusicProviders();
+    // If null (all enabled), initialize with all provider IDs
+    enabled ??= List.from(allProviderIds);
+
+    if (enable && !enabled.contains(instanceId)) {
+      enabled.add(instanceId);
+    } else if (!enable && enabled.contains(instanceId)) {
+      // Prevent disabling the last provider
+      if (enabled.length <= 1) {
+        return; // Don't allow disabling the last provider
+      }
+      enabled.remove(instanceId);
+    }
+
+    await setEnabledMusicProviders(enabled);
   }
 
   // Hint System Settings

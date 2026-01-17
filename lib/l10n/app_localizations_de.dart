@@ -797,6 +797,18 @@ class SDe extends S {
   String get unknownLibrary => 'Unbekannte Bibliothek';
 
   @override
+  String get musicProviders => 'Music Providers';
+
+  @override
+  String get musicProvidersDescription => 'Choose which accounts to show in your library';
+
+  @override
+  String get libraryRefreshing => 'Refreshing library...';
+
+  @override
+  String get cannotDisableLastProvider => 'Cannot disable the last provider';
+
+  @override
   String get noSeriesFound => 'Keine Serien gefunden';
 
   @override
