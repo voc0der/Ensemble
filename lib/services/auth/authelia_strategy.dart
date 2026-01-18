@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'auth_strategy.dart';
 import '../debug_logger.dart';
+import '../settings_service.dart';
+import '../security/android_keychain.dart';
+import '../security/android_keychain_http_client.dart';
 
 /// Authelia authentication strategy
 /// Used when Music Assistant is behind Authelia reverse proxy authentication
@@ -38,20 +42,74 @@ class AutheliaStrategy implements AuthStrategy {
 
       _logger.log('Auth URL: $authUrl');
 
+      // Prepare request body
+      final requestBody = jsonEncode({
+        'username': username,
+        'password': password,
+        'keepMeLoggedIn': true,
+      });
+
+      // Try with KeyChain HTTP client if available (Android HTTPS only)
+      http.Client client = http.Client();
+      String? mtlsAlias;
+
+      if (Platform.isAndroid && uri.scheme == 'https') {
+        mtlsAlias = await SettingsService.getAndroidMtlsKeyAlias();
+        if (mtlsAlias != null && mtlsAlias.isNotEmpty) {
+          _logger.log('Using Android KeyChain cert for HTTP request');
+          client = AndroidKeyChainHttpClient(alias: mtlsAlias);
+        }
+      }
+
       // POST to Authelia's firstfactor endpoint
-      final response = await http.post(
+      var response = await client.post(
         authUrl,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'username': username,
-          'password': password,
-          'keepMeLoggedIn': true,
-        }),
+        body: requestBody,
       ).timeout(const Duration(seconds: 10));
 
       _logger.log('Auth response status: ${response.statusCode}');
+
+      // Check if client certificate is required (400 status with cert error)
+      if (Platform.isAndroid &&
+          uri.scheme == 'https' &&
+          response.statusCode == 400 &&
+          (mtlsAlias == null || mtlsAlias.isEmpty) &&
+          _looksLikeClientCertRequired(response.body)) {
+
+        _logger.log('🔐 Client certificate required, prompting for selection...');
+
+        // Prompt user to select certificate
+        final selectedAlias = await AndroidKeyChain.selectClientCertificate(
+          host: uri.host,
+          port: uri.hasPort ? uri.port : 443,
+        );
+
+        if (selectedAlias != null && selectedAlias.isNotEmpty) {
+          _logger.log('✓ Certificate selected, saving and retrying...');
+          await SettingsService.setAndroidMtlsKeyAlias(selectedAlias);
+
+          // Retry with the selected certificate
+          client.close();
+          client = AndroidKeyChainHttpClient(alias: selectedAlias);
+
+          response = await client.post(
+            authUrl,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: requestBody,
+          ).timeout(const Duration(seconds: 10));
+
+          _logger.log('Auth response status (with cert): ${response.statusCode}');
+        } else {
+          _logger.log('✗ No certificate selected');
+          client.close();
+          return null;
+        }
+      }
 
       // Check for successful authentication
       if (response.statusCode == 200) {
@@ -65,6 +123,7 @@ class AutheliaStrategy implements AuthStrategy {
           final sessionCookie = _extractSessionCookie(cookies);
           if (sessionCookie != null) {
             _logger.log('✓ Extracted session cookie');
+            client.close();
             return AuthCredentials('authelia', {
               'session_cookie': sessionCookie,
               'username': username,
@@ -74,16 +133,26 @@ class AutheliaStrategy implements AuthStrategy {
 
         // If 200 but no cookie, something is wrong
         _logger.log('✗ No session cookie in response');
+        client.close();
         return null;
       }
 
       _logger.log('✗ Authentication failed: ${response.statusCode}');
       _logger.log('Response body: ${response.body}');
+      client.close();
       return null;
     } catch (e) {
       _logger.log('✗ Login error: $e');
       return null;
     }
+  }
+
+  bool _looksLikeClientCertRequired(String body) {
+    final msg = body.toLowerCase();
+    return msg.contains('no required ssl certificate') ||
+        msg.contains('certificate required') ||
+        msg.contains('certificate_required') ||
+        msg.contains('client certificate');
   }
 
   @override

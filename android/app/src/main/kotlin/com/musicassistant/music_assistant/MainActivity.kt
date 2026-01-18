@@ -127,6 +127,9 @@ class MainActivity: AudioServiceActivity() {
                     }
                     result.success(null)
                 }
+                "httpRequest" -> {
+                    httpRequest(call, result)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -287,6 +290,60 @@ class MainActivity: AudioServiceActivity() {
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .pingInterval(30, TimeUnit.SECONDS)
             .build()
+    }
+
+    private fun httpRequest(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
+        val alias = call.argument<String>("alias")
+        val method = call.argument<String>("method")
+        val url = call.argument<String>("url")
+        @Suppress("UNCHECKED_CAST")
+        val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
+        val body = call.argument<String>("body")
+
+        if (alias.isNullOrBlank() || method.isNullOrBlank() || url.isNullOrBlank()) {
+            result.error("BAD_ARGS", "Missing required arguments", null)
+            return
+        }
+
+        Thread {
+            try {
+                val client = buildOkHttpClient(alias)
+                val requestBuilder = Request.Builder().url(url)
+
+                // Add headers
+                for ((k, v) in headers) {
+                    requestBuilder.addHeader(k, v)
+                }
+
+                // Add body for POST/PUT/PATCH
+                if (!body.isNullOrBlank() && (method == "POST" || method == "PUT" || method == "PATCH")) {
+                    val mediaType = okhttp3.MediaType.parse("application/json; charset=utf-8")
+                    requestBuilder.method(method, okhttp3.RequestBody.create(mediaType, body))
+                } else {
+                    requestBuilder.method(method, null)
+                }
+
+                val request = requestBuilder.build()
+                val response = client.newCall(request).execute()
+
+                val responseHeaders = mutableMapOf<String, String>()
+                for (name in response.headers().names()) {
+                    responseHeaders[name] = response.header(name) ?: ""
+                }
+
+                val responseBody = response.body()?.string() ?: ""
+
+                val responseMap = mapOf(
+                    "statusCode" to response.code(),
+                    "headers" to responseHeaders,
+                    "body" to responseBody
+                )
+
+                mainHandler.post { result.success(responseMap) }
+            } catch (e: Exception) {
+                mainHandler.post { result.error("HTTP_ERROR", e.message, null) }
+            }
+        }.start()
     }
 
     // Use dispatchKeyEvent instead of onKeyDown - Flutter's engine uses dispatchKeyEvent
