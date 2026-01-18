@@ -148,6 +148,10 @@ class AutheliaStrategy implements AuthStrategy {
             return null;
           }
 
+          // Extract cookies from first-factor response to send with second-factor
+          final firstFactorCookies = response.headers['set-cookie'];
+          _logger.log('First factor cookies: ${firstFactorCookies ?? "none"}');
+
           // Submit second factor (TOTP)
           _logger.log('Submitting TOTP code...');
           final secondFactorUrl = Uri(
@@ -162,11 +166,24 @@ class AutheliaStrategy implements AuthStrategy {
             'keepMeLoggedIn': true,
           });
 
+          // Build headers with cookies from first-factor response
+          final secondFactorHeaders = {
+            'Content-Type': 'application/json',
+          };
+
+          // Add cookies from first-factor if available
+          if (firstFactorCookies != null && firstFactorCookies.isNotEmpty) {
+            // Parse and format cookies for Cookie header
+            final cookieValue = _parseCookiesForRequest(firstFactorCookies);
+            if (cookieValue.isNotEmpty) {
+              secondFactorHeaders['Cookie'] = cookieValue;
+              _logger.log('Sending cookies with second factor: $cookieValue');
+            }
+          }
+
           response = await client.post(
             secondFactorUrl,
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: secondFactorHeaders,
             body: totpBody,
           ).timeout(const Duration(seconds: 10));
 
@@ -334,6 +351,26 @@ class AutheliaStrategy implements AuthStrategy {
   @override
   AuthCredentials deserializeCredentials(Map<String, dynamic> data) {
     return AuthCredentials('authelia', data);
+  }
+
+  /// Parse Set-Cookie header and format for Cookie request header
+  /// Converts "Set-Cookie: name=value; Path=/; HttpOnly" to "name=value"
+  String _parseCookiesForRequest(String setCookieHeader) {
+    final cookies = <String>[];
+
+    // Set-Cookie can contain multiple cookies separated by commas
+    // But cookies can also have comma in their value, so we need to be careful
+    final cookieParts = setCookieHeader.split(',');
+
+    for (final part in cookieParts) {
+      // Extract just the name=value part (before first semicolon)
+      final cookieValue = part.split(';').first.trim();
+      if (cookieValue.isNotEmpty && cookieValue.contains('=')) {
+        cookies.add(cookieValue);
+      }
+    }
+
+    return cookies.join('; ');
   }
 
   /// Extract authelia_session cookie value from Set-Cookie header
