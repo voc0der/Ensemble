@@ -14,6 +14,8 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.UUID
@@ -317,8 +319,8 @@ class MainActivity: AudioServiceActivity() {
 
                 // Add body for POST/PUT/PATCH
                 if (!body.isNullOrBlank() && (method == "POST" || method == "PUT" || method == "PATCH")) {
-                    val mediaType = okhttp3.MediaType.parse("application/json; charset=utf-8")
-                    requestBuilder.method(method, okhttp3.RequestBody.create(mediaType, body))
+                    val mediaType = "application/json; charset=utf-8".toMediaType()
+                    requestBuilder.method(method, body.toRequestBody(mediaType))
                 } else {
                     requestBuilder.method(method, null)
                 }
@@ -327,14 +329,14 @@ class MainActivity: AudioServiceActivity() {
                 val response = client.newCall(request).execute()
 
                 val responseHeaders = mutableMapOf<String, String>()
-                for (name in response.headers().names()) {
+                for (name in response.headers.names()) {
                     responseHeaders[name] = response.header(name) ?: ""
                 }
 
-                val responseBody = response.body()?.string() ?: ""
+                val responseBody = response.body?.string() ?: ""
 
                 val responseMap = mapOf(
-                    "statusCode" to response.code(),
+                    "statusCode" to response.code,
                     "headers" to responseHeaders,
                     "body" to responseBody
                 )
