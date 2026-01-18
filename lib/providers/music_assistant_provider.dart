@@ -294,15 +294,20 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   /// Internal helper to count items per provider from a list of media items
+  /// Only counts mappings where inLibrary is true - this indicates which provider
+  /// the user actually added the item from (vs providers that can play it)
   Map<String, int> _getProvidersWithCounts<T extends MediaItem>(List<T> items) {
     final counts = <String, int>{};
     for (final item in items) {
       final mappings = item.providerMappings;
       if (mappings != null) {
         for (final mapping in mappings) {
-          final instanceId = mapping.providerInstance;
-          if (instanceId.isNotEmpty) {
-            counts[instanceId] = (counts[instanceId] ?? 0) + 1;
+          // Only count if this provider "owns" the item (user added it from this account)
+          if (mapping.inLibrary) {
+            final instanceId = mapping.providerInstance;
+            if (instanceId.isNotEmpty) {
+              counts[instanceId] = (counts[instanceId] ?? 0) + 1;
+            }
           }
         }
       }
@@ -341,15 +346,18 @@ class MusicAssistantProvider with ChangeNotifier {
     }
 
     // Build list of providers that support this category, with their item counts
+    // Only include providers that have at least 1 item (hides providers not synced to library)
     final result = <(ProviderInstance, int)>[];
     final addedInstanceIds = <String>{};
 
     for (final provider in _availableMusicProviders) {
-      // Only include providers that support this content type
+      // Only include providers that support this content type AND have items
       if (provider.supportsContentType(category)) {
         final count = counts[provider.instanceId] ?? 0;
-        result.add((provider, count));
-        addedInstanceIds.add(provider.instanceId);
+        if (count > 0) {
+          result.add((provider, count));
+          addedInstanceIds.add(provider.instanceId);
+        }
       }
     }
 
