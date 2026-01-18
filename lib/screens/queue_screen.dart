@@ -85,9 +85,9 @@ class _QueueScreenState extends State<QueueScreen> {
 
     if (targetPlayers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No other players available to transfer to'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(S.of(context)!.noOtherPlayersAvailable),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -96,7 +96,7 @@ class _QueueScreenState extends State<QueueScreen> {
     // Show player picker sheet
     await showPlayerPickerSheet(
       context: context,
-      title: 'Transfer Queue To',
+      title: S.of(context)!.transferQueueTo,
       players: targetPlayers,
       onPlayerSelected: (targetPlayer) async {
         try {
@@ -109,7 +109,7 @@ class _QueueScreenState extends State<QueueScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Queue transferred to ${targetPlayer.name}'),
+                content: Text(S.of(context)!.queueTransferredTo(targetPlayer.name)),
                 duration: const Duration(seconds: 2),
               ),
             );
@@ -119,7 +119,7 @@ class _QueueScreenState extends State<QueueScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Failed to transfer queue: $e'),
+                content: Text(S.of(context)!.failedToTransferQueue(e.toString())),
                 backgroundColor: Colors.red.shade700,
                 duration: const Duration(seconds: 3),
               ),
@@ -152,7 +152,7 @@ class _QueueScreenState extends State<QueueScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.swap_horiz_rounded),
-            tooltip: 'Transfer queue',
+            tooltip: S.of(context)!.transferQueue,
             onPressed: () => _handleTransferQueue(maProvider),
           ),
           IconButton(

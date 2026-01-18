@@ -649,7 +649,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             children: [
                               RadioListTile<String?>(
                                 title: Text(S.of(context)!.system),
-                                subtitle: const Text('Auto'),
+                                subtitle: Text(S.of(context)!.auto),
                                 value: null,
                                 groupValue: localeProvider.locale?.languageCode,
                                 onChanged: (value) {
@@ -658,7 +658,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                               ),
                               RadioListTile<String?>(
-                                title: const Text('English'),
+                                title: Text(S.of(context)!.english),
                                 value: 'en',
                                 groupValue: localeProvider.locale?.languageCode,
                                 onChanged: (value) {
@@ -667,7 +667,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                               ),
                               RadioListTile<String?>(
-                                title: const Text('Deutsch'),
+                                title: Text(S.of(context)!.german),
                                 value: 'de',
                                 groupValue: localeProvider.locale?.languageCode,
                                 onChanged: (value) {
@@ -676,7 +676,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                               ),
                               RadioListTile<String?>(
-                                title: const Text('Español'),
+                                title: Text(S.of(context)!.spanish),
                                 value: 'es',
                                 groupValue: localeProvider.locale?.languageCode,
                                 onChanged: (value) {
@@ -685,7 +685,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                               ),
                               RadioListTile<String?>(
-                                title: const Text('Français'),
+                                title: Text(S.of(context)!.french),
                                 value: 'fr',
                                 groupValue: localeProvider.locale?.languageCode,
                                 onChanged: (value) {

@@ -513,7 +513,6 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       final selectedPlayer = maProvider.selectedPlayer;
       // Only refresh if the event is for our current player
       if (playerId != null && selectedPlayer != null && playerId == selectedPlayer.playerId) {
-        debugPrint('QueuePanel: Received queue_items_updated event, refreshing queue');
         _loadQueue();
       }
     });
@@ -532,7 +531,6 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
     // Clear queue if player changed (e.g., after queue transfer)
     if (_queuePlayerId != null && _queuePlayerId != player.playerId) {
-      debugPrint('🔀 Player changed from $_queuePlayerId to ${player.playerId}, clearing queue');
       _queue = null;
       _queuePlayerId = player.playerId;
     }
@@ -557,7 +555,6 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
       try {
         final freshQueue = await maProvider.getQueue(player.playerId);
         if (mounted && freshQueue != null) {
-          debugPrint('🔀 Queue loaded: shuffle=${freshQueue.shuffle}, shuffleEnabled=${freshQueue.shuffleEnabled}');
           // Check if queue items were reordered by comparing first few item IDs
           bool itemsReordered = false;
           if (_queue != null && _queue!.items.isNotEmpty && freshQueue.items.isNotEmpty) {
@@ -566,7 +563,6 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
             for (int i = 0; i < maxCheck; i++) {
               if (_queue!.items[i].queueItemId != freshQueue.items[i].queueItemId) {
                 itemsReordered = true;
-                debugPrint('🔀 Queue items reordered detected at position $i');
                 break;
               }
             }
@@ -578,7 +574,6 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
               _queue!.shuffle != freshQueue.shuffle ||
               itemsReordered;
           if (queueChanged) {
-            debugPrint('🔀 Queue changed, updating UI (reordered=$itemsReordered)');
             setState(() {
               _queue = freshQueue;
               _queuePlayerId = player.playerId;
@@ -621,13 +616,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   }
 
   Future<void> _toggleShuffle() async {
-    debugPrint('🔀 Shuffle button pressed');
-    if (_queue == null) {
-      debugPrint('🔀 Shuffle: _queue is null, returning');
-      return;
-    }
+    if (_queue == null) return;
     final newShuffleState = !_queue!.shuffle;
-    debugPrint('🔀 Shuffle: current=${_queue!.shuffle}, toggling to $newShuffleState');
 
     // Optimistically update local state for immediate visual feedback
     setState(() {
@@ -639,15 +629,12 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
         repeatMode: _queue!.repeatMode,
       );
     });
-    debugPrint('🔀 Shuffle: optimistic update applied, shuffleEnabled=$newShuffleState');
 
     final maProvider = context.read<MusicAssistantProvider>();
     // Toggle: if currently shuffled, disable; if not shuffled, enable
     await maProvider.toggleShuffle(_queue!.playerId, newShuffleState);
-    debugPrint('🔀 Shuffle: command sent, waiting for server to reorder queue');
     // Small delay to allow server to finish reordering queue items
     await Future.delayed(const Duration(milliseconds: 150));
-    debugPrint('🔀 Shuffle: reloading queue');
     await _loadQueue();
   }
 
