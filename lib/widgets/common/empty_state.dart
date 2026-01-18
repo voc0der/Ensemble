@@ -103,39 +103,48 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Center(
-      child: Padding(
-        padding: Spacing.paddingAll24,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: iconSize,
-              color: colorScheme.onSurface.withOpacity(0.38),
-            ),
-            Spacing.vGap16,
-            Text(
-              message,
-              style: TextStyle(
-                color: colorScheme.onSurface.withOpacity(0.6),
-                fontSize: 16,
+    // Wrap in scrollable to allow PageView horizontal swipe detection
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: Spacing.paddingAll24,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: iconSize,
+                    color: colorScheme.onSurface.withOpacity(0.38),
+                  ),
+                  Spacing.vGap16,
+                  Text(
+                    message,
+                    style: TextStyle(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (actionLabel != null && onAction != null) ...[
+                    Spacing.vGap24,
+                    ElevatedButton.icon(
+                      onPressed: onAction,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: Text(actionLabel!),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colorScheme.surfaceVariant,
+                        foregroundColor: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              textAlign: TextAlign.center,
             ),
-            if (actionLabel != null && onAction != null) ...[
-              Spacing.vGap24,
-              ElevatedButton.icon(
-                onPressed: onAction,
-                icon: const Icon(Icons.refresh_rounded),
-                label: Text(actionLabel!),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.surfaceVariant,
-                  foregroundColor: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -162,51 +171,60 @@ class _CustomEmptyState extends EmptyState {
     final colorScheme = Theme.of(context).colorScheme;
     final s = S.of(context)!;
 
-    return Center(
-      child: Padding(
-        padding: Spacing.paddingAll24,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: iconSize,
-              color: colorScheme.onSurface.withOpacity(0.38),
+    // Wrap in scrollable to allow PageView horizontal swipe detection
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: Spacing.paddingAll24,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: iconSize,
+                    color: colorScheme.onSurface.withOpacity(0.38),
+                  ),
+                  Spacing.vGap16,
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (subtitle != null) ...[
+                    Spacing.vGap8,
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        color: colorScheme.onSurface.withOpacity(0.4),
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  if (onRefresh != null) ...[
+                    Spacing.vGap24,
+                    ElevatedButton.icon(
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: Text(s.refresh),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colorScheme.surfaceVariant,
+                        foregroundColor: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            Spacing.vGap16,
-            Text(
-              title,
-              style: TextStyle(
-                color: colorScheme.onSurface.withOpacity(0.6),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (subtitle != null) ...[
-              Spacing.vGap8,
-              Text(
-                subtitle!,
-                style: TextStyle(
-                  color: colorScheme.onSurface.withOpacity(0.4),
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (onRefresh != null) ...[
-              Spacing.vGap24,
-              ElevatedButton.icon(
-                onPressed: onRefresh,
-                icon: const Icon(Icons.refresh_rounded),
-                label: Text(s.refresh),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.surfaceVariant,
-                  foregroundColor: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );

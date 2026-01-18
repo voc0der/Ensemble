@@ -7,12 +7,17 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../constants/timings.dart';
 import '../providers/music_assistant_provider.dart';
+import '../providers/navigation_provider.dart';
 import '../models/player.dart';
+import '../models/media_item.dart';
 import '../services/animation_debugger.dart';
 import '../theme/palette_helper.dart';
 import '../theme/theme_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../services/settings_service.dart';
+import '../screens/artist_details_screen.dart';
+import '../screens/album_details_screen.dart';
+import '../utils/page_transitions.dart';
 import 'animated_icon_button.dart';
 import 'global_player_overlay.dart';
 import 'volume_control.dart';
@@ -891,6 +896,45 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
           ),
         );
       }
+    }
+  }
+
+  /// Navigate to artist details screen
+  void _navigateToArtist(MusicAssistantProvider maProvider, dynamic currentTrack) {
+    if (currentTrack == null) return;
+
+    // Skip for podcasts/audiobooks - they show author/podcast name but navigation isn't applicable
+    if (maProvider.isPlayingPodcast || maProvider.isPlayingAudiobook) return;
+
+    // For regular tracks, navigate to first artist
+    final artists = currentTrack.artists;
+    if (artists != null && artists is List && artists.isNotEmpty) {
+      final artist = artists.first;
+      if (artist is Artist) {
+        // Collapse player first, then navigate using global navigator key
+        collapse();
+        navigationProvider.navigatorKey.currentState?.push(
+          FadeSlidePageRoute(
+            child: ArtistDetailsScreen(artist: artist),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Navigate to album details screen
+  void _navigateToAlbum(dynamic currentTrack) {
+    if (currentTrack == null) return;
+
+    final album = currentTrack.album;
+    if (album != null && album is Album) {
+      // Collapse player first, then navigate using global navigator key
+      collapse();
+      navigationProvider.navigatorKey.currentState?.push(
+        FadeSlidePageRoute(
+          child: AlbumDetailsScreen(album: album),
+        ),
+      );
     }
   }
 
@@ -2126,21 +2170,24 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                         child: Align(
                           // PERF Phase 5: Use pre-computed alignment
                           alignment: textAlignment,
-                          child: Text(
-                            // Always show artist/author/podcast name (was showing "Now Playing" when device reveal visible)
-                            maProvider.isPlayingAudiobook
-                                ? (maProvider.currentAudiobook?.authorsString ?? S.of(context)!.unknownAuthor)
-                                : maProvider.isPlayingPodcast
-                                    ? (maProvider.currentPodcastName ?? S.of(context)!.podcasts)
-                                    : currentTrack.artistsString,
-                            style: TextStyle(
-                              // PERF Phase 4: Use Color.lerp between pre-computed colors
-                              color: Color.lerp(textColor60, textColor70, t),
-                              fontSize: artistFontSize,
+                          child: GestureDetector(
+                            onTap: t > 0.8 ? () => _navigateToArtist(maProvider, currentTrack) : null,
+                            child: Text(
+                              // Always show artist/author/podcast name (was showing "Now Playing" when device reveal visible)
+                              maProvider.isPlayingAudiobook
+                                  ? (maProvider.currentAudiobook?.authorsString ?? S.of(context)!.unknownAuthor)
+                                  : maProvider.isPlayingPodcast
+                                      ? (maProvider.currentPodcastName ?? S.of(context)!.podcasts)
+                                      : currentTrack.artistsString,
+                              style: TextStyle(
+                                // PERF Phase 4: Use Color.lerp between pre-computed colors
+                                color: Color.lerp(textColor60, textColor70, t),
+                                fontSize: artistFontSize,
+                              ),
+                              textAlign: TextAlign.left, // Keep static, Align handles centering
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            textAlign: TextAlign.left, // Keep static, Align handles centering
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
@@ -2189,16 +2236,19 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                     top: _lerpDouble(artistTop + 24, expandedAlbumTop, t),
                     child: maProvider.isPlayingAudiobook
                         ? _buildChapterInfo(maProvider, textColor, t)
-                        : Text(
-                            currentTrack.album!.name,
-                            style: TextStyle(
-                              color: textColor.withOpacity(0.45 * ((t - 0.3) / 0.7).clamp(0.0, 1.0)),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w300,
+                        : GestureDetector(
+                            onTap: t > 0.8 ? () => _navigateToAlbum(currentTrack) : null,
+                            child: Text(
+                              currentTrack.album!.name,
+                              style: TextStyle(
+                                color: textColor.withOpacity(0.45 * ((t - 0.3) / 0.7).clamp(0.0, 1.0)),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w300,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                   ),
 

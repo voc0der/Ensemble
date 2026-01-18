@@ -701,8 +701,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
 
   void _navigateToArtist() {
     // Navigate to the first artist if available
-    if (widget.album.artists != null && widget.album.artists!.isNotEmpty) {
-      final artist = widget.album.artists!.first;
+    if (_displayAlbum.artists != null && _displayAlbum.artists!.isNotEmpty) {
+      final artist = _displayAlbum.artists!.first;
       final maProvider = context.read<MusicAssistantProvider>();
       final imageUrl = maProvider.getImageUrl(artist, size: 256);
       Navigator.push(
@@ -942,7 +942,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4.0),
                           child: Text(
-                            widget.album.artistsString,
+                            _displayAlbum.artistsString,
                             style: textTheme.titleMedium?.copyWith(
                               color: colorScheme.onBackground.withOpacity(0.7),
                             ),
