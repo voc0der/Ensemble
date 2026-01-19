@@ -234,7 +234,25 @@ class MusicAssistantAPI {
       }
 
       try {
-        if (mtlsCandidate && mtlsAlias != null && mtlsAlias.isNotEmpty) {
+        // If no cert is stored on Android HTTPS, prompt first
+        // This handles cases where mTLS is required but we haven't detected it yet
+        if (mtlsCandidate && (mtlsAlias == null || mtlsAlias.isEmpty)) {
+          _logger.log('mTLS: No cert stored, trying without cert first (will prompt if needed)');
+          try {
+            _channel = await connectDartWs();
+          } catch (dartWsError) {
+            // Any connection failure on HTTPS might be mTLS - prompt for cert
+            _logger.log('mTLS: Connection failed, prompting for certificate. Error: $dartWsError');
+            final picked = await promptForAlias();
+            if (picked != null && picked.isNotEmpty) {
+              await SettingsService.setAndroidMtlsKeyAlias(picked);
+              _logger.log('mTLS: Certificate selected, connecting with native WebSocket');
+              _channel = await connectNativeWs(picked);
+            } else {
+              throw MissingClientCertificateException('Client certificate required (selection canceled).');
+            }
+          }
+        } else if (mtlsCandidate && mtlsAlias != null && mtlsAlias.isNotEmpty) {
           _logger.log('mTLS: Using stored Android KeyChain alias for WebSocket');
           _channel = await connectNativeWs(mtlsAlias);
         } else {
