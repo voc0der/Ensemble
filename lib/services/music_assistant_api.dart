@@ -3415,10 +3415,12 @@ class MusicAssistantAPI {
       }
 
       final result = loginResponse['result'] as Map<String, dynamic>?;
+      _logger.log('DEBUG: Login response result: $result');
       final accessToken = result?['access_token'] as String?;
 
       if (accessToken == null) {
         _logger.log('❌ No access token in login response');
+        _logger.log('DEBUG: Full login response: $loginResponse');
         _updateConnectionState(MAConnectionState.connected);
         return null;
       }

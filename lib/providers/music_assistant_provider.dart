@@ -1086,7 +1086,16 @@ class MusicAssistantProvider with ChangeNotifier {
 
       if (username != null && password != null && username.isNotEmpty && password.isNotEmpty) {
         _logger.log('🔐 Trying stored credentials...');
-        final accessToken = await _api!.loginWithCredentials(username, password);
+
+        // Strip TOTP code if present (format: "password|||123456")
+        // TOTP is only for Authelia, not for MA
+        String actualPassword = password;
+        if (password.contains('|||')) {
+          actualPassword = password.split('|||')[0];
+          _logger.log('Stripped TOTP code from password for MA login');
+        }
+
+        final accessToken = await _api!.loginWithCredentials(username, actualPassword);
 
         if (accessToken != null) {
           _logger.log('✅ MA login with stored credentials successful');
