@@ -150,12 +150,13 @@ class _NativeWebSocketSink implements WebSocketSink {
   @override
   void add(dynamic data) {
     if (_isClosed) return;
-    if (data is String) {
-      unawaited(onSend(data));
-    } else {
-      // Be strict: MA expects text JSON frames.
-      unawaited(onSend(data.toString()));
-    }
+    final message = data is String ? data : data.toString();
+
+    // Send message but catch any errors to prevent unhandled exceptions
+    onSend(message).catchError((error, stackTrace) {
+      // Log error but don't crash - WebSocket may be closing
+      print('WebSocket send error: $error');
+    });
   }
 
   @override
