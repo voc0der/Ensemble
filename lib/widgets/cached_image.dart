@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/image_cache_service.dart';
 
 /// A wrapper around CachedNetworkImage for consistent image caching throughout the app.
 ///
@@ -45,6 +46,7 @@ class CachedImage extends StatelessWidget {
       memCacheHeight: cacheHeight,
       fadeInDuration: const Duration(milliseconds: 150),
       fadeOutDuration: const Duration(milliseconds: 150),
+      cacheManager: AuthenticatedCacheManager.instance,
       placeholder: (context, url) => placeholder ?? Container(
         color: colorScheme.surfaceVariant,
         child: Center(
@@ -112,6 +114,7 @@ class CachedCircleAvatar extends StatelessWidget {
       memCacheHeight: (radius * 4).toInt(),
       fadeInDuration: const Duration(milliseconds: 150),
       fadeOutDuration: const Duration(milliseconds: 150),
+      cacheManager: AuthenticatedCacheManager.instance,
       imageBuilder: (context, imageProvider) => CircleAvatar(
         radius: radius,
         backgroundColor: bgColor,
@@ -146,5 +149,8 @@ class CachedCircleAvatar extends StatelessWidget {
 /// This is useful when you need an ImageProvider rather than a widget.
 CachedNetworkImageProvider? cachedImageProvider(String? imageUrl) {
   if (imageUrl == null || imageUrl.isEmpty) return null;
-  return CachedNetworkImageProvider(imageUrl);
+  return CachedNetworkImageProvider(
+    imageUrl,
+    cacheManager: AuthenticatedCacheManager.instance,
+  );
 }
