@@ -339,6 +339,14 @@ class MainActivity: AudioServiceActivity() {
                     }
                 }
 
+                // Debug logging for Set-Cookie header
+                if (responseHeaders.containsKey("set-cookie")) {
+                    android.util.Log.d("MainActivity", "httpRequest: Set-Cookie header captured: ${responseHeaders["set-cookie"]}")
+                } else {
+                    android.util.Log.d("MainActivity", "httpRequest: No Set-Cookie header in response")
+                    android.util.Log.d("MainActivity", "httpRequest: Available headers: ${response.headers.names()}")
+                }
+
                 val responseBody = response.body?.string() ?: ""
 
                 val responseMap = mapOf(

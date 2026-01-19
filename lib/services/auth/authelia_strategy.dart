@@ -155,6 +155,7 @@ class AutheliaStrategy implements AuthStrategy {
           }
 
           // Extract the session cookie from the first-factor response to send with second-factor.
+          _logger.log('DEBUG: All response headers: ${response.headers.keys.toList()}');
           final firstFactorCookies = response.headers['set-cookie'];
           _logger.log('First factor cookies: ${firstFactorCookies ?? "none"}');
 
