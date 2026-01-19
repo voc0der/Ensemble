@@ -31,6 +31,7 @@ import 'audiobook_author_screen.dart';
 import 'audiobook_detail_screen.dart';
 import 'audiobook_series_screen.dart';
 import 'podcast_detail_screen.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 /// Media type for the library
 enum LibraryMediaType { music, books, podcasts, radio }
@@ -1068,7 +1069,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
     if (!mounted) return;
     for (final url in covers) {
       precacheImage(
-        CachedNetworkImageProvider(url),
+        CachedNetworkImageProvider(url, cacheManager: AuthenticatedCacheManager.instance),
         context,
       ).catchError((_) => false);
     }
@@ -1116,7 +1117,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       if (!mounted) break;
       try {
         final palette = await PaletteGenerator.fromImageProvider(
-          CachedNetworkImageProvider(url),
+          CachedNetworkImageProvider(url, cacheManager: AuthenticatedCacheManager.instance),
           maximumColorCount: 8,
         );
 
@@ -2235,7 +2236,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               if (authorImageUrl != null)
                 ClipOval(
                   child: CachedNetworkImage(
-                    imageUrl: authorImageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: authorImageUrl,
                     fit: BoxFit.cover,
                     width: 48,
                     height: 48,
@@ -2318,7 +2320,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                               height: size,
                               child: ClipOval(
                                 child: CachedNetworkImage(
-                                  imageUrl: authorImageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: authorImageUrl,
                                   fit: BoxFit.cover,
                                   width: size,
                                   height: size,
@@ -2390,7 +2393,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             color: colorScheme.surfaceContainerHighest,
             child: imageUrl != null
                 ? CachedNetworkImage(
-                    imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                     fit: BoxFit.cover,
                     memCacheWidth: 256,
                     memCacheHeight: 256,
@@ -2587,7 +2591,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                       color: colorScheme.surfaceVariant,
                       child: imageUrl != null
                           ? CachedNetworkImage(
-                              imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                               fit: BoxFit.cover,
                               memCacheWidth: 512,
                               memCacheHeight: 512,
@@ -2829,7 +2834,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
             color: colorScheme.surfaceContainerHighest,
             child: firstCover != null
                 ? CachedNetworkImage(
-                    imageUrl: firstCover,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: firstCover,
                     fit: BoxFit.cover,
                     memCacheWidth: 256,
                     memCacheHeight: 256,
@@ -3020,7 +3026,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                 }
                 return Expanded(
                   child: CachedNetworkImage(
-                    imageUrl: displayCovers[index],
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: displayCovers[index],
                     fit: BoxFit.cover,
                     fadeInDuration: Duration.zero,
                     fadeOutDuration: Duration.zero,
@@ -3220,7 +3227,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                         color: colorScheme.surfaceContainerHighest,
                         child: imageUrl != null
                             ? CachedNetworkImage(
-                                imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                                 width: 56,
                                 height: 56,
                                 fit: BoxFit.cover,
@@ -3307,7 +3315,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                   color: colorScheme.surfaceContainerHighest,
                   child: imageUrl != null
                       ? CachedNetworkImage(
-                          imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                           fit: BoxFit.cover,
                           // FIXED: Add memCacheWidth to ensure consistent decode size for smooth Hero
                           memCacheWidth: 256,
@@ -3378,7 +3387,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
       if (imageUrl != null) {
         // Use CachedNetworkImageProvider to warm the cache
         precacheImage(
-          CachedNetworkImageProvider(imageUrl),
+          CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
           context,
         ).catchError((_) {
           // Silently ignore precache errors
@@ -3472,7 +3481,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                     borderRadius: BorderRadius.circular(8),
                     child: imageUrl != null
                         ? CachedNetworkImage(
-                            imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                             width: 56,
                             height: 56,
                             fit: BoxFit.cover,
@@ -3561,7 +3571,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                 color: colorScheme.surfaceVariant,
                 child: imageUrl != null
                     ? CachedNetworkImage(
-                        imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                         fit: BoxFit.cover,
                         memCacheWidth: cacheSize,
                         memCacheHeight: cacheSize,
@@ -3970,7 +3981,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           color: colorScheme.surfaceVariant,
           child: imageUrl != null
               ? CachedNetworkImage(
-                  imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                   fit: BoxFit.cover,
                   memCacheWidth: 256,
                   memCacheHeight: 256,
@@ -4108,7 +4120,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
               color: colorScheme.surfaceContainerHighest,
               child: imageUrl != null
                   ? CachedNetworkImage(
-                      imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                       fit: BoxFit.cover,
                       memCacheWidth: 96,
                       memCacheHeight: 96,
@@ -4206,7 +4219,8 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
                     color: colorScheme.surfaceContainerHighest,
                     child: imageUrl != null
                         ? CachedNetworkImage(
-                            imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: double.infinity,
@@ -4375,7 +4389,7 @@ class _NewLibraryScreenState extends State<NewLibraryScreen>
           borderRadius: BorderRadius.circular(6),
           image: imageUrl != null
               ? DecorationImage(
-                  image: CachedNetworkImageProvider(imageUrl),
+                  image: CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
                   fit: BoxFit.cover,
                 )
               : null,

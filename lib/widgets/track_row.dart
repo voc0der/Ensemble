@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/debug_logger.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class TrackRow extends StatefulWidget {
   final String title;
@@ -78,7 +79,7 @@ class _TrackRowState extends State<TrackRow> with AutomaticKeepAliveClientMixin 
       final imageUrl = maProvider.api?.getImageUrl(track, size: 256);
       if (imageUrl != null) {
         precacheImage(
-          CachedNetworkImageProvider(imageUrl),
+          CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
           context,
         ).catchError((_) => false);
       }
@@ -214,7 +215,8 @@ class _TrackCard extends StatelessWidget {
                   color: colorScheme.surfaceVariant,
                   child: imageUrl != null
                       ? CachedNetworkImage(
-                          imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                           fit: BoxFit.cover,
                           memCacheWidth: 256,
                           memCacheHeight: 256,

@@ -12,6 +12,7 @@ import '../widgets/global_player_overlay.dart';
 import '../widgets/player_picker_sheet.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/design_tokens.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class PlaylistDetailsScreen extends StatefulWidget {
   final Playlist playlist;
@@ -75,7 +76,7 @@ class _PlaylistDetailsScreenState extends State<PlaylistDetailsScreen> with Sing
 
     try {
       final colorSchemes = await PaletteHelper.extractColorSchemes(
-        CachedNetworkImageProvider(imageUrl),
+        CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
       );
 
       if (colorSchemes != null && mounted) {
@@ -605,7 +606,8 @@ class _PlaylistDetailsScreenState extends State<PlaylistDetailsScreen> with Sing
                     minScale: 0.5,
                     maxScale: 3.0,
                     child: CachedNetworkImage(
-                      imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                       fit: BoxFit.contain,
                       memCacheWidth: 1024,
                       memCacheHeight: 1024,
@@ -712,7 +714,8 @@ class _PlaylistDetailsScreenState extends State<PlaylistDetailsScreen> with Sing
                                   color: colorScheme.surfaceContainerHighest,
                                   child: imageUrl != null
                                       ? CachedNetworkImage(
-                                          imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                                           fit: BoxFit.cover,
                                           memCacheWidth: 256,
                                           memCacheHeight: 256,
@@ -919,7 +922,8 @@ class _PlaylistDetailsScreenState extends State<PlaylistDetailsScreen> with Sing
                                       color: colorScheme.surfaceContainerHighest,
                                       child: trackImageUrl != null
                                           ? CachedNetworkImage(
-                                              imageUrl: trackImageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: trackImageUrl,
                                               fit: BoxFit.cover,
                                               memCacheWidth: 96,
                                               memCacheHeight: 96,

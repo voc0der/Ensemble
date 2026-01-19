@@ -11,6 +11,7 @@ import '../theme/theme_provider.dart';
 import '../utils/page_transitions.dart';
 import '../services/metadata_service.dart';
 import '../services/debug_logger.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class ArtistCard extends StatefulWidget {
   final Artist artist;
@@ -150,7 +151,8 @@ class _ArtistCardState extends State<ArtistCard> {
                     color: colorScheme.surfaceVariant,
                     child: imageUrl != null
                         ? CachedNetworkImage(
-                            imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                             fit: BoxFit.cover,
                             memCacheWidth: cacheSize,
                             memCacheHeight: cacheSize,

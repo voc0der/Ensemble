@@ -23,6 +23,7 @@ import 'global_player_overlay.dart';
 import 'volume_control.dart';
 import 'player/player_widgets.dart';
 import 'player/mini_player_content.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 /// A unified player widget that seamlessly expands from mini to full-screen.
 ///
@@ -597,7 +598,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
 
     try {
       final colorSchemes = await PaletteHelper.extractColorSchemes(
-        CachedNetworkImageProvider(imageUrl),
+        CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
       );
 
       if (colorSchemes != null && mounted) {
@@ -953,7 +954,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                       minScale: 0.5,
                       maxScale: 3.0,
                       child: CachedNetworkImage(
-                        imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                         fit: BoxFit.contain,
                         memCacheWidth: 1024,
                         memCacheHeight: 1024,
@@ -1199,7 +1201,7 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
   /// Precache an image and then complete the transition
   void _precacheAndTransition(String imageUrl) {
     // Use CachedNetworkImage's cache to ensure image is ready
-    final imageProvider = CachedNetworkImageProvider(imageUrl);
+    final imageProvider = CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance);
     final imageStream = imageProvider.resolve(const ImageConfiguration());
     late ImageStreamListener listener;
 
@@ -2037,7 +2039,8 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                               borderRadius: BorderRadius.circular(artBorderRadius),
                               child: imageUrl != null
                                   ? CachedNetworkImage(
-                                      imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                                       fit: BoxFit.cover,
                                       // Fixed cache size to avoid mid-animation cache thrashing
                                       memCacheWidth: 512,

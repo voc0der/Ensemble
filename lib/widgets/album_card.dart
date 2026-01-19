@@ -10,6 +10,7 @@ import '../constants/timings.dart';
 import '../theme/theme_provider.dart';
 import '../utils/page_transitions.dart';
 import '../services/metadata_service.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class AlbumCard extends StatefulWidget {
   final Album album;
@@ -155,7 +156,8 @@ class _AlbumCardState extends State<AlbumCard> {
                     color: colorScheme.surfaceVariant,
                     child: imageUrl != null
                         ? CachedNetworkImage(
-                            imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                             fit: BoxFit.cover,
                             memCacheWidth: cacheSize,
                             memCacheHeight: cacheSize,

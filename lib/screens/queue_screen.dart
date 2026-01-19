@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 import '../providers/music_assistant_provider.dart';
 import '../models/player.dart';
 import '../services/debug_logger.dart';
@@ -317,12 +319,19 @@ class _QueueScreenState extends State<QueueScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: imageUrl != null
-                    ? Image.network(
-                        imageUrl,
+                    ? CachedNetworkImage(
+                        cacheManager: AuthenticatedCacheManager.instance,
+                        imageUrl: imageUrl,
                         width: 48,
                         height: 48,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
+                        placeholder: (context, url) => Container(
+                          width: 48,
+                          height: 48,
+                          color: Colors.grey[800],
+                          child: const Icon(Icons.music_note, size: 24),
+                        ),
+                        errorWidget: (context, url, error) {
                           return Container(
                             width: 48,
                             height: 48,

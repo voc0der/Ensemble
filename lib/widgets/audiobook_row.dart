@@ -8,6 +8,7 @@ import '../services/debug_logger.dart';
 import '../utils/page_transitions.dart';
 import '../screens/audiobook_detail_screen.dart';
 import '../constants/hero_tags.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class AudiobookRow extends StatefulWidget {
   final String title;
@@ -89,7 +90,7 @@ class _AudiobookRowState extends State<AudiobookRow> with AutomaticKeepAliveClie
       final imageUrl = maProvider.api?.getImageUrl(audiobook, size: 256);
       if (imageUrl != null) {
         precacheImage(
-          CachedNetworkImageProvider(imageUrl),
+          CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
           context,
         ).catchError((_) {
           // Silently ignore precache errors
@@ -234,7 +235,8 @@ class _AudiobookCard extends StatelessWidget {
                       color: colorScheme.surfaceContainerHighest,
                       child: imageUrl != null
                           ? CachedNetworkImage(
-                              imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                               fit: BoxFit.cover,
                               // PERF: Duration.zero for hero-wrapped images
                               fadeInDuration: Duration.zero,

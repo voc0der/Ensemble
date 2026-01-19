@@ -14,6 +14,7 @@ import '../utils/page_transitions.dart';
 import '../constants/hero_tags.dart';
 import '../l10n/app_localizations.dart';
 import 'audiobook_detail_screen.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class AudiobookAuthorScreen extends StatefulWidget {
   final String authorName;
@@ -200,7 +201,8 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
                                 height: coverSize,
                                 child: ClipOval(
                                   child: CachedNetworkImage(
-                                    imageUrl: _authorImageUrl!,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: _authorImageUrl!,
                                     fit: BoxFit.cover,
                                     width: coverSize,
                                     height: coverSize,
@@ -363,7 +365,8 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
                       color: colorScheme.surfaceContainerHighest,
                       child: imageUrl != null
                           ? CachedNetworkImage(
-                              imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,
@@ -461,7 +464,8 @@ class _AudiobookAuthorScreenState extends State<AudiobookAuthorScreen> {
                 color: colorScheme.surfaceContainerHighest,
                 child: imageUrl != null
                     ? CachedNetworkImage(
-                        imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                         fit: BoxFit.cover,
                         fadeInDuration: Duration.zero,
                         fadeOutDuration: Duration.zero,

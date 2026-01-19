@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../services/settings_service.dart';
 import '../services/debug_logger.dart';
 import 'palette_helper.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 final _themeLogger = DebugLogger();
 
@@ -14,7 +15,7 @@ Future<void> updateAdaptiveColorsFromImage(BuildContext context, String? imageUr
   if (imageUrl == null || imageUrl.isEmpty) return;
 
   try {
-    final colorSchemes = await PaletteHelper.extractColorSchemes(CachedNetworkImageProvider(imageUrl));
+    final colorSchemes = await PaletteHelper.extractColorSchemes(CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance));
     if (colorSchemes != null && context.mounted) {
       final themeProvider = context.read<ThemeProvider>();
       themeProvider.updateAdaptiveColors(colorSchemes.$1, colorSchemes.$2, isFromDetailScreen: true);

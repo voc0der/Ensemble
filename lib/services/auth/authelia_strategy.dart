@@ -348,14 +348,30 @@ class AutheliaStrategy implements AuthStrategy {
         path: '/api/verify',
       );
 
-      final response = await http.get(
-        verifyUrl,
-        headers: {
-          'Cookie': '$cookieName=$sessionCookie',
-        },
-      ).timeout(const Duration(seconds: 5));
+      // Use KeyChain HTTP client if available so mTLS-protected setups can
+      // validate sessions without failing due to missing client cert.
+      http.Client client = http.Client();
+      try {
+        if (Platform.isAndroid && uri.scheme == 'https') {
+          final mtlsAlias = await SettingsService.getAndroidMtlsKeyAlias();
+          if (mtlsAlias != null && mtlsAlias.isNotEmpty) {
+            client = AndroidKeyChainHttpClient(alias: mtlsAlias);
+          }
+        }
 
-      return response.statusCode == 200;
+        final response = await client
+            .get(
+              verifyUrl,
+              headers: {
+                'Cookie': '$cookieName=$sessionCookie',
+              },
+            )
+            .timeout(const Duration(seconds: 5));
+
+        return response.statusCode == 200;
+      } finally {
+        client.close();
+      }
     } catch (e) {
       _logger.log('Auth validation failed: $e');
       return false;

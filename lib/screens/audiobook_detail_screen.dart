@@ -13,6 +13,7 @@ import '../services/recently_played_service.dart';
 import '../constants/hero_tags.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/design_tokens.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class AudiobookDetailScreen extends StatefulWidget {
   final Audiobook audiobook;
@@ -108,7 +109,7 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
 
     try {
       final colorSchemes = await PaletteHelper.extractColorSchemes(
-        CachedNetworkImageProvider(imageUrl),
+        CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
       );
 
       if (colorSchemes != null && mounted) {
@@ -511,7 +512,8 @@ class _AudiobookDetailScreenState extends State<AudiobookDetailScreen> {
                           color: colorScheme.surfaceContainerHighest,
                           child: imageUrl != null
                               ? CachedNetworkImage(
-                                  imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                                   fit: BoxFit.cover,
                                   // Match source memCacheWidth for smooth Hero animation
                                   memCacheWidth: 256,

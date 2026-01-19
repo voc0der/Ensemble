@@ -12,6 +12,7 @@ import '../utils/page_transitions.dart';
 import '../constants/hero_tags.dart';
 import 'audiobook_detail_screen.dart';
 import '../l10n/app_localizations.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class AudiobookSeriesScreen extends StatefulWidget {
   final AudiobookSeries series;
@@ -71,7 +72,7 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
     for (final url in coverUrls.take(4)) {
       try {
         final palette = await PaletteGenerator.fromImageProvider(
-          CachedNetworkImageProvider(url),
+          CachedNetworkImageProvider(url, cacheManager: AuthenticatedCacheManager.instance),
           maximumColorCount: 8,
         );
 
@@ -235,7 +236,7 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
 
       try {
         final palette = await PaletteGenerator.fromImageProvider(
-          CachedNetworkImageProvider(imageUrl),
+          CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
           maximumColorCount: 8,
         );
 
@@ -523,7 +524,8 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
               return Expanded(
                 child: coverUrl != null
                       ? CachedNetworkImage(
-                          imageUrl: coverUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: coverUrl,
                           fit: BoxFit.cover,
                           fadeInDuration: Duration.zero,
                           fadeOutDuration: Duration.zero,
@@ -659,7 +661,8 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
                       color: colorScheme.surfaceContainerHighest,
                       child: imageUrl != null
                           ? CachedNetworkImage(
-                              imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,
@@ -756,7 +759,8 @@ class _AudiobookSeriesScreenState extends State<AudiobookSeriesScreen> {
                 color: colorScheme.surfaceContainerHighest,
                 child: imageUrl != null
                     ? CachedNetworkImage(
-                        imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                         fit: BoxFit.cover,
                         fadeInDuration: Duration.zero,
                         fadeOutDuration: Duration.zero,

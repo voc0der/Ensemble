@@ -8,6 +8,7 @@ import '../constants/timings.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/music_assistant_provider.dart';
 import 'global_player_overlay.dart'; // For isPlayerExpanded and collapsePlayer
+import 'package:ensemble/services/image_cache_service.dart';
 
 class PlayerSelector extends StatelessWidget {
   const PlayerSelector({super.key});
@@ -278,7 +279,7 @@ class _PlayerSelectorSheetState extends State<_PlayerSelectorSheet> {
                                               borderRadius: BorderRadius.circular(8),
                                               image: albumArtUrl != null
                                                   ? DecorationImage(
-                                                      image: CachedNetworkImageProvider(albumArtUrl),
+                                                      image: CachedNetworkImageProvider(albumArtUrl, cacheManager: AuthenticatedCacheManager.instance),
                                                       fit: BoxFit.cover,
                                                     )
                                                   : null,

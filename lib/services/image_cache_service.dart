@@ -3,6 +3,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
 import 'security/android_keychain_http_client.dart';
 import 'settings_service.dart';
+import 'debug_logger.dart';
 
 /// Custom cache manager that uses AndroidKeyChainHttpClient for mTLS support
 /// and adds Authelia cookies for authentication
@@ -37,13 +38,21 @@ class AuthenticatedCacheManager extends CacheManager with ImageCacheManager {
 /// and adds authentication headers for Authelia
 class _AuthenticatedHttpFileService extends HttpFileService {
   http.Client? _httpClient;
+  String? _activeMtlsAlias;
+  final _logger = DebugLogger();
 
   @override
   Future<FileServiceResponse> get(String url, {Map<String, String>? headers}) async {
     _httpClient ??= await _createHttpClient();
+    // Re-evaluate mTLS alias on each request so we don't get stuck on a non-mTLS
+    // client created before the user selected/saved their cert.
+    _httpClient = await _refreshHttpClientIfNeeded();
 
     final authHeaders = await _getAuthHeaders();
     final allHeaders = {...?headers, ...authHeaders};
+    // Helpful for diagnosing whether images are using the authenticated
+    // cache path (shows up in reverse-proxy logs).
+    allHeaders.putIfAbsent('User-Agent', () => 'EnsembleImage/OkHttp');
 
     final req = http.Request('GET', Uri.parse(url));
     req.headers.addAll(allHeaders);
@@ -62,13 +71,54 @@ class _AuthenticatedHttpFileService extends HttpFileService {
     try {
       final mtlsAlias = await SettingsService.getAndroidMtlsKeyAlias();
       if (mtlsAlias != null && mtlsAlias.isNotEmpty) {
+        _activeMtlsAlias = mtlsAlias;
+        _logger.debug('🖼️ ImageCache: using Android KeyChain mTLS cert (alias=$mtlsAlias)', context: 'ImageCache');
         return AndroidKeyChainHttpClient(alias: mtlsAlias);
       }
     } catch (e) {
       // Fall back to standard client
+      _logger.warning('🖼️ ImageCache: failed to read mTLS alias, falling back: $e', context: 'ImageCache');
     }
 
+    _activeMtlsAlias = null;
     return http.Client();
+  }
+
+  /// If the user selects a certificate after this service was created, we must
+  /// recreate the underlying http client so future image downloads actually use mTLS.
+  Future<http.Client> _refreshHttpClientIfNeeded() async {
+    if (!Platform.isAndroid) {
+      return _httpClient ?? http.Client();
+    }
+
+    String? alias;
+    try {
+      alias = await SettingsService.getAndroidMtlsKeyAlias();
+    } catch (e) {
+      // Keep whatever we have if reading settings fails.
+      return _httpClient ?? http.Client();
+    }
+
+    final wantsMtls = alias != null && alias.isNotEmpty;
+    final hasMtlsClient = _httpClient is AndroidKeyChainHttpClient;
+
+    if (wantsMtls) {
+      if (!hasMtlsClient || _activeMtlsAlias != alias) {
+        _logger.debug('🖼️ ImageCache: (re)creating mTLS HTTP client (alias=$alias)', context: 'ImageCache');
+        _httpClient?.close();
+        _activeMtlsAlias = alias;
+        _httpClient = AndroidKeyChainHttpClient(alias: alias!);
+      }
+    } else {
+      if (hasMtlsClient || _activeMtlsAlias != null) {
+        _logger.debug('🖼️ ImageCache: switching to standard HTTP client (no mTLS alias)', context: 'ImageCache');
+        _httpClient?.close();
+        _activeMtlsAlias = null;
+        _httpClient = http.Client();
+      }
+    }
+
+    return _httpClient ?? http.Client();
   }
 
   /// Get authentication headers (Authelia cookie)
@@ -76,18 +126,26 @@ class _AuthenticatedHttpFileService extends HttpFileService {
     final headers = <String, String>{};
 
     try {
-      final credentials = await SettingsService.getAuthCredentials();
+      // Stored credentials are serialized as:
+      // {"strategy": "authelia", "data": {"session_cookie": "...", "cookie_name": "..."}}
+      final stored = await SettingsService.getAuthCredentials();
+      final strategy = stored?['strategy'] as String?;
+      final data = stored?['data'];
 
-      if (credentials != null && credentials['strategyName'] == 'authelia') {
-        final sessionCookie = credentials['session_cookie'] as String?;
-        final cookieName = (credentials['cookie_name'] as String?) ?? 'authelia_session';
+      if (strategy == 'authelia' && data is Map) {
+        final sessionCookie = data['session_cookie'] as String?;
+        final cookieName = (data['cookie_name'] as String?) ?? 'authelia_session';
 
-        if (sessionCookie != null) {
+        if (sessionCookie != null && sessionCookie.isNotEmpty) {
           headers['Cookie'] = '$cookieName=$sessionCookie';
+          _logger.debug('🖼️ ImageCache: adding Authelia cookie header ($cookieName=***)', context: 'ImageCache');
+        } else {
+          _logger.debug('🖼️ ImageCache: Authelia strategy present but no session cookie found', context: 'ImageCache');
         }
       }
     } catch (e) {
       // Silently ignore auth errors
+      _logger.warning('🖼️ ImageCache: failed to read auth credentials: $e', context: 'ImageCache');
     }
 
     return headers;

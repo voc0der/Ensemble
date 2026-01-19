@@ -7,6 +7,7 @@ import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
 import '../constants/hero_tags.dart';
 import '../constants/timings.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class RadioStationCard extends StatefulWidget {
   final MediaItem radioStation;
@@ -71,7 +72,8 @@ class _RadioStationCardState extends State<RadioStationCard> {
                     color: colorScheme.surfaceContainerHighest,
                     child: imageUrl != null
                         ? CachedNetworkImage(
-                            imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                             fit: BoxFit.cover,
                             memCacheWidth: cacheSize,
                             memCacheHeight: cacheSize,

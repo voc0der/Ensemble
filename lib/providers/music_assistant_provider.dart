@@ -26,6 +26,7 @@ import '../services/offline_action_queue.dart';
 import '../constants/timings.dart';
 import '../services/database_service.dart';
 import '../main.dart' show audioHandler;
+import 'package:ensemble/services/image_cache_service.dart';
 
 /// Main provider that coordinates connection, player, and library state.
 ///
@@ -4254,7 +4255,7 @@ class MusicAssistantProvider with ChangeNotifier {
   /// Precache an image URL so it loads instantly when displayed
   Future<void> _precacheImage(String url) async {
     try {
-      final imageProvider = CachedNetworkImageProvider(url);
+      final imageProvider = CachedNetworkImageProvider(url, cacheManager: AuthenticatedCacheManager.instance);
       final imageStream = imageProvider.resolve(const ImageConfiguration());
       final completer = Completer<void>();
       late ImageStreamListener listener;

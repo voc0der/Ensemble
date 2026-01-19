@@ -9,6 +9,7 @@ import '../constants/hero_tags.dart';
 import '../constants/timings.dart';
 import '../theme/theme_provider.dart';
 import '../utils/page_transitions.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class PlaylistCard extends StatefulWidget {
   final Playlist playlist;
@@ -80,7 +81,8 @@ class _PlaylistCardState extends State<PlaylistCard> {
                     color: colorScheme.surfaceContainerHighest,
                     child: imageUrl != null
                         ? CachedNetworkImage(
-                            imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                             fit: BoxFit.cover,
                             memCacheWidth: cacheSize,
                             memCacheHeight: cacheSize,

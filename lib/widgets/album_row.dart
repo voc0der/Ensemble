@@ -5,6 +5,7 @@ import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/debug_logger.dart';
 import 'album_card.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class AlbumRow extends StatefulWidget {
   final String title;
@@ -84,7 +85,7 @@ class _AlbumRowState extends State<AlbumRow> with AutomaticKeepAliveClientMixin 
       if (imageUrl != null) {
         // Use CachedNetworkImageProvider to warm the cache
         precacheImage(
-          CachedNetworkImageProvider(imageUrl),
+          CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
           context,
         ).catchError((_) {
           // Silently ignore precache errors

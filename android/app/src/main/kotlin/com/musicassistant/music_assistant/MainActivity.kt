@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.security.KeyChain
 import android.security.KeyChainAliasCallback
+import android.util.Base64
 import android.util.Log
 import android.view.KeyEvent
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -347,12 +348,15 @@ class MainActivity: AudioServiceActivity() {
                     android.util.Log.d("MainActivity", "httpRequest: Available headers: ${response.headers.names()}")
                 }
 
-                val responseBody = response.body?.string() ?: ""
+                // Return raw response bytes (base64-encoded) so Dart can safely
+                // handle binary payloads (e.g., album art) without corruption.
+                val responseBytes = response.body?.bytes() ?: ByteArray(0)
+                val responseBodyBase64 = Base64.encodeToString(responseBytes, Base64.NO_WRAP)
 
                 val responseMap = mapOf(
                     "statusCode" to response.code,
                     "headers" to responseHeaders,
-                    "body" to responseBody
+                    "bodyBase64" to responseBodyBase64
                 )
 
                 mainHandler.post { result.success(responseMap) }

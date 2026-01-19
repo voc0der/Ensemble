@@ -9,6 +9,7 @@ import '../../models/player.dart';
 import '../../theme/design_tokens.dart';
 import '../common/empty_state.dart';
 import '../global_player_overlay.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 /// Panel that displays the current playback queue with drag-to-reorder
 /// and swipe-left-to-delete functionality.
@@ -933,7 +934,8 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
                 height: 44,
                 child: imageUrl != null
                     ? CachedNetworkImage(
-                        imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                         fit: BoxFit.cover,
                         memCacheWidth: 176,
                         memCacheHeight: 176,

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
 import '../services/metadata_service.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 /// A CircleAvatar that shows artist image with automatic fallback to Deezer/Fanart.tv
 class ArtistAvatar extends StatefulWidget {
@@ -116,7 +117,8 @@ class _ArtistAvatarState extends State<ArtistAvatar> {
     if (displayUrl != null) {
       avatarContent = ClipOval(
         child: CachedNetworkImage(
-          imageUrl: displayUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: displayUrl,
           width: widget.radius * 2,
           height: widget.radius * 2,
           fit: BoxFit.cover,

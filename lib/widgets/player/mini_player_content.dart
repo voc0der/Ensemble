@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 /// Shared constants for mini player layout
 class MiniPlayerLayout {
@@ -144,7 +145,8 @@ class MiniPlayerContent extends StatelessWidget {
               height: MiniPlayerLayout.artSize,
               child: imageUrl != null
                   ? CachedNetworkImage(
-                      imageUrl: imageUrl!,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl!,
                       fit: BoxFit.cover,
                       memCacheWidth: 256,
                       memCacheHeight: 256,

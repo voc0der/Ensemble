@@ -11,6 +11,7 @@ import '../theme/theme_provider.dart';
 import '../services/debug_logger.dart';
 import '../constants/hero_tags.dart';
 import '../l10n/app_localizations.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class PodcastDetailScreen extends StatefulWidget {
   final MediaItem podcast;
@@ -196,7 +197,7 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
     if (imageUrl != null) {
       try {
         final colorSchemes = await PaletteHelper.extractColorSchemes(
-          CachedNetworkImageProvider(imageUrl),
+          CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
         );
         if (mounted && colorSchemes != null) {
           setState(() {
@@ -494,7 +495,8 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                               color: colorScheme.surfaceContainerHighest,
                               child: imageUrl != null
                                   ? CachedNetworkImage(
-                                      imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                                       fit: BoxFit.cover,
                                       // Match source memCacheWidth for smooth Hero animation
                                       memCacheWidth: 256,
@@ -757,7 +759,8 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                                         color: colorScheme.surfaceContainerHighest,
                                         child: episodeImageUrl != null
                                             ? CachedNetworkImage(
-                                                imageUrl: episodeImageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: episodeImageUrl,
                                                 fit: BoxFit.cover,
                                                 fadeInDuration: Duration.zero,
                                                 fadeOutDuration: Duration.zero,

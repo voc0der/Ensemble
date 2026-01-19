@@ -10,6 +10,7 @@ import '../utils/page_transitions.dart';
 import 'playlist_details_screen.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/design_tokens.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class LibraryPlaylistsScreen extends StatefulWidget {
   const LibraryPlaylistsScreen({super.key});
@@ -124,7 +125,8 @@ class _LibraryPlaylistsScreenState extends State<LibraryPlaylistsScreen> {
               color: colorScheme.surfaceContainerHighest,
               child: imageUrl != null
                   ? CachedNetworkImage(
-                      imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                       fit: BoxFit.cover,
                       memCacheWidth: 96,
                       memCacheHeight: 96,

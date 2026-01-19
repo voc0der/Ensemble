@@ -14,6 +14,7 @@ import '../widgets/player_picker_sheet.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/design_tokens.dart';
 import 'artist_details_screen.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class AlbumDetailsScreen extends StatefulWidget {
   final Album album;
@@ -108,7 +109,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
 
     try {
       final colorSchemes = await PaletteHelper.extractColorSchemes(
-        CachedNetworkImageProvider(imageUrl),
+        CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
       );
 
       if (colorSchemes != null && mounted) {
@@ -775,7 +776,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                     minScale: 0.5,
                     maxScale: 3.0,
                     child: CachedNetworkImage(
-                      imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                       fit: BoxFit.contain,
                       memCacheWidth: 1024,
                       memCacheHeight: 1024,
@@ -886,7 +888,8 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
                             color: colorScheme.surfaceVariant,
                             child: imageUrl != null
                                 ? CachedNetworkImage(
-                                    imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                                     fit: BoxFit.cover,
                                     // Match source memCacheWidth for smooth Hero
                                     memCacheWidth: 256,

@@ -14,6 +14,7 @@ import '../services/debug_logger.dart';
 import '../utils/page_transitions.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/design_tokens.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class ArtistDetailsScreen extends StatefulWidget {
   final Artist artist;
@@ -617,7 +618,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
   Future<void> _extractColors(String imageUrl) async {
     try {
       final colorSchemes = await PaletteHelper.extractColorSchemes(
-        CachedNetworkImageProvider(imageUrl),
+        CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
       );
 
       if (colorSchemes != null && mounted) {
@@ -772,7 +773,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                         color: colorScheme.surfaceVariant,
                         child: imageUrl != null
                             ? CachedNetworkImage(
-                                imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                                 fit: BoxFit.cover,
                                 // Match source memCacheWidth for smooth Hero animation
                                 memCacheWidth: 256,
@@ -1110,7 +1112,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
                   color: colorScheme.surfaceVariant,
                   child: imageUrl != null
                       ? CachedNetworkImage(
-                          imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                           fit: BoxFit.cover,
                           width: double.infinity,
                           height: double.infinity,
@@ -1219,7 +1222,8 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
           color: colorScheme.surfaceVariant,
           child: imageUrl != null
               ? CachedNetworkImage(
-                  imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                   fit: BoxFit.cover,
                   fadeInDuration: Duration.zero,
                   fadeOutDuration: Duration.zero,

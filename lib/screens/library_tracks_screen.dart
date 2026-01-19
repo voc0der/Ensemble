@@ -5,6 +5,7 @@ import '../providers/music_assistant_provider.dart';
 import '../models/media_item.dart';
 import '../widgets/common/empty_state.dart';
 import '../l10n/app_localizations.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class LibraryTracksScreen extends StatelessWidget {
   const LibraryTracksScreen({super.key});
@@ -90,7 +91,7 @@ class LibraryTracksScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             image: imageUrl != null
                 ? DecorationImage(
-                    image: CachedNetworkImageProvider(imageUrl),
+                    image: CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
                     fit: BoxFit.cover,
                   )
                 : null,

@@ -23,6 +23,7 @@ import 'audiobook_detail_screen.dart';
 import 'podcast_detail_screen.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/design_tokens.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -1342,7 +1343,7 @@ class SearchScreenState extends State<SearchScreen> {
                   borderRadius: BorderRadius.circular(8),
                   image: imageUrl != null
                       ? DecorationImage(
-                          image: CachedNetworkImageProvider(imageUrl),
+                          image: CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
                           fit: BoxFit.cover,
                         )
                       : null,
@@ -1554,7 +1555,7 @@ class SearchScreenState extends State<SearchScreen> {
                 borderRadius: BorderRadius.circular(8),
                 image: imageUrl != null
                     ? DecorationImage(
-                        image: CachedNetworkImageProvider(imageUrl),
+                        image: CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
                         fit: BoxFit.cover,
                       )
                     : null,
@@ -1728,7 +1729,8 @@ class SearchScreenState extends State<SearchScreen> {
                   color: colorScheme.surfaceContainerHighest,
                   child: imageUrl != null
                       ? CachedNetworkImage(
-                          imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                           fit: BoxFit.cover,
                           memCacheWidth: 96,
                           memCacheHeight: 96,
@@ -1917,7 +1919,7 @@ class SearchScreenState extends State<SearchScreen> {
                   borderRadius: BorderRadius.circular(8),
                   image: imageUrl != null
                       ? DecorationImage(
-                          image: CachedNetworkImageProvider(imageUrl),
+                          image: CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
                           fit: BoxFit.cover,
                         )
                       : null,
@@ -2112,7 +2114,7 @@ class SearchScreenState extends State<SearchScreen> {
                 borderRadius: BorderRadius.circular(8),
                 image: imageUrl != null
                     ? DecorationImage(
-                        image: CachedNetworkImageProvider(imageUrl),
+                        image: CachedNetworkImageProvider(imageUrl, cacheManager: AuthenticatedCacheManager.instance),
                         fit: BoxFit.cover,
                       )
                     : null,
@@ -2257,7 +2259,8 @@ class SearchScreenState extends State<SearchScreen> {
                   color: colorScheme.surfaceContainerHighest,
                   child: imageUrl != null
                       ? CachedNetworkImage(
-                          imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                           width: 48,
                           height: 48,
                           fit: BoxFit.cover,

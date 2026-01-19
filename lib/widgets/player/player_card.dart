@@ -7,6 +7,7 @@ import '../../theme/design_tokens.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/debug_logger.dart';
 import '../../services/settings_service.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 final _volumeLogger = DebugLogger();
 
@@ -235,7 +236,8 @@ class _PlayerCardState extends State<PlayerCard> {
             height: artSize,
             child: widget.albumArtUrl != null
                 ? CachedNetworkImage(
-                    imageUrl: widget.albumArtUrl!,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: widget.albumArtUrl!,
                     fit: BoxFit.cover,
                     memCacheWidth: 128,
                     memCacheHeight: 128,

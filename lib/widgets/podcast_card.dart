@@ -10,6 +10,7 @@ import '../constants/hero_tags.dart';
 import '../constants/timings.dart';
 import '../theme/theme_provider.dart';
 import '../utils/page_transitions.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class PodcastCard extends StatefulWidget {
   final MediaItem podcast;
@@ -86,7 +87,8 @@ class _PodcastCardState extends State<PodcastCard> {
                     color: colorScheme.surfaceVariant,
                     child: imageUrl != null
                         ? CachedNetworkImage(
-                            imageUrl: imageUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: imageUrl,
                             fit: BoxFit.cover,
                             memCacheWidth: cacheSize,
                             memCacheHeight: cacheSize,

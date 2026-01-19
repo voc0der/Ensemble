@@ -51,10 +51,14 @@ class AndroidKeyChainHttpClient extends http.BaseClient {
     // Parse response
     final statusCode = result['statusCode'] as int;
     final headers = Map<String, String>.from(result['headers'] as Map);
-    final body = result['body'] as String;
+
+    // Native layer returns response bytes as base64 so we can safely handle
+    // binary payloads (e.g., JPEG/PNG album art) without corrupting the data.
+    final bodyBase64 = result['bodyBase64'] as String?;
+    final bodyBytes = bodyBase64 != null ? base64Decode(bodyBase64) : utf8.encode(result['body'] as String? ?? '');
 
     return http.StreamedResponse(
-      Stream.value(utf8.encode(body)),
+      Stream.value(bodyBytes),
       statusCode,
       headers: headers,
       request: request,

@@ -7,6 +7,7 @@ import '../providers/music_assistant_provider.dart';
 import '../services/debug_logger.dart';
 import '../screens/audiobook_series_screen.dart';
 import '../utils/page_transitions.dart';
+import 'package:ensemble/services/image_cache_service.dart';
 
 class SeriesRow extends StatefulWidget {
   final String title;
@@ -117,7 +118,7 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
     if (!mounted) return;
     for (final url in covers) {
       precacheImage(
-        CachedNetworkImageProvider(url),
+        CachedNetworkImageProvider(url, cacheManager: AuthenticatedCacheManager.instance),
         context,
       ).catchError((_) => false);
     }
@@ -132,7 +133,7 @@ class _SeriesRowState extends State<SeriesRow> with AutomaticKeepAliveClientMixi
     for (final url in covers.take(4)) {
       try {
         final palette = await PaletteGenerator.fromImageProvider(
-          CachedNetworkImageProvider(url),
+          CachedNetworkImageProvider(url, cacheManager: AuthenticatedCacheManager.instance),
           maximumColorCount: 8,
         );
 
@@ -404,7 +405,8 @@ class _SeriesCard extends StatelessWidget {
               return Expanded(
                 child: coverUrl != null
                     ? CachedNetworkImage(
-                        imageUrl: coverUrl,
+      cacheManager: AuthenticatedCacheManager.instance,
+      imageUrl: coverUrl,
                         fit: BoxFit.cover,
                         fadeInDuration: Duration.zero,
                         fadeOutDuration: Duration.zero,
