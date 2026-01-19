@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
+import '../core/ui_notify.dart';
 import '../providers/navigation_provider.dart';
 import '../widgets/global_player_overlay.dart';
 import 'new_home_screen.dart';
@@ -37,15 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showExitSnackBar() {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(S.of(context)!.pressBackToMinimize),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
-      ),
-    );
+    UiNotify.info(S.of(context)!.pressBackToMinimize);
   }
 
   @override

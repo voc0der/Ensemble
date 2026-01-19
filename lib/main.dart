@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
+import 'core/app_keys.dart';
 import 'providers/locale_provider.dart';
 import 'providers/music_assistant_provider.dart';
 import 'providers/navigation_provider.dart';
@@ -289,7 +290,8 @@ class _MusicAssistantAppState extends State<MusicAssistantApp> with WidgetsBindi
                 lightColorScheme: lightColorScheme,
                 darkColorScheme: darkColorScheme,
                 child: MaterialApp(
-                  navigatorKey: navigationProvider.navigatorKey,
+                  navigatorKey: AppKeys.navigatorKey,
+                  scaffoldMessengerKey: AppKeys.scaffoldMessengerKey,
                   title: 'Ensemble',
                   debugShowCheckedModeBanner: false,
                   // Localization
