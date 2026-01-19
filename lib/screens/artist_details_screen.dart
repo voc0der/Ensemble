@@ -366,6 +366,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
               _isInLibrary = !newState;
             });
           }
+          return false;
         });
       } else {
         // Remove from library
@@ -413,6 +414,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
               _isInLibrary = !newState;
             });
           }
+          return false;
         });
       }
     } catch (e) {

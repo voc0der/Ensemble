@@ -281,6 +281,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
               _isInLibrary = !newState;
             });
           }
+          return false;
         });
       } else {
         // Remove from library
@@ -328,6 +329,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
               _isInLibrary = !newState;
             });
           }
+          return false;
         });
       }
     } catch (e) {
