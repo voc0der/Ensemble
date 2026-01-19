@@ -4594,6 +4594,7 @@ class MusicAssistantProvider with ChangeNotifier {
         // Update notification for ALL players
         final track = _currentTrack!;
         final artworkUrl = _api?.getImageUrl(track, size: 512);
+        final artUri = await _getNotificationArtUri(artworkUrl);
         _notificationArtUri = artUri;
         final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
         final isBuiltinPlayer = builtinPlayerId != null && _selectedPlayer!.playerId == builtinPlayerId;
