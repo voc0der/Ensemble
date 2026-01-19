@@ -86,7 +86,20 @@ class NativeKeyChainWebSocketChannel extends StreamChannelMixin implements WebSo
           break;
         case 'failure':
           final err = event['error']?.toString() ?? 'WebSocket failure';
-          finish(Exception(err));
+          final httpCode = event['httpCode'];
+          final httpReason = event['httpReason'];
+
+          // Log HTTP details to help diagnose auth/upgrade failures
+          var detailedErr = 'WebSocket failure: $err';
+          if (httpCode != null && httpCode != -1) {
+            detailedErr += ' (HTTP $httpCode';
+            if (httpReason != null && httpReason.toString().isNotEmpty) {
+              detailedErr += ': $httpReason';
+            }
+            detailedErr += ')';
+          }
+
+          finish(Exception(detailedErr));
           break;
         default:
           // ignore unknown events
