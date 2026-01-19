@@ -38,17 +38,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _showDiscoverSeries = false;
   // Home row order
   List<String> _homeRowOrder = List.from(SettingsService.defaultHomeRowOrder);
-  // Audiobook libraries
-  List<Map<String, String>> _discoveredLibraries = [];
-  Map<String, bool> _libraryEnabled = {};
   // Player settings
   bool _preferLocalPlayer = false;
   bool _smartSortPlayers = false;
   bool _volumePrecisionMode = true;
   // Hint settings
   bool _showHints = true;
-  // Library settings
-  bool _showOnlyArtistsWithAlbums = false;
 
   @override
   void initState() {
@@ -86,16 +81,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Load home row order
     final rowOrder = await SettingsService.getHomeRowOrder();
 
-    // Load audiobook library settings
-    final discovered = await SettingsService.getDiscoveredAbsLibraries() ?? [];
-    final enabled = await SettingsService.getEnabledAbsLibraries();
-    final libraryEnabled = <String, bool>{};
-    for (final lib in discovered) {
-      final path = lib['path'] ?? '';
-      // null means all enabled
-      libraryEnabled[path] = enabled == null || enabled.contains(path);
-    }
-
     // Load player settings
     final preferLocal = await SettingsService.getPreferLocalPlayer();
     final smartSort = await SettingsService.getSmartSortPlayers();
@@ -103,9 +88,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     // Load hint settings
     final showHints = await SettingsService.getShowHints();
-
-    // Load library settings
-    final showOnlyArtistsWithAlbums = await SettingsService.getShowOnlyArtistsWithAlbums();
 
     if (mounted) {
       setState(() {
@@ -122,13 +104,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _showDiscoverAudiobooks = showDiscAudiobooks;
         _showDiscoverSeries = showDiscSeries;
         _homeRowOrder = rowOrder;
-        _discoveredLibraries = discovered;
-        _libraryEnabled = libraryEnabled;
         _preferLocalPlayer = preferLocal;
         _smartSortPlayers = smartSort;
         _volumePrecisionMode = volumePrecision;
         _showHints = showHints;
-        _showOnlyArtistsWithAlbums = showOnlyArtistsWithAlbums;
       });
     }
   }
@@ -649,7 +628,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             children: [
                               RadioListTile<String?>(
                                 title: Text(S.of(context)!.system),
-                                subtitle: const Text('Auto'),
+                                subtitle: Text(S.of(context)!.auto),
                                 value: null,
                                 groupValue: localeProvider.locale?.languageCode,
                                 onChanged: (value) {
@@ -658,7 +637,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                               ),
                               RadioListTile<String?>(
-                                title: const Text('English'),
+                                title: Text(S.of(context)!.english),
                                 value: 'en',
                                 groupValue: localeProvider.locale?.languageCode,
                                 onChanged: (value) {
@@ -667,7 +646,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                               ),
                               RadioListTile<String?>(
-                                title: const Text('Deutsch'),
+                                title: Text(S.of(context)!.german),
                                 value: 'de',
                                 groupValue: localeProvider.locale?.languageCode,
                                 onChanged: (value) {
@@ -676,7 +655,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                               ),
                               RadioListTile<String?>(
-                                title: const Text('Español'),
+                                title: Text(S.of(context)!.spanish),
                                 value: 'es',
                                 groupValue: localeProvider.locale?.languageCode,
                                 onChanged: (value) {
@@ -685,7 +664,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                               ),
                               RadioListTile<String?>(
-                                title: const Text('Français'),
+                                title: Text(S.of(context)!.french),
                                 value: 'fr',
                                 groupValue: localeProvider.locale?.languageCode,
                                 onChanged: (value) {
@@ -826,49 +805,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (value) {
                   setState(() => _showHints = value);
                   SettingsService.setShowHints(value);
-                },
-                activeColor: colorScheme.primary,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Library section
-            Text(
-              S.of(context)!.library,
-              style: textTheme.titleMedium?.copyWith(
-                color: colorScheme.onBackground,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: SwitchListTile(
-                title: Text(
-                  'Show only artists with albums',
-                  style: TextStyle(color: colorScheme.onSurface),
-                ),
-                subtitle: Text(
-                  'Hide artists that have no albums in your library',
-                  style: TextStyle(
-                    color: colorScheme.onSurface.withOpacity(0.6),
-                    fontSize: 12,
-                  ),
-                ),
-                value: _showOnlyArtistsWithAlbums,
-                onChanged: (value) async {
-                  setState(() => _showOnlyArtistsWithAlbums = value);
-                  await SettingsService.setShowOnlyArtistsWithAlbums(value);
-                  // Force sync library to apply the new filter at API level
-                  if (mounted) {
-                    context.read<MusicAssistantProvider>().forceLibrarySync();
-                  }
                 },
                 activeColor: colorScheme.primary,
                 contentPadding: EdgeInsets.zero,
@@ -1052,76 +988,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             const SizedBox(height: 32),
-
-            // Audiobook Libraries section
-            if (_discoveredLibraries.isNotEmpty) ...[
-              Text(
-                S.of(context)!.audiobookLibraries,
-                style: textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onBackground,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                S.of(context)!.chooseAudiobookLibraries,
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onBackground.withOpacity(0.6),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Container(
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceVariant.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: _discoveredLibraries.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final library = entry.value;
-                    final path = library['path'] ?? '';
-                    final name = library['name'] ?? S.of(context)!.unknownLibrary;
-                    final isEnabled = _libraryEnabled[path] ?? true;
-
-                    return Column(
-                      children: [
-                        SwitchListTile(
-                          title: Text(
-                            name,
-                            style: TextStyle(color: colorScheme.onSurface),
-                          ),
-                          value: isEnabled,
-                          onChanged: (value) async {
-                            setState(() {
-                              _libraryEnabled[path] = value;
-                            });
-                            await SettingsService.toggleAbsLibrary(path, value);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(S.of(context)!.pullToRefresh),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          },
-                          activeColor: colorScheme.primary,
-                        ),
-                        if (index < _discoveredLibraries.length - 1)
-                          Divider(
-                            height: 1,
-                            indent: 16,
-                            endIndent: 16,
-                            color: colorScheme.onSurface.withOpacity(0.1),
-                          ),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 32),
-            ],
 
             SizedBox(
               width: double.infinity,

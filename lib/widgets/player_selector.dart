@@ -245,14 +245,12 @@ class _PlayerSelectorSheetState extends State<_PlayerSelectorSheet> {
                                     // Show snackbar for visual feedback
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Syncing ${player.name}...'),
+                                        content: Text(S.of(context)!.syncingPlayer(player.name)),
                                         duration: const Duration(seconds: 2),
                                       ),
                                     );
 
                                     // Long-press to sync/unsync player
-                                    debugPrint('🔗 Long-press on ${player.name} (${player.playerId})');
-                                    debugPrint('🔗 Player isGrouped: ${player.isGrouped}, groupMembers: ${player.groupMembers}');
                                     maProvider.togglePlayerSync(player.playerId);
                                   },
                                   borderRadius: BorderRadius.circular(16),

@@ -78,6 +78,10 @@ class LibraryCache extends Table {
   /// Whether this item was deleted on the server
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 
+  /// Provider instance IDs that provided this item (JSON array)
+  /// Used for client-side filtering by source provider
+  TextColumn get sourceProviders => text().withDefault(const Constant('[]'))();
+
   @override
   Set<Column> get primaryKey => {cacheKey};
 }
@@ -191,7 +195,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {
@@ -225,6 +229,10 @@ class AppDatabase extends _$AppDatabase {
           // CachedQueue indexes
           await customStatement('CREATE INDEX IF NOT EXISTS idx_cached_queue_player ON cached_queue (player_id)');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_cached_queue_player_position ON cached_queue (player_id, position)');
+        }
+        // Migration from v5 to v6: Add source_providers column for client-side filtering
+        if (from < 6) {
+          await customStatement("ALTER TABLE library_cache ADD COLUMN source_providers TEXT NOT NULL DEFAULT '[]'");
         }
       },
     );
@@ -368,20 +376,57 @@ class AppDatabase extends _$AppDatabase {
   // ============================================
 
   /// Cache a library item
+  /// [sourceProvider] - the provider instance ID that provided this item (for filtering)
   Future<void> cacheItem({
     required String itemType,
     required String itemId,
     required String data,
+    String? sourceProvider,
   }) async {
     final cacheKey = '${itemType}_$itemId';
 
-    await into(libraryCache).insertOnConflictUpdate(LibraryCacheCompanion.insert(
-      cacheKey: cacheKey,
-      itemType: itemType,
-      itemId: itemId,
-      data: data,
-      lastSynced: DateTime.now(),
-    ));
+    // If sourceProvider is specified, we need to merge with existing providers
+    if (sourceProvider != null) {
+      final existing = await getCachedItem(itemType, itemId);
+      List<String> providers = [];
+      if (existing != null) {
+        try {
+          final existingProviders = existing.sourceProviders;
+          if (existingProviders.isNotEmpty && existingProviders != '[]') {
+            providers = List<String>.from(
+              (await Future.value(existingProviders))
+                  .replaceAll('[', '')
+                  .replaceAll(']', '')
+                  .replaceAll('"', '')
+                  .split(',')
+                  .where((s) => s.trim().isNotEmpty)
+                  .map((s) => s.trim()),
+            );
+          }
+        } catch (_) {}
+      }
+      if (!providers.contains(sourceProvider)) {
+        providers.add(sourceProvider);
+      }
+      final sourceProvidersJson = '[${providers.map((p) => '"$p"').join(',')}]';
+
+      await into(libraryCache).insertOnConflictUpdate(LibraryCacheCompanion.insert(
+        cacheKey: cacheKey,
+        itemType: itemType,
+        itemId: itemId,
+        data: data,
+        lastSynced: DateTime.now(),
+        sourceProviders: Value(sourceProvidersJson),
+      ));
+    } else {
+      await into(libraryCache).insertOnConflictUpdate(LibraryCacheCompanion.insert(
+        cacheKey: cacheKey,
+        itemType: itemType,
+        itemId: itemId,
+        data: data,
+        lastSynced: DateTime.now(),
+      ));
+    }
   }
 
   /// Get cached items by type

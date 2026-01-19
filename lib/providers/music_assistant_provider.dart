@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import '../models/media_item.dart';
 import '../models/player.dart';
+import '../models/provider_instance.dart';
 import '../services/music_assistant_api.dart';
 import '../services/settings_service.dart';
 import '../services/debug_logger.dart';
@@ -114,6 +115,13 @@ class MusicAssistantProvider with ChangeNotifier {
   // Empty list means all players are allowed
   List<String> _playerFilter = [];
 
+  // User-controlled music provider filter (local settings in Ensemble)
+  // Empty list means all providers are enabled (no filtering)
+  List<String> _enabledProviderIds = [];
+
+  // Available music providers discovered from MA
+  List<ProviderInstance> _availableMusicProviders = [];
+
   // ============================================================================
   // GETTERS
   // ============================================================================
@@ -134,6 +142,8 @@ class MusicAssistantProvider with ChangeNotifier {
   // Raw unfiltered access (for internal use only)
   List<Artist> get artistsUnfiltered => _artists;
   List<Album> get albumsUnfiltered => _albums;
+  List<MediaItem> get podcastsUnfiltered => _podcasts;
+  List<MediaItem> get radioStationsUnfiltered => _radioStations;
   bool get isLoading => _isLoading;
   bool get isLoadingRadio => _isLoadingRadio;
   bool get isLoadingPodcasts => _isLoadingPodcasts;
@@ -202,6 +212,210 @@ class MusicAssistantProvider with ChangeNotifier {
   List<Player> filterPlayers(List<Player> players) {
     if (_playerFilter.isEmpty) return players;
     return players.where(isPlayerAllowedByFilter).toList();
+  }
+
+  // ============================================================================
+  // USER-CONTROLLED MUSIC PROVIDER FILTER
+  // ============================================================================
+
+  /// List of available music providers from MA
+  List<ProviderInstance> get availableMusicProviders => _availableMusicProviders;
+
+  /// List of enabled provider instance IDs (empty = all enabled)
+  List<String> get enabledProviderIds => _enabledProviderIds;
+
+  /// Whether user has enabled specific providers (not all)
+  bool get hasUserProviderFilter => _enabledProviderIds.isNotEmpty;
+
+  /// Get provider IDs to pass to API calls
+  /// Returns null if all providers are enabled (no filtering needed)
+  /// Returns the list of enabled provider IDs otherwise
+  List<String>? get providerIdsForApiCalls {
+    if (_enabledProviderIds.isEmpty) return null; // All enabled
+    return _enabledProviderIds;
+  }
+
+  /// Check if a specific provider is enabled by the user
+  bool isProviderEnabled(String instanceId) {
+    if (_enabledProviderIds.isEmpty) return true; // All enabled by default
+    return _enabledProviderIds.contains(instanceId);
+  }
+
+  /// Get providers that have content in artists library (with item counts)
+  Map<String, int> getProvidersWithArtists() {
+    return _getProvidersWithCounts(_artists);
+  }
+
+  /// Get providers that have content in albums library (with item counts)
+  Map<String, int> getProvidersWithAlbums() {
+    return _getProvidersWithCounts(_albums);
+  }
+
+  /// Get providers that have content in tracks library (with item counts)
+  Map<String, int> getProvidersWithTracks() {
+    return _getProvidersWithCounts(_tracks);
+  }
+
+  /// Get providers that have content in playlists (with item counts)
+  Map<String, int> getProvidersWithPlaylists() {
+    return _getProvidersWithCounts(SyncService.instance.cachedPlaylists);
+  }
+
+  /// Get providers that have audiobooks (with item counts)
+  Map<String, int> getProvidersWithAudiobooks() {
+    return _getProvidersWithCounts(SyncService.instance.cachedAudiobooks);
+  }
+
+  /// Get providers that have radio stations (with item counts)
+  Map<String, int> getProvidersWithRadio() {
+    return _getProvidersWithCounts(_radioStations);
+  }
+
+  /// Get providers that have podcasts (with item counts)
+  /// Only counts mappings where inLibrary is true - this indicates which provider
+  /// the user actually added the podcast from (vs providers that can play it)
+  Map<String, int> getProvidersWithPodcasts() {
+    final counts = <String, int>{};
+    for (final item in _podcasts) {
+      final mappings = item.providerMappings;
+      if (mappings != null) {
+        for (final mapping in mappings) {
+          // Only count if this provider "owns" the item (user added it from this account)
+          if (mapping.inLibrary) {
+            final instanceId = mapping.providerInstance;
+            if (instanceId.isNotEmpty) {
+              counts[instanceId] = (counts[instanceId] ?? 0) + 1;
+            }
+          }
+        }
+      }
+    }
+    return counts;
+  }
+
+  /// Internal helper to count items per provider from a list of media items
+  /// Only counts mappings where inLibrary is true - this indicates which provider
+  /// the user actually added the item from (vs providers that can play it)
+  Map<String, int> _getProvidersWithCounts<T extends MediaItem>(List<T> items) {
+    final counts = <String, int>{};
+    for (final item in items) {
+      final mappings = item.providerMappings;
+      if (mappings != null) {
+        for (final mapping in mappings) {
+          // Only count if this provider "owns" the item (user added it from this account)
+          if (mapping.inLibrary) {
+            final instanceId = mapping.providerInstance;
+            if (instanceId.isNotEmpty) {
+              counts[instanceId] = (counts[instanceId] ?? 0) + 1;
+            }
+          }
+        }
+      }
+    }
+    return counts;
+  }
+
+  /// Get ProviderInstance objects for providers that have content in a category
+  /// Returns list of (ProviderInstance, itemCount) tuples, sorted by name
+  List<(ProviderInstance, int)> getRelevantProvidersForCategory(String category) {
+    final Map<String, int> counts;
+    switch (category) {
+      case 'artists':
+        counts = getProvidersWithArtists();
+        break;
+      case 'albums':
+        counts = getProvidersWithAlbums();
+        break;
+      case 'tracks':
+        counts = getProvidersWithTracks();
+        break;
+      case 'playlists':
+        counts = getProvidersWithPlaylists();
+        break;
+      case 'audiobooks':
+        counts = getProvidersWithAudiobooks();
+        break;
+      case 'radio':
+        counts = getProvidersWithRadio();
+        break;
+      case 'podcasts':
+        counts = getProvidersWithPodcasts();
+        break;
+      default:
+        counts = {};
+    }
+
+    // Build list of providers that support this category, with their item counts
+    // Only include providers that have at least 1 item (hides providers not synced to library)
+    final result = <(ProviderInstance, int)>[];
+    final addedInstanceIds = <String>{};
+
+    for (final provider in _availableMusicProviders) {
+      // Only include providers that support this content type AND have items
+      if (provider.supportsContentType(category)) {
+        final count = counts[provider.instanceId] ?? 0;
+        if (count > 0) {
+          result.add((provider, count));
+          addedInstanceIds.add(provider.instanceId);
+        }
+      }
+    }
+
+    // Also include providers that have items but aren't in _availableMusicProviders
+    // (e.g., search-only providers like iTunes)
+    for (final entry in counts.entries) {
+      if (!addedInstanceIds.contains(entry.key) && entry.value > 0) {
+        // Create a synthetic ProviderInstance from the instance ID
+        // Format is typically "domain--uniqueId" (e.g., "itunes--abc123")
+        final instanceId = entry.key;
+        final domain = instanceId.contains('--')
+            ? instanceId.split('--').first
+            : instanceId;
+        // Only add if this domain supports the category
+        final capabilities = ProviderInstance.providerCapabilities[domain];
+        if (capabilities != null && capabilities.contains(category)) {
+          result.add((
+            ProviderInstance(
+              instanceId: instanceId,
+              domain: domain,
+              name: _formatProviderName(domain),
+              available: true,
+            ),
+            entry.value,
+          ));
+        }
+      }
+    }
+
+    // Sort by name
+    result.sort((a, b) => a.$1.name.compareTo(b.$1.name));
+    return result;
+  }
+
+  /// Format a provider domain into a readable display name
+  String _formatProviderName(String domain) {
+    const names = {
+      'spotify': 'Spotify',
+      'tidal': 'Tidal',
+      'qobuz': 'Qobuz',
+      'deezer': 'Deezer',
+      'ytmusic': 'YouTube Music',
+      'soundcloud': 'SoundCloud',
+      'apple_music': 'Apple Music',
+      'amazon_music': 'Amazon Music',
+      'plex': 'Plex',
+      'jellyfin': 'Jellyfin',
+      'emby': 'Emby',
+      'subsonic': 'Subsonic',
+      'opensubsonic': 'OpenSubsonic',
+      'navidrome': 'Navidrome',
+      'audiobookshelf': 'Audiobookshelf',
+      'filesystem': 'Filesystem',
+      'itunes_podcasts': 'iTunes Podcasts',
+      'tunein': 'TuneIn',
+      'radiobrowser': 'Radio Browser',
+    };
+    return names[domain] ?? domain[0].toUpperCase() + domain.substring(1);
   }
 
   /// Whether library is syncing in background
@@ -377,7 +591,7 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   String get lastSearchQuery => _lastSearchQuery;
-  Map<String, List<MediaItem>> get lastSearchResults => filterSearchResults(_lastSearchResults);
+  Map<String, List<MediaItem>> get lastSearchResults => _lastSearchResults;
 
   MusicAssistantAPI? get api => _api;
   AuthManager get authManager => _authManager;
@@ -950,6 +1164,83 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
+  /// Load available music providers from MA and restore saved filter settings
+  Future<void> loadMusicProviders() async {
+    if (_api == null) return;
+
+    try {
+      _logger.log('🎵 Loading music providers...');
+
+      // Fetch available providers from MA
+      _availableMusicProviders = await _api!.getMusicProviders();
+
+      // Save discovered providers to settings
+      final discoveredList = _availableMusicProviders.map((p) => {
+        'instanceId': p.instanceId,
+        'domain': p.domain,
+        'name': p.name,
+      }).toList();
+      await SettingsService.setDiscoveredMusicProviders(discoveredList);
+
+      // Load saved enabled providers
+      final savedEnabled = await SettingsService.getEnabledMusicProviders();
+      if (savedEnabled != null) {
+        // Validate saved IDs against available providers
+        final availableIds = _availableMusicProviders.map((p) => p.instanceId).toSet();
+        _enabledProviderIds = savedEnabled.where((id) => availableIds.contains(id)).toList();
+
+        // If all saved providers are gone, reset to all enabled
+        if (_enabledProviderIds.isEmpty && savedEnabled.isNotEmpty) {
+          _enabledProviderIds = [];
+          await SettingsService.clearEnabledMusicProviders();
+          _logger.log('🔄 Reset provider filter - saved providers no longer available');
+        } else if (_enabledProviderIds.isNotEmpty) {
+          _logger.log('🔒 Loaded provider filter: ${_enabledProviderIds.length} providers enabled');
+        }
+      } else {
+        _enabledProviderIds = [];
+        _logger.log('🔓 No provider filter - all ${_availableMusicProviders.length} providers enabled');
+      }
+
+      notifyListeners();
+    } catch (e) {
+      _logger.log('⚠️ Could not load music providers (non-fatal): $e');
+    }
+  }
+
+  /// Toggle a specific music provider on/off
+  /// Uses debounce to allow multiple toggles before syncing
+  Future<bool> toggleProviderEnabled(String instanceId, bool enabled) async {
+    final allIds = _availableMusicProviders.map((p) => p.instanceId).toList();
+
+    // Don't allow disabling the last provider
+    if (!enabled && _enabledProviderIds.isNotEmpty && _enabledProviderIds.length <= 1) {
+      _logger.log('⚠️ Cannot disable last provider');
+      return false;
+    }
+
+    await SettingsService.toggleMusicProvider(instanceId, enabled, allIds);
+
+    // Reload the enabled providers
+    final savedEnabled = await SettingsService.getEnabledMusicProviders();
+    _enabledProviderIds = savedEnabled ?? [];
+
+    _logger.log('🔄 Provider filter updated: ${_enabledProviderIds.isEmpty ? "all enabled" : "${_enabledProviderIds.length} enabled"}');
+
+    // Clear discover caches so they get refetched with new filter
+    _cacheService.clearDiscoverCaches();
+
+    // Notify listeners IMMEDIATELY so UI rebuilds with client-side filtering
+    // This enables instant UI updates using cached data with source tracking
+    notifyListeners();
+
+    // NOTE: Debounced sync is handled by the UI layer (new_library_screen.dart)
+    // to avoid duplicate timers and ensure single point of control
+
+    // Return true to indicate UI should update
+    return true;
+  }
+
   Future<void> _initializeAfterConnection() async {
     if (_api == null) return;
 
@@ -961,6 +1252,9 @@ class MusicAssistantProvider with ChangeNotifier {
       if (_api!.authRequired) {
         await _fetchUserSettings();
       }
+
+      // Load available music providers and user's filter preferences
+      await loadMusicProviders();
 
       await _tryAdoptGhostPlayer();
       await _registerLocalPlayer();
@@ -2727,7 +3021,10 @@ class MusicAssistantProvider with ChangeNotifier {
 
     try {
       _logger.log('🔄 Fetching fresh discover artists...');
-      final artists = await _api!.getRandomArtists(limit: LibraryConstants.defaultRecentLimit);
+      final artists = await _api!.getRandomArtists(
+        limit: LibraryConstants.defaultRecentLimit,
+        providerInstanceIds: providerIdsForApiCalls,
+      );
       _cacheService.setCachedDiscoverArtists(artists);
       return artists;
     } catch (e) {
@@ -2746,7 +3043,10 @@ class MusicAssistantProvider with ChangeNotifier {
 
     try {
       _logger.log('🔄 Fetching fresh discover albums...');
-      final albums = await _api!.getRandomAlbums(limit: LibraryConstants.defaultRecentLimit);
+      final albums = await _api!.getRandomAlbums(
+        limit: LibraryConstants.defaultRecentLimit,
+        providerInstanceIds: providerIdsForApiCalls,
+      );
       _cacheService.setCachedDiscoverAlbums(albums);
       return albums;
     } catch (e) {
@@ -2770,10 +3070,14 @@ class MusicAssistantProvider with ChangeNotifier {
 
   /// Force a full library sync (for pull-to-refresh)
   Future<void> forceLibrarySync() async {
-    if (_api == null) return;
+    if (_api == null) {
+      _logger.log('⚠️ forceLibrarySync: API is null, skipping');
+      return;
+    }
 
-    _logger.log('🔄 Forcing full library sync...');
-    await SyncService.instance.forceSync(_api!);
+    final providerIds = providerIdsForApiCalls;
+    _logger.log('🔄 Forcing full library sync with providers: ${providerIds ?? "ALL"}');
+    await SyncService.instance.forceSync(_api!, providerInstanceIds: providerIds);
 
     // Update local lists from sync result
     _albums = SyncService.instance.cachedAlbums;
@@ -2781,7 +3085,10 @@ class MusicAssistantProvider with ChangeNotifier {
 
     // Also refresh tracks from API
     try {
-      _tracks = await _api!.getTracks(limit: LibraryConstants.maxLibraryItems);
+      _tracks = await _api!.getTracks(
+        limit: LibraryConstants.maxLibraryItems,
+        providerInstanceIds: providerIdsForApiCalls,
+      );
     } catch (e) {
       _logger.log('⚠️ Failed to refresh tracks: $e');
     }
@@ -3089,12 +3396,11 @@ class MusicAssistantProvider with ChangeNotifier {
 
     if (_cacheService.isSearchCacheValid(cacheKey, forceRefresh: forceRefresh)) {
       _logger.log('📦 Using cached search results for "$query" (libraryOnly: $libraryOnly)');
-      return filterSearchResults(_cacheService.getCachedSearchResults(cacheKey)!);
+      return _cacheService.getCachedSearchResults(cacheKey)!;
     }
 
     if (_api == null) {
-      final cached = _cacheService.getCachedSearchResults(cacheKey) ?? {'artists': [], 'albums': [], 'tracks': [], 'playlists': [], 'audiobooks': []};
-      return filterSearchResults(cached);
+      return _cacheService.getCachedSearchResults(cacheKey) ?? {'artists': [], 'albums': [], 'tracks': [], 'playlists': [], 'audiobooks': []};
     }
 
     try {
@@ -3111,11 +3417,10 @@ class MusicAssistantProvider with ChangeNotifier {
 
       _cacheService.setCachedSearchResults(cacheKey, cachedResults);
       _logger.log('✅ Cached search results for "$query"');
-      return filterSearchResults(cachedResults);
+      return cachedResults;
     } catch (e) {
       _logger.log('❌ Search failed: $e');
-      final cached = _cacheService.getCachedSearchResults(cacheKey) ?? {'artists': [], 'albums': [], 'tracks': [], 'playlists': [], 'audiobooks': []};
-      return filterSearchResults(cached);
+      return _cacheService.getCachedSearchResults(cacheKey) ?? {'artists': [], 'albums': [], 'tracks': [], 'playlists': [], 'audiobooks': []};
     }
   }
 
@@ -4404,7 +4709,10 @@ class MusicAssistantProvider with ChangeNotifier {
       // Fetch tracks from API (not cached - too many items)
       if (_api != null) {
         try {
-          _tracks = await _api!.getTracks(limit: LibraryConstants.maxLibraryItems);
+          _tracks = await _api!.getTracks(
+            limit: LibraryConstants.maxLibraryItems,
+            providerInstanceIds: providerIdsForApiCalls,
+          );
           _logger.log('📥 Fetched ${_tracks.length} tracks from MA');
         } catch (e) {
           _logger.log('⚠️ Failed to fetch tracks: $e');
@@ -4444,18 +4752,18 @@ class MusicAssistantProvider with ChangeNotifier {
     }
 
     syncService.addListener(onSyncComplete);
-    await syncService.syncFromApi(_api!);
+    await syncService.syncFromApi(_api!, providerInstanceIds: providerIdsForApiCalls);
   }
 
   /// Load radio stations from the library
-  Future<void> loadRadioStations() async {
+  Future<void> loadRadioStations({String? orderBy}) async {
     if (!isConnected || _api == null) return;
 
     try {
       _isLoadingRadio = true;
       notifyListeners();
 
-      _radioStations = await _api!.getRadioStations(limit: 100);
+      _radioStations = await _api!.getRadioStations(limit: 100, orderBy: orderBy);
       _isLoadingRadio = false;
       notifyListeners();
     } catch (e) {
@@ -4465,14 +4773,14 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadPodcasts() async {
+  Future<void> loadPodcasts({String? orderBy}) async {
     if (!isConnected || _api == null) return;
 
     try {
       _isLoadingPodcasts = true;
       notifyListeners();
 
-      _podcasts = await _api!.getPodcasts(limit: 100);
+      _podcasts = await _api!.getPodcasts(limit: 100, orderBy: orderBy);
 
       _logger.log('🎙️ Loaded ${_podcasts.length} podcasts');
       _isLoadingPodcasts = false;
@@ -4515,7 +4823,7 @@ class MusicAssistantProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadArtists({int? limit, int? offset, String? search}) async {
+  Future<void> loadArtists({int? limit, int? offset, String? search, String? orderBy}) async {
     if (!isConnected) return;
 
     try {
@@ -4528,6 +4836,7 @@ class MusicAssistantProvider with ChangeNotifier {
         offset: offset,
         search: search,
         albumArtistsOnly: false, // Show ALL library artists, not just those with albums
+        orderBy: orderBy,
       );
 
       _isLoading = false;
@@ -4545,6 +4854,7 @@ class MusicAssistantProvider with ChangeNotifier {
     int? offset,
     String? search,
     String? artistId,
+    String? orderBy,
   }) async {
     if (!isConnected) return;
 
@@ -4558,6 +4868,7 @@ class MusicAssistantProvider with ChangeNotifier {
         offset: offset,
         search: search,
         artistId: artistId,
+        orderBy: orderBy,
       );
 
       _isLoading = false;
@@ -4588,7 +4899,7 @@ class MusicAssistantProvider with ChangeNotifier {
 
     try {
       final results = await _api!.search(query, libraryOnly: libraryOnly);
-      return filterSearchResults(results);
+      return results;
     } catch (e) {
       ErrorHandler.logError('Search', e);
       return {'artists': [], 'albums': [], 'tracks': []};
@@ -4596,10 +4907,10 @@ class MusicAssistantProvider with ChangeNotifier {
   }
 
   /// Get playlists with provider filtering applied
-  Future<List<Playlist>> getPlaylists({int? limit, bool? favoriteOnly}) async {
+  Future<List<Playlist>> getPlaylists({int? limit, bool? favoriteOnly, String? orderBy}) async {
     if (_api == null) return [];
     try {
-      final playlists = await _api!.getPlaylists(limit: limit, favoriteOnly: favoriteOnly);
+      final playlists = await _api!.getPlaylists(limit: limit, favoriteOnly: favoriteOnly, orderBy: orderBy);
       return filterByProvider(playlists);
     } catch (e) {
       _logger.log('❌ Failed to fetch playlists: $e');

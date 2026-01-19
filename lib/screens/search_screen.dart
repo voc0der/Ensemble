@@ -169,6 +169,27 @@ class SearchScreenState extends State<SearchScreen> {
     return filters;
   }
 
+  /// Filter search results by enabled providers (only when in-library mode is on)
+  /// Uses the client-side provider toggles from the library screen
+  Map<String, List<MediaItem>> _filterByEnabledProviders(
+    Map<String, List<MediaItem>> results,
+    Set<String> enabledProviders,
+  ) {
+    if (enabledProviders.isEmpty) return results; // No filter = show all
+
+    bool isItemAllowed(MediaItem item) {
+      final mappings = item.providerMappings;
+      if (mappings == null || mappings.isEmpty) return true; // No mappings = show
+      // Item is allowed if it has inLibrary=true for any enabled provider
+      return mappings.any((m) => m.inLibrary && enabledProviders.contains(m.providerInstance));
+    }
+
+    return {
+      for (final entry in results.entries)
+        entry.key: entry.value.where(isItemAllowed).toList(),
+    };
+  }
+
   /// Animate to a specific filter
   void _animateToFilter(String filter) {
     final filters = _getAvailableFilters();
@@ -428,12 +449,21 @@ class SearchScreenState extends State<SearchScreen> {
       }
 
       if (mounted) {
+        // Combine all results
+        var combinedResults = {
+          ...results,
+          'radios': allRadios.values.toList(),
+          'podcasts': allPodcasts.values.toList(),
+        };
+
+        // When "in library" mode is on, also filter by enabled providers
+        if (_libraryOnly) {
+          final enabledProviders = provider.enabledProviderIds.toSet();
+          combinedResults = _filterByEnabledProviders(combinedResults, enabledProviders);
+        }
+
         setState(() {
-          _searchResults = {
-            ...results,
-            'radios': allRadios.values.toList(),
-            'podcasts': allPodcasts.values.toList(),
-          };
+          _searchResults = combinedResults;
           _isSearching = false;
           _hasSearched = true;
           _cachedListItems.clear(); // PERF: Clear cache on new results
@@ -2385,7 +2415,7 @@ class SearchScreenState extends State<SearchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to play radio station: $e')),
+          SnackBar(content: Text(S.of(context)!.failedToPlayRadioStation(e.toString()))),
         );
       }
     }
@@ -2582,7 +2612,7 @@ class SearchScreenState extends State<SearchScreen> {
       _logger.log('Error toggling favorite: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update favorite: $e')),
+          SnackBar(content: Text(S.of(context)!.failedToUpdateFavorite(e.toString()))),
         );
       }
     }
@@ -2633,7 +2663,7 @@ class SearchScreenState extends State<SearchScreen> {
         // Item is library-only, can't add
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Item is already in library')),
+            SnackBar(content: Text(S.of(context)!.itemAlreadyInLibrary)),
           );
         }
         return;
@@ -2669,7 +2699,7 @@ class SearchScreenState extends State<SearchScreen> {
         if (mounted) {
           setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to add to library')),
+            SnackBar(content: Text(S.of(context)!.failedToAddToLibrary)),
           );
         }
       }
@@ -2696,7 +2726,7 @@ class SearchScreenState extends State<SearchScreen> {
 
     if (libraryItemId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cannot find library ID for removal')),
+        SnackBar(content: Text(S.of(context)!.cannotFindLibraryId)),
       );
       return;
     }
@@ -2728,7 +2758,7 @@ class SearchScreenState extends State<SearchScreen> {
         if (mounted) {
           setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to remove from library')),
+            SnackBar(content: Text(S.of(context)!.failedToRemoveFromLibrary)),
           );
         }
       }
@@ -2872,7 +2902,7 @@ class SearchScreenState extends State<SearchScreen> {
       _logger.log('Error toggling artist favorite: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update favorite: $e')),
+          SnackBar(content: Text(S.of(context)!.failedToUpdateFavorite(e.toString()))),
         );
       }
     }
@@ -2903,7 +2933,7 @@ class SearchScreenState extends State<SearchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to play album: $e')),
+          SnackBar(content: Text(S.of(context)!.failedToPlayAlbum(e.toString()))),
         );
       }
     }
@@ -2927,7 +2957,7 @@ class SearchScreenState extends State<SearchScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Playing ${album.name} on ${player.name}'),
+                content: Text(S.of(context)!.playingOnPlayer(album.name, player.name)),
                 duration: const Duration(seconds: 1),
               ),
             );
@@ -2935,7 +2965,7 @@ class SearchScreenState extends State<SearchScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to play album: $e')),
+              SnackBar(content: Text(S.of(context)!.failedToPlayAlbum(e.toString()))),
             );
           }
         }
@@ -3051,7 +3081,7 @@ class SearchScreenState extends State<SearchScreen> {
       _logger.log('Error toggling album favorite: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update favorite: $e')),
+          SnackBar(content: Text(S.of(context)!.failedToUpdateFavorite(e.toString()))),
         );
       }
     }
@@ -3082,7 +3112,7 @@ class SearchScreenState extends State<SearchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to play playlist: $e')),
+          SnackBar(content: Text(S.of(context)!.failedToPlayPlaylist(e.toString()))),
         );
       }
     }
@@ -3106,7 +3136,7 @@ class SearchScreenState extends State<SearchScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Playing ${playlist.name} on ${player.name}'),
+                content: Text(S.of(context)!.playingOnPlayer(playlist.name, player.name)),
                 duration: const Duration(seconds: 1),
               ),
             );
@@ -3114,7 +3144,7 @@ class SearchScreenState extends State<SearchScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to play playlist: $e')),
+              SnackBar(content: Text(S.of(context)!.failedToPlayPlaylist(e.toString()))),
             );
           }
         }
@@ -3141,7 +3171,7 @@ class SearchScreenState extends State<SearchScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Playing ${audiobook.name}'),
+            content: Text(S.of(context)!.playing(audiobook.name)),
             duration: const Duration(seconds: 1),
           ),
         );
@@ -3149,7 +3179,7 @@ class SearchScreenState extends State<SearchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to play audiobook: $e')),
+          SnackBar(content: Text(S.of(context)!.failedToPlayAudiobook(e.toString()))),
         );
       }
     }
@@ -3173,7 +3203,7 @@ class SearchScreenState extends State<SearchScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Playing ${audiobook.name} on ${player.name}'),
+                content: Text(S.of(context)!.playingOnPlayer(audiobook.name, player.name)),
                 duration: const Duration(seconds: 1),
               ),
             );
@@ -3181,7 +3211,7 @@ class SearchScreenState extends State<SearchScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to play audiobook: $e')),
+              SnackBar(content: Text(S.of(context)!.failedToPlayAudiobook(e.toString()))),
             );
           }
         }
@@ -3266,7 +3296,7 @@ class SearchScreenState extends State<SearchScreen> {
       _logger.log('Error toggling audiobook favorite: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update favorite: $e')),
+          SnackBar(content: Text(S.of(context)!.failedToUpdateFavorite(e.toString()))),
         );
       }
     }
@@ -3290,7 +3320,7 @@ class SearchScreenState extends State<SearchScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Playing ${radio.name} on ${player.name}'),
+                content: Text(S.of(context)!.playingOnPlayer(radio.name, player.name)),
                 duration: const Duration(seconds: 1),
               ),
             );
@@ -3298,7 +3328,7 @@ class SearchScreenState extends State<SearchScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to play radio station: $e')),
+              SnackBar(content: Text(S.of(context)!.failedToPlayRadioStation(e.toString()))),
             );
           }
         }

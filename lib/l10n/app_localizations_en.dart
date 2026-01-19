@@ -797,6 +797,18 @@ class SEn extends S {
   String get unknownLibrary => 'Unknown Library';
 
   @override
+  String get musicProviders => 'Music Providers';
+
+  @override
+  String get musicProvidersDescription => 'Choose which accounts to show in your library';
+
+  @override
+  String get libraryRefreshing => 'Refreshing library...';
+
+  @override
+  String get cannotDisableLastProvider => 'Cannot disable the last provider';
+
+  @override
   String get noSeriesFound => 'No Series Found';
 
   @override
@@ -980,4 +992,88 @@ class SEn extends S {
 
   @override
   String get longPressPodcastHint => 'Long-press a podcast and tap the heart to add it to favorites';
+
+  @override
+  String failedToPlayRadioStation(String error) {
+    return 'Failed to play radio station: $error';
+  }
+
+  @override
+  String get itemAlreadyInLibrary => 'Item is already in library';
+
+  @override
+  String get failedToAddToLibrary => 'Failed to add to library';
+
+  @override
+  String get cannotFindLibraryId => 'Cannot find library ID for removal';
+
+  @override
+  String get failedToRemoveFromLibrary => 'Failed to remove from library';
+
+  @override
+  String failedToPlayAlbum(String error) {
+    return 'Failed to play album: $error';
+  }
+
+  @override
+  String playingOnPlayer(String name, String playerName) {
+    return 'Playing $name on $playerName';
+  }
+
+  @override
+  String failedToPlayPlaylist(String error) {
+    return 'Failed to play playlist: $error';
+  }
+
+  @override
+  String failedToPlayAudiobook(String error) {
+    return 'Failed to play audiobook: $error';
+  }
+
+  @override
+  String get noOtherPlayersAvailable => 'No other players available';
+
+  @override
+  String get transferQueue => 'Transfer queue';
+
+  @override
+  String get clearQueue => 'Clear queue';
+
+  @override
+  String syncingPlayer(String playerName) {
+    return 'Syncing $playerName...';
+  }
+
+  @override
+  String get switchPlayer => 'Switch Player';
+
+  @override
+  String get logsCopiedToClipboard => 'Logs copied to clipboard';
+
+  @override
+  String get auto => 'Auto';
+
+  @override
+  String get transferQueueTo => 'Transfer Queue To';
+
+  @override
+  String queueTransferredTo(String playerName) {
+    return 'Queue transferred to $playerName';
+  }
+
+  @override
+  String failedToTransferQueue(String error) {
+    return 'Failed to transfer queue: $error';
+  }
+
+  @override
+  String failedToLoadQueue(String error) {
+    return 'Failed to load queue: $error';
+  }
+
+  @override
+  String get transferTo => 'Transfer to...';
+
+  @override
+  String get transferQueueToPlayer => 'Transfer queue to another player';
 }

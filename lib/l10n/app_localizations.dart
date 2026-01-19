@@ -1563,6 +1563,30 @@ abstract class S {
   /// **'Unknown Library'**
   String get unknownLibrary;
 
+  /// No description provided for @musicProviders.
+  ///
+  /// In en, this message translates to:
+  /// **'Music Providers'**
+  String get musicProviders;
+
+  /// No description provided for @musicProvidersDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which accounts to show in your library'**
+  String get musicProvidersDescription;
+
+  /// No description provided for @libraryRefreshing.
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshing library...'**
+  String get libraryRefreshing;
+
+  /// No description provided for @cannotDisableLastProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot disable the last provider'**
+  String get cannotDisableLastProvider;
+
   /// No description provided for @noSeriesFound.
   ///
   /// In en, this message translates to:
@@ -1892,6 +1916,138 @@ abstract class S {
   /// In en, this message translates to:
   /// **'Long-press a podcast and tap the heart to add it to favorites'**
   String get longPressPodcastHint;
+
+  /// Error when playing radio station fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to play radio station: {error}'**
+  String failedToPlayRadioStation(String error);
+
+  /// Message when trying to add item already in library
+  ///
+  /// In en, this message translates to:
+  /// **'Item is already in library'**
+  String get itemAlreadyInLibrary;
+
+  /// Error when adding to library fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to add to library'**
+  String get failedToAddToLibrary;
+
+  /// Error when library ID not found for removal
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot find library ID for removal'**
+  String get cannotFindLibraryId;
+
+  /// Error when removing from library fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to remove from library'**
+  String get failedToRemoveFromLibrary;
+
+  /// Error when playing album fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to play album: {error}'**
+  String failedToPlayAlbum(String error);
+
+  /// Status when playing item on specific player
+  ///
+  /// In en, this message translates to:
+  /// **'Playing {name} on {playerName}'**
+  String playingOnPlayer(String name, String playerName);
+
+  /// Error when playing playlist fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to play playlist: {error}'**
+  String failedToPlayPlaylist(String error);
+
+  /// Error when playing audiobook fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to play audiobook: {error}'**
+  String failedToPlayAudiobook(String error);
+
+  /// Message when no other players available for transfer
+  ///
+  /// In en, this message translates to:
+  /// **'No other players available'**
+  String get noOtherPlayersAvailable;
+
+  /// Tooltip for transfer queue button
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer queue'**
+  String get transferQueue;
+
+  /// Tooltip for clear queue button
+  ///
+  /// In en, this message translates to:
+  /// **'Clear queue'**
+  String get clearQueue;
+
+  /// Status when syncing player
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing {playerName}...'**
+  String syncingPlayer(String playerName);
+
+  /// Label for switch player action
+  ///
+  /// In en, this message translates to:
+  /// **'Switch Player'**
+  String get switchPlayer;
+
+  /// Confirmation when logs copied
+  ///
+  /// In en, this message translates to:
+  /// **'Logs copied to clipboard'**
+  String get logsCopiedToClipboard;
+
+  /// Auto option for language selection
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get auto;
+
+  /// Title for transfer queue dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer Queue To'**
+  String get transferQueueTo;
+
+  /// Success message when queue transferred
+  ///
+  /// In en, this message translates to:
+  /// **'Queue transferred to {playerName}'**
+  String queueTransferredTo(String playerName);
+
+  /// Error when queue transfer fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to transfer queue: {error}'**
+  String failedToTransferQueue(String error);
+
+  /// Error when queue loading fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load queue: {error}'**
+  String failedToLoadQueue(String error);
+
+  /// Label for transfer destination selection
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer to...'**
+  String get transferTo;
+
+  /// Tooltip for transfer queue button
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer queue to another player'**
+  String get transferQueueToPlayer;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/debug_logger.dart';
 import '../../theme/design_tokens.dart';
 
@@ -72,9 +73,9 @@ class DebugConsole extends StatelessWidget {
             padding: EdgeInsets.zero,
             minimumSize: const Size(40, 20),
           ),
-          child: const Text(
-            'Clear',
-            style: TextStyle(fontSize: 10, color: Colors.green),
+          child: Text(
+            S.of(context)!.clear,
+            style: const TextStyle(fontSize: 10, color: Colors.green),
           ),
         ),
       ],
@@ -86,17 +87,17 @@ class DebugConsole extends StatelessWidget {
     if (logs.isNotEmpty) {
       Clipboard.setData(ClipboardData(text: logs));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Logs copied to clipboard'),
+        SnackBar(
+          content: Text(S.of(context)!.logsCopied),
           backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No logs to copy'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(S.of(context)!.noLogsToCopy),
+          duration: const Duration(seconds: 2),
         ),
       );
     }

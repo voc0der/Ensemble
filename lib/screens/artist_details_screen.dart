@@ -308,7 +308,6 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
 
     try {
       final newState = !_isInLibrary;
-      bool success;
 
       if (newState) {
         // Add to library - MUST use non-library provider
@@ -339,12 +338,35 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
           }
         }
 
+        // OPTIMISTIC UPDATE: Update UI immediately
+        setState(() {
+          _isInLibrary = newState;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(S.of(context)!.addedToLibrary),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+
         _logger.log('Adding artist to library: provider=$actualProvider, itemId=$actualItemId');
-        success = await maProvider.addToLibrary(
+        // Fire and forget - API call happens in background
+        maProvider.addToLibrary(
           mediaType: 'artist',
           provider: actualProvider,
           itemId: actualItemId,
-        );
+        ).catchError((e) {
+          _logger.log('❌ Failed to add artist to library: $e');
+          // Revert on failure
+          if (mounted) {
+            setState(() {
+              _isInLibrary = !newState;
+            });
+          }
+        });
       } else {
         // Remove from library
         int? libraryItemId;
@@ -365,13 +387,7 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
           return;
         }
 
-        success = await maProvider.removeFromLibrary(
-          mediaType: 'artist',
-          libraryItemId: libraryItemId,
-        );
-      }
-
-      if (success) {
+        // OPTIMISTIC UPDATE: Update UI immediately
         setState(() {
           _isInLibrary = newState;
         });
@@ -379,13 +395,25 @@ class _ArtistDetailsScreenState extends State<ArtistDetailsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                _isInLibrary ? S.of(context)!.addedToLibrary : S.of(context)!.removedFromLibrary,
-              ),
+              content: Text(S.of(context)!.removedFromLibrary),
               duration: const Duration(seconds: 1),
             ),
           );
         }
+
+        // Fire and forget - API call happens in background
+        maProvider.removeFromLibrary(
+          mediaType: 'artist',
+          libraryItemId: libraryItemId,
+        ).catchError((e) {
+          _logger.log('❌ Failed to remove artist from library: $e');
+          // Revert on failure
+          if (mounted) {
+            setState(() {
+              _isInLibrary = !newState;
+            });
+          }
+        });
       }
     } catch (e) {
       _logger.log('Error toggling artist library: $e');

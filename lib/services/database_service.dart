@@ -107,15 +107,18 @@ class DatabaseService {
   // ============================================
 
   /// Cache an item with JSON serialization
+  /// [sourceProvider] - optional provider instance ID that provided this item (for client-side filtering)
   Future<void> cacheItem<T>({
     required String itemType,
     required String itemId,
     required Map<String, dynamic> data,
+    String? sourceProvider,
   }) {
     return db.cacheItem(
       itemType: itemType,
       itemId: itemId,
       data: jsonEncode(data),
+      sourceProvider: sourceProvider,
     );
   }
 
@@ -130,6 +133,29 @@ class DatabaseService {
         return <String, dynamic>{};
       }
     }).where((item) => item.isNotEmpty).toList();
+  }
+
+  /// Get cached items with source provider info for client-side filtering
+  /// Returns list of (data, sourceProviders) tuples
+  Future<List<(Map<String, dynamic>, List<String>)>> getCachedItemsWithProviders(String itemType) async {
+    final items = await db.getCachedItems(itemType);
+    return items.map((item) {
+      try {
+        final data = jsonDecode(item.data) as Map<String, dynamic>;
+        List<String> providers = [];
+        try {
+          if (item.sourceProviders.isNotEmpty && item.sourceProviders != '[]') {
+            providers = List<String>.from(
+              jsonDecode(item.sourceProviders) as List,
+            );
+          }
+        } catch (_) {}
+        return (data, providers);
+      } catch (e) {
+        _logger.log('Error decoding cached item: $e');
+        return (<String, dynamic>{}, <String>[]);
+      }
+    }).where((item) => item.$1.isNotEmpty).toList();
   }
 
   /// Get a single cached item

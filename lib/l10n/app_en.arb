@@ -1140,6 +1140,10 @@
   "audiobookLibraries": "Audiobook Libraries",
   "chooseAudiobookLibraries": "Choose which Audiobookshelf libraries to include",
   "unknownLibrary": "Unknown Library",
+  "musicProviders": "Music Providers",
+  "musicProvidersDescription": "Choose which accounts to show in your library",
+  "libraryRefreshing": "Refreshing library...",
+  "cannotDisableLastProvider": "Cannot disable the last provider",
   "noSeriesFound": "No Series Found",
   "ensembleBugReport": "Ensemble Bug Report",
   "byOwner": "By {owner}",
@@ -1431,5 +1435,163 @@
   "longPressPodcastHint": "Long-press a podcast and tap the heart to add it to favorites",
   "@longPressPodcastHint": {
     "description": "Hint for favoriting podcasts"
+  },
+
+  "failedToPlayRadioStation": "Failed to play radio station: {error}",
+  "@failedToPlayRadioStation": {
+    "description": "Error when playing radio station fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "itemAlreadyInLibrary": "Item is already in library",
+  "@itemAlreadyInLibrary": {
+    "description": "Message when trying to add item already in library"
+  },
+
+  "failedToAddToLibrary": "Failed to add to library",
+  "@failedToAddToLibrary": {
+    "description": "Error when adding to library fails"
+  },
+
+  "cannotFindLibraryId": "Cannot find library ID for removal",
+  "@cannotFindLibraryId": {
+    "description": "Error when library ID not found for removal"
+  },
+
+  "failedToRemoveFromLibrary": "Failed to remove from library",
+  "@failedToRemoveFromLibrary": {
+    "description": "Error when removing from library fails"
+  },
+
+  "failedToPlayAlbum": "Failed to play album: {error}",
+  "@failedToPlayAlbum": {
+    "description": "Error when playing album fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "playingOnPlayer": "Playing {name} on {playerName}",
+  "@playingOnPlayer": {
+    "description": "Status when playing item on specific player",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+
+  "failedToPlayPlaylist": "Failed to play playlist: {error}",
+  "@failedToPlayPlaylist": {
+    "description": "Error when playing playlist fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "failedToPlayAudiobook": "Failed to play audiobook: {error}",
+  "@failedToPlayAudiobook": {
+    "description": "Error when playing audiobook fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "noOtherPlayersAvailable": "No other players available",
+  "@noOtherPlayersAvailable": {
+    "description": "Message when no other players available for transfer"
+  },
+
+  "transferQueue": "Transfer queue",
+  "@transferQueue": {
+    "description": "Tooltip for transfer queue button"
+  },
+
+  "clearQueue": "Clear queue",
+  "@clearQueue": {
+    "description": "Tooltip for clear queue button"
+  },
+
+  "syncingPlayer": "Syncing {playerName}...",
+  "@syncingPlayer": {
+    "description": "Status when syncing player",
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+
+  "switchPlayer": "Switch Player",
+  "@switchPlayer": {
+    "description": "Label for switch player action"
+  },
+
+  "logsCopiedToClipboard": "Logs copied to clipboard",
+  "@logsCopiedToClipboard": {
+    "description": "Confirmation when logs copied"
+  },
+
+  "auto": "Auto",
+  "@auto": {
+    "description": "Auto option for language selection"
+  },
+
+  "transferQueueTo": "Transfer Queue To",
+  "@transferQueueTo": {
+    "description": "Title for transfer queue dialog"
+  },
+
+  "queueTransferredTo": "Queue transferred to {playerName}",
+  "@queueTransferredTo": {
+    "description": "Success message when queue transferred",
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+
+  "failedToTransferQueue": "Failed to transfer queue: {error}",
+  "@failedToTransferQueue": {
+    "description": "Error when queue transfer fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "failedToLoadQueue": "Failed to load queue: {error}",
+  "@failedToLoadQueue": {
+    "description": "Error when queue loading fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "transferTo": "Transfer to...",
+  "@transferTo": {
+    "description": "Label for transfer destination selection"
+  },
+
+  "transferQueueToPlayer": "Transfer queue to another player",
+  "@transferQueueToPlayer": {
+    "description": "Tooltip for transfer queue button"
   }
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/music_assistant_provider.dart';
 import '../../models/player.dart';
 import '../../theme/design_tokens.dart';
@@ -162,9 +163,7 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
     if (playerId != null) {
       try {
         await widget.maProvider.api?.queueCommandDeleteItem(playerId, item.queueItemId);
-        debugPrint('QueuePanel: Delete successful for ${item.track.name}');
       } catch (e) {
-        debugPrint('QueuePanel: Error deleting queue item: $e');
         // Rollback: re-insert the item or refresh from server
         // Refresh is safer as queue may have changed
         widget.onRefresh();
@@ -185,7 +184,6 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
     try {
       await widget.maProvider.api?.queueCommandClear(playerId);
     } catch (e) {
-      debugPrint('QueuePanel: Error clearing queue: $e');
       // Refresh to restore if failed
       widget.onRefresh();
     }
@@ -257,7 +255,7 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
-                'Transfer to...',
+                S.of(context)!.transferTo,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -271,7 +269,7 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Text(
-                  'No other players available',
+                  S.of(context)!.noOtherPlayersAvailable,
                   style: TextStyle(color: menuTextColor.withOpacity(0.5), fontSize: 14),
                 ),
               )
@@ -346,7 +344,6 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
         autoPlay: true,
       );
 
-      debugPrint('QueuePanel: Queue transferred to ${targetPlayer.name}');
 
       // Clear source player's track cache since its queue was transferred away
       widget.maProvider.clearPlayerTrackCache(sourcePlayerId);
@@ -357,7 +354,7 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
       // Switch to the target player - mini player will update to show new player
       widget.maProvider.selectPlayer(targetPlayer);
     } catch (e) {
-      debugPrint('QueuePanel: Error transferring queue: $e');
+      // Error transferring queue - handled silently
     }
   }
 
@@ -523,11 +520,9 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
       final playerId = widget.queue?.playerId;
       // API uses relative shift: positive = down, negative = up
       final posShift = newIndex - originalIndex;
-      debugPrint('QueuePanel: Moving ${item.track.name} from $originalIndex to $newIndex (shift: $posShift, queueItemId: ${item.queueItemId})');
       if (playerId != null) {
         try {
           await widget.maProvider.api?.queueCommandMoveItem(playerId, item.queueItemId, posShift);
-          debugPrint('QueuePanel: Move API call completed successfully');
           // Allow updates again after a delay for server state to propagate
           _pendingReorderTimer = Timer(const Duration(milliseconds: 2000), () {
             if (mounted) {
@@ -537,7 +532,6 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
             }
           });
         } catch (e) {
-          debugPrint('QueuePanel: Move API error: $e');
           // Clear pending state immediately on error
           if (mounted) {
             setState(() {
@@ -548,7 +542,6 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
           widget.onRefresh();
         }
       } else {
-        debugPrint('QueuePanel: playerId is null, cannot move');
         // Clear pending state
         if (mounted) {
           setState(() {
@@ -595,7 +588,7 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
     try {
       await widget.maProvider.api?.queueCommandPlayIndex(playerId, item.queueItemId);
     } catch (e) {
-      debugPrint('QueuePanel: Error playing index: $e');
+      // Error playing index - handled silently
     }
 
     // Clear optimistic state after delay - server state will take over
@@ -720,14 +713,14 @@ class _QueuePanelState extends State<QueuePanel> with SingleTickerProviderStateM
                         ),
                         onPressed: () => _handleTransferQueue(context),
                         padding: Spacing.paddingAll12,
-                        tooltip: 'Transfer queue to another player',
+                        tooltip: S.of(context)!.transferQueueToPlayer,
                       ),
                       // Clear queue button
                       IconButton(
                         icon: Icon(Icons.delete_sweep_rounded, color: widget.textColor.withOpacity(0.7), size: IconSizes.sm),
                         onPressed: _handleClearQueue,
                         padding: Spacing.paddingAll12,
-                        tooltip: 'Clear queue',
+                        tooltip: S.of(context)!.clearQueue,
                       ),
                     ],
                   ),
