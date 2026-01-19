@@ -3250,6 +3250,28 @@ class MusicAssistantAPI {
     final imagePath = selectedImage['path'] as String?;
     if (imagePath == null) return null;
 
+    // If the image path is already an MA /imageproxy URL, avoid nesting imageproxy calls.
+    // This can happen when upstream metadata provides a fully-qualified imageproxy URL
+    // (e.g., now-playing payloads). Wrapping that again with provider=direct causes MA
+    // to fetch its own externally-protected endpoint (mTLS), leading to 400/404 failures.
+    String? extractedProvider;
+    String? extractedPath;
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      try {
+        final uri = Uri.parse(imagePath);
+        if (uri.path.endsWith('/imageproxy')) {
+          final p = uri.queryParameters['provider'];
+          final path = uri.queryParameters['path'];
+          if (p != null && p.isNotEmpty && path != null && path.isNotEmpty) {
+            extractedProvider = p;
+            extractedPath = path;
+          }
+        }
+      } catch (_) {
+        // ignore
+      }
+    }
+
     // ALWAYS use imageproxy endpoint to ensure images route through MA server
     // This fixes images not loading when connecting via external domain:
     // - Direct URLs may contain internal IPs not reachable from outside the network
@@ -3286,9 +3308,11 @@ class MusicAssistantAPI {
       baseUrl = '${uri.scheme}://${uri.host}:${uri.port}';
     }
 
-    final provider = selectedImage['provider'] as String?;
-    // Use the imageproxy endpoint
-    return '$baseUrl/imageproxy?provider=${Uri.encodeComponent(provider ?? "")}&size=$size&fmt=jpeg&path=${Uri.encodeComponent(imagePath)}';
+    final provider = (extractedProvider ?? (selectedImage['provider'] as String?)) ?? '';
+    final finalPath = extractedPath ?? imagePath;
+
+    // Use the imageproxy endpoint (single hop)
+    return '$baseUrl/imageproxy?provider=${Uri.encodeComponent(provider)}&size=$size&fmt=jpeg&path=${Uri.encodeComponent(finalPath)}';
   }
 
   // ==================== iTunes Artwork Lookup ====================

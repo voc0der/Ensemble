@@ -2697,11 +2697,27 @@ class MusicAssistantProvider with ChangeNotifier {
                   baseUrl = baseUrl.substring(0, baseUrl.length - 1);
                 }
                 finalImageUrl = '$baseUrl/imageproxy?$queryString';
+
+                // If the URL is already an MA /imageproxy URL, avoid nesting imageproxy calls.
+                // Extract provider/path so downstream code can rebuild a single imageproxy URL.
+                final providerParam = imgUri.queryParameters['provider'];
+                final pathParam = imgUri.queryParameters['path'];
+                if (providerParam != null && providerParam.isNotEmpty &&
+                    pathParam != null && pathParam.isNotEmpty &&
+                    imgUri.path.endsWith('/imageproxy')) {
+                  metadata = {
+                    'images': [
+                      {'path': pathParam, 'provider': providerParam}
+                    ]
+                  };
+                }
               } catch (e) {
                 // Use original URL
               }
             }
-            metadata = {
+
+            // Fallback: treat as a direct (remote) image URL.
+            metadata ??= {
               'images': [
                 {'path': finalImageUrl, 'provider': 'direct'}
               ]
