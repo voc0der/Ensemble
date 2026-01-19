@@ -84,6 +84,7 @@ class MusicAssistantProvider with ChangeNotifier {
   Timer? _localPlayerStateReportTimer;
   TrackMetadata? _pendingTrackMetadata;
   TrackMetadata? _currentNotificationMetadata;
+  Uri? _notificationArtUri; // local file:// URI for notification artwork
   Completer<void>? _registrationInProgress;
 
   // Local player service
@@ -2330,12 +2331,15 @@ class MusicAssistantProvider with ChangeNotifier {
     // the PCM audio playback when the app goes to background.
     // We use setRemotePlaybackState to maintain the notification without
     // actually playing audio through just_audio.
+    final artUri = await _getNotificationArtUri(artworkUrl);
+    _notificationArtUri = artUri;
+
     final mediaItem = audio_service.MediaItem(
       id: 'sendspin_pcm_stream',
       title: title ?? 'Playing via Sendspin',
       artist: artist ?? 'Music Assistant',
       album: album,
-      artUri: artworkUrl != null ? Uri.parse(artworkUrl) : null,
+      artUri: artUri,
       duration: durationSecs != null ? Duration(seconds: durationSecs) : null,
     );
 
@@ -2355,6 +2359,33 @@ class MusicAssistantProvider with ChangeNotifier {
 
   /// Handle Sendspin stream end - server stopped sending PCM audio data
   /// This is called when audio streaming ends (pause, stop, track end, etc.)
+
+
+  /// Resolve artwork URI for audio_service notifications WITHOUT letting audio_service fetch
+  /// remote URLs via Dart (which would bypass mTLS + cookies and hit nginx with Dart/3.5).
+  ///
+  /// We try to download via AuthenticatedCacheManager (OkHttp + mTLS + Authelia cookie) and
+  /// return a local file:// URI. If anything fails, we return null (no artwork) to avoid
+  /// triggering a failing dart:io network request.
+  Future<Uri?> _getNotificationArtUri(String? artworkUrl) async {
+    if (artworkUrl == null || artworkUrl.isEmpty) return null;
+
+    // If it's already a local URI, keep it.
+    final parsed = Uri.tryParse(artworkUrl);
+    if (parsed != null && (parsed.scheme == 'file' || parsed.scheme == 'content')) {
+      return parsed;
+    }
+
+    try {
+      final file = await AuthenticatedCacheManager.instance
+          .getSingleFile(artworkUrl)
+          .timeout(const Duration(seconds: 3));
+      return file.uri;
+    } catch (e) {
+      _logger.log('🖼️ Notification artwork unavailable (omitting): $e');
+      return null;
+    }
+  }
   void _handleSendspinStreamEnd() async {
     // Capture current position before stopping
     final lastPosition = _pcmAudioPlayer?.elapsedTime ?? Duration.zero;
@@ -2370,12 +2401,15 @@ class MusicAssistantProvider with ChangeNotifier {
     // Don't completely clear it - keep showing the notification
     // in case user wants to resume
     final metadata = _currentNotificationMetadata;
+    final artUri = await _getNotificationArtUri(metadata?.artworkUrl);
+    _notificationArtUri = artUri;
+
     final mediaItem = audio_service.MediaItem(
       id: 'sendspin_pcm_stream',
       title: metadata?.title ?? 'Music Assistant',
       artist: metadata?.artist ?? 'Paused',
       album: metadata?.album,
-      artUri: metadata?.artworkUrl != null ? Uri.parse(metadata!.artworkUrl!) : null,
+      artUri: artUri,
       duration: metadata?.duration,
     );
 
@@ -3932,13 +3966,15 @@ class MusicAssistantProvider with ChangeNotifier {
         final artistWithPlayer = track.artistsString.isNotEmpty
             ? '${track.artistsString} • ${player.name}'
             : player.name;
+        final artUri = await _getNotificationArtUri(artworkUrl);
+        _notificationArtUri = artUri;
         final mediaItem = audio_service.MediaItem(
           id: track.uri ?? track.itemId,
           title: track.name,
           artist: artistWithPlayer,
           album: track.album?.name ?? '',
           duration: track.duration,
-          artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+          artUri: artUri,
         );
         // Position comes from actual player in updateLocalModeNotification
         audioHandler.updateLocalModeNotification(
@@ -3968,13 +4004,15 @@ class MusicAssistantProvider with ChangeNotifier {
         final artistWithPlayer = track.artistsString.isNotEmpty
             ? '${track.artistsString} • ${player.name}'
             : player.name;
+        final artUri = await _getNotificationArtUri(artworkUrl);
+        _notificationArtUri = artUri;
         final mediaItem = audio_service.MediaItem(
           id: track.uri ?? track.itemId,
           title: track.name,
           artist: artistWithPlayer,
           album: track.album?.name ?? '',
           duration: track.duration,
-          artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+          artUri: artUri,
         );
         // Use position tracker for consistent position
         final position = _positionTracker.currentPosition;
@@ -4146,7 +4184,6 @@ class MusicAssistantProvider with ChangeNotifier {
       }
     }
 
-    final artworkUrl = _api?.getImageUrl(track, size: 512);
     final artistWithPlayer = track.artistsString.isNotEmpty
         ? '${track.artistsString} • ${_selectedPlayer!.name}'
         : _selectedPlayer!.name;
@@ -4156,7 +4193,7 @@ class MusicAssistantProvider with ChangeNotifier {
       artist: artistWithPlayer,
       album: track.album?.name ?? '',
       duration: track.duration,
-      artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+      artUri: _notificationArtUri,
     );
 
     audioHandler.setRemotePlaybackState(
@@ -4557,6 +4594,7 @@ class MusicAssistantProvider with ChangeNotifier {
         // Update notification for ALL players
         final track = _currentTrack!;
         final artworkUrl = _api?.getImageUrl(track, size: 512);
+        _notificationArtUri = artUri;
         final builtinPlayerId = await SettingsService.getBuiltinPlayerId();
         final isBuiltinPlayer = builtinPlayerId != null && _selectedPlayer!.playerId == builtinPlayerId;
 
@@ -4571,7 +4609,7 @@ class MusicAssistantProvider with ChangeNotifier {
             artist: artistWithPlayer,
             album: track.album?.name ?? '',
             duration: track.duration,
-            artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+            artUri: artUri,
           );
           // Position comes from actual player in updateLocalModeNotification
           audioHandler.updateLocalModeNotification(
@@ -4591,7 +4629,7 @@ class MusicAssistantProvider with ChangeNotifier {
             artist: artistWithPlayer,
             album: track.album?.name ?? '',
             duration: track.duration,
-            artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+            artUri: artUri,
           );
           // Use position tracker for consistent position (single source of truth)
           final position = _positionTracker.currentPosition;

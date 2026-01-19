@@ -29,7 +29,14 @@ class TrackMetadata {
       artist: artist,
       album: album ?? '',
       duration: duration,
-      artUri: artworkUrl != null ? Uri.tryParse(artworkUrl!) : null,
+      // Avoid remote artUri here: audio_service may fetch it via Dart HTTP (no mTLS).
+      // If artworkUrl is already local (file/content), allow it; otherwise omit.
+      artUri: (() {
+        final uri = artworkUrl != null ? Uri.tryParse(artworkUrl!) : null;
+        if (uri == null) return null;
+        if (uri.scheme == 'file' || uri.scheme == 'content') return uri;
+        return null;
+      })(),
     );
   }
 }

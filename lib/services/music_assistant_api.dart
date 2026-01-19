@@ -3605,7 +3605,18 @@ class MusicAssistantAPI {
 
   void _updateConnectionState(MAConnectionState state) {
     _currentState = state;
-    _connectionStateController.add(state);
+
+    // Avoid crashes when the API is being disposed or the stream is closed
+    if (_isDisposed || _connectionStateController.isClosed) {
+      return;
+    }
+
+    try {
+      _connectionStateController.add(state);
+    } catch (e) {
+      // Stream controller can race with dispose/close during reconnect
+      _logger.log('⚠️ _updateConnectionState skipped (controller closed?): $e');
+    }
   }
 
   /// Start heartbeat timer to keep WebSocket connection alive
@@ -3708,7 +3719,8 @@ class MusicAssistantAPI {
     _stopHeartbeat();
     // Complete any pending connection to prevent hanging futures
     if (_connectionInProgress != null && !_connectionInProgress!.isCompleted) {
-      _connectionInProgress!.completeError(Exception('API disposed'));
+      // Treat dispose as cancellation (not an error) to avoid uncaught async exceptions
+      _connectionInProgress!.complete();
     }
     _connectionInProgress = null;
     disconnect();
