@@ -330,7 +330,13 @@ class MainActivity: AudioServiceActivity() {
 
                 val responseHeaders = mutableMapOf<String, String>()
                 for (name in response.headers.names()) {
-                    responseHeaders[name] = response.header(name) ?: ""
+                    // Get all values for this header (important for Set-Cookie which can have multiple values)
+                    val values = response.headers.values(name)
+                    responseHeaders[name] = if (values.size > 1) {
+                        values.joinToString(", ")
+                    } else {
+                        values.firstOrNull() ?: ""
+                    }
                 }
 
                 val responseBody = response.body?.string() ?: ""
