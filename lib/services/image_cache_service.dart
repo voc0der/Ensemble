@@ -3,7 +3,6 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
 import 'security/android_keychain_http_client.dart';
 import 'settings_service.dart';
-import 'auth/auth_manager.dart';
 
 /// Custom cache manager that uses AndroidKeyChainHttpClient for mTLS support
 /// and adds Authelia cookies for authentication
@@ -77,12 +76,11 @@ class _AuthenticatedHttpFileService extends HttpFileService {
     final headers = <String, String>{};
 
     try {
-      final authManager = AuthManager.instance;
-      final credentials = authManager.currentCredentials;
+      final credentials = await SettingsService.getAuthCredentials();
 
-      if (credentials != null && credentials.strategyName == 'authelia') {
-        final sessionCookie = credentials.data['session_cookie'] as String?;
-        final cookieName = (credentials.data['cookie_name'] as String?) ?? 'authelia_session';
+      if (credentials != null && credentials['strategyName'] == 'authelia') {
+        final sessionCookie = credentials['session_cookie'] as String?;
+        final cookieName = (credentials['cookie_name'] as String?) ?? 'authelia_session';
 
         if (sessionCookie != null) {
           headers['Cookie'] = '$cookieName=$sessionCookie';
@@ -95,9 +93,7 @@ class _AuthenticatedHttpFileService extends HttpFileService {
     return headers;
   }
 
-  @override
   void dispose() {
     _httpClient?.close();
-    super.dispose();
   }
 }
