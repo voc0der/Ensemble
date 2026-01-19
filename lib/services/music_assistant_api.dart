@@ -3383,6 +3383,13 @@ class MusicAssistantAPI {
     }
   }
 
+  /// Mark as authenticated without performing MA's internal auth
+  /// Used when auth is handled by reverse proxy (Authelia, Basic Auth, etc.)
+  void markAsAuthenticated() {
+    _isAuthenticated = true;
+    _updateConnectionState(MAConnectionState.authenticated);
+  }
+
   /// Login with username/password over WebSocket and authenticate
   /// Returns the access token on success, null on failure
   Future<String?> loginWithCredentials(String username, String password) async {

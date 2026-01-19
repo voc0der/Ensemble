@@ -988,7 +988,19 @@ class MusicAssistantProvider with ChangeNotifier {
           if (state == MAConnectionState.connected) {
             _logger.log('🔗 WebSocket connected to MA server');
 
+            // Check if using reverse proxy auth (Authelia, Basic, etc.)
+            // These handle auth at the proxy level, so skip MA's internal auth
+            final isReverseProxyAuth = _authManager.currentStrategy?.name == 'authelia' ||
+                                       _authManager.currentStrategy?.name == 'basic_auth';
+
             if (_api!.authRequired && !_api!.isAuthenticated) {
+              if (isReverseProxyAuth) {
+                // Reverse proxy handles auth - WebSocket is already authenticated
+                _logger.log('🔐 Reverse proxy auth active - skipping MA internal auth');
+                _api!.markAsAuthenticated(); // Mark as authenticated without MA login
+                return; // Will trigger authenticated state
+              }
+
               _logger.log('🔐 MA auth required, attempting authentication...');
               final authenticated = await _handleMaAuthentication();
               if (!authenticated) {
