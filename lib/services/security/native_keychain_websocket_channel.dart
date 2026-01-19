@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show unawaited;
 import 'package:stream_channel/stream_channel.dart';
@@ -77,6 +78,12 @@ class NativeKeyChainWebSocketChannel extends StreamChannelMixin implements WebSo
         case 'message':
           // Music Assistant uses JSON text frames.
           incoming.add(event['message']);
+          break;
+        case 'binary':
+          final data = event['data']?.toString();
+          if (data != null && data.isNotEmpty) {
+            incoming.add(base64Decode(data));
+          }
           break;
         case 'closing':
           // no-op; await closed

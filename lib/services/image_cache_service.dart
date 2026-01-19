@@ -148,6 +148,19 @@ class _AuthenticatedHttpFileService extends HttpFileService {
       _logger.warning('🖼️ ImageCache: failed to read auth credentials: $e', context: 'ImageCache');
     }
 
+
+    try {
+      // Also attach Music Assistant bearer token if available (some endpoints require it)
+      final maToken = await SettingsService.getMaAuthToken();
+      if (maToken != null && maToken.isNotEmpty) {
+        headers.putIfAbsent('Authorization', () => 'Bearer $maToken');
+        _logger.debug('🖼️ ImageCache: adding Music Assistant Bearer token header', context: 'ImageCache');
+      }
+    } catch (e) {
+      _logger.debug('🖼️ ImageCache: no Music Assistant token available: $e', context: 'ImageCache');
+    }
+
+    headers.putIfAbsent('Accept', () => 'image/*');
     return headers;
   }
 

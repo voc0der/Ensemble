@@ -15,6 +15,7 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okio.ByteString
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.security.SecureRandom
@@ -199,6 +200,13 @@ class MainActivity: AudioServiceActivity() {
             override fun onMessage(webSocket: WebSocket, text: String) {
                 emitWsEvent(id, "message", mapOf(
                     "message" to text
+                ))
+            }
+
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                // Forward binary frames (e.g., PCM audio) to Flutter as base64
+                emitWsEvent(id, "binary", mapOf(
+                    "data" to bytes.base64()
                 ))
             }
 

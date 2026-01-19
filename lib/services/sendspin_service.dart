@@ -7,6 +7,7 @@ import 'package:web_socket_channel/io.dart';
 import 'debug_logger.dart';
 import 'settings_service.dart';
 import 'device_id_service.dart';
+import 'security/native_keychain_websocket_channel.dart';
 
 /// Connection state for Sendspin player
 enum SendspinConnectionState {
@@ -201,10 +202,54 @@ class SendspinService {
       // Connect to the base URL without query params - we send player info in hello message
       _logger.log('Sendspin: Connecting to $url${useProxyAuth ? ' (with proxy auth)' : ''}');
 
-      // Create WebSocket connection
-      final webSocket = await WebSocket.connect(url).timeout(timeout);
+      // Build headers (Authelia cookie, MA token) for the WS handshake
+      final headers = <String, String>{
+        'User-Agent': Platform.isAndroid ? 'EnsembleSendspin/OkHttp' : 'EnsembleSendspin/Dart',
+      };
 
-      _channel = IOWebSocketChannel(webSocket);
+      try {
+        final stored = await SettingsService.getAuthCredentials();
+        final strategy = stored?['strategy'] as String?;
+        final data = stored?['data'];
+
+        if (strategy == 'authelia' && data is Map) {
+          final sessionCookie = data['session_cookie'] as String?;
+          final cookieName = (data['cookie_name'] as String?) ?? 'authelia_session';
+          if (sessionCookie != null && sessionCookie.isNotEmpty) {
+            headers['Cookie'] = '$cookieName=$sessionCookie';
+          }
+        }
+      } catch (_) {
+        // ignore
+      }
+
+      try {
+        final maToken = await SettingsService.getMaAuthToken();
+        if (maToken != null && maToken.isNotEmpty) {
+          headers.putIfAbsent('Authorization', () => 'Bearer $maToken');
+        }
+      } catch (_) {
+        // ignore
+      }
+
+      // Create WebSocket connection (use native OkHttp+mTLS on Android when available)
+      if (Platform.isAndroid && url.startsWith('wss://')) {
+        final alias = await SettingsService.getAndroidMtlsKeyAlias();
+        if (alias != null && alias.isNotEmpty) {
+          _logger.log('Sendspin: Using native OkHttp WebSocket with mTLS alias: $alias');
+          _channel = await NativeKeyChainWebSocketChannel.connect(
+            alias: alias,
+            url: url,
+            headers: headers,
+          ).timeout(timeout);
+        } else {
+          final webSocket = await WebSocket.connect(url, headers: headers).timeout(timeout);
+          _channel = IOWebSocketChannel(webSocket);
+        }
+      } else {
+        final webSocket = await WebSocket.connect(url, headers: headers).timeout(timeout);
+        _channel = IOWebSocketChannel(webSocket);
+      }
       _connectedUrl = url;
 
       // Set up message listener BEFORE sending hello
