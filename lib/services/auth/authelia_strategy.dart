@@ -17,7 +17,11 @@ import '../security/android_keychain_http_client.dart';
 ///
 /// For 2FA/TOTP: Use password format "yourpassword|||123456" where 123456 is your TOTP code
 ///
-/// Authelia endpoints used: /api/firstfactor, /api/secondfactor, /api/verify
+/// Authelia endpoints used:
+/// - /api/firstfactor
+/// - /api/secondfactor/totp (preferred)
+/// - /api/secondfactor (legacy fallback)
+/// - /api/verify
 class AutheliaStrategy implements AuthStrategy {
   final _logger = DebugLogger();
 
@@ -135,8 +139,10 @@ class AutheliaStrategy implements AuthStrategy {
       if (response.statusCode == 200) {
         _logger.log('✓ First factor successful');
 
-        // Check if 2FA is required
-        final bool needs2FA = _needs2FA(response);
+        // If the user supplied a TOTP code, always attempt 2FA.
+        // Otherwise, try to infer whether 2FA is needed.
+        final bool wants2FA = totpCode != null && totpCode.isNotEmpty;
+        final bool needs2FA = wants2FA ? true : _needs2FA(response);
 
         if (needs2FA) {
           _logger.log('🔐 2FA required');
@@ -148,13 +154,28 @@ class AutheliaStrategy implements AuthStrategy {
             return null;
           }
 
-          // Extract cookies from first-factor response to send with second-factor
+          // Extract the session cookie from the first-factor response to send with second-factor.
           final firstFactorCookies = response.headers['set-cookie'];
           _logger.log('First factor cookies: ${firstFactorCookies ?? "none"}');
 
+          final firstFactorSession = (firstFactorCookies != null && firstFactorCookies.isNotEmpty)
+              ? _extractSessionCookiePair(firstFactorCookies)
+              : null;
+          if (firstFactorSession == null) {
+            _logger.log('✗ Could not extract session cookie after first factor');
+            client.close();
+            return null;
+          }
+
           // Submit second factor (TOTP)
           _logger.log('Submitting TOTP code...');
-          final secondFactorUrl = Uri(
+          final secondFactorUrlPreferred = Uri(
+            scheme: uri.scheme,
+            host: uri.host,
+            port: uri.hasPort ? uri.port : null,
+            path: '/api/secondfactor/totp',
+          );
+          final secondFactorUrlLegacy = Uri(
             scheme: uri.scheme,
             host: uri.host,
             port: uri.hasPort ? uri.port : null,
@@ -171,21 +192,30 @@ class AutheliaStrategy implements AuthStrategy {
             'Content-Type': 'application/json',
           };
 
-          // Add cookies from first-factor if available
-          if (firstFactorCookies != null && firstFactorCookies.isNotEmpty) {
-            // Parse and format cookies for Cookie header
-            final cookieValue = _parseCookiesForRequest(firstFactorCookies);
-            if (cookieValue.isNotEmpty) {
-              secondFactorHeaders['Cookie'] = cookieValue;
-              _logger.log('Sending cookies with second factor: $cookieValue');
-            }
-          }
+          // Only send the Authelia session cookie (avoid brittle Set-Cookie parsing).
+          final firstCookieHeader = '${firstFactorSession.key}=${firstFactorSession.value}';
+          secondFactorHeaders['Cookie'] = firstCookieHeader;
+          _logger.log('Sending cookies with second factor: $firstCookieHeader');
 
-          response = await client.post(
-            secondFactorUrl,
-            headers: secondFactorHeaders,
-            body: totpBody,
-          ).timeout(const Duration(seconds: 10));
+          response = await client
+              .post(
+                secondFactorUrlPreferred,
+                headers: secondFactorHeaders,
+                body: totpBody,
+              )
+              .timeout(const Duration(seconds: 10));
+
+          // Backwards compatibility: some older setups used /api/secondfactor.
+          if (response.statusCode == 404) {
+            _logger.log('Second factor endpoint /api/secondfactor/totp returned 404, trying legacy endpoint...');
+            response = await client
+                .post(
+                  secondFactorUrlLegacy,
+                  headers: secondFactorHeaders,
+                  body: totpBody,
+                )
+                .timeout(const Duration(seconds: 10));
+          }
 
           _logger.log('Second factor response status: ${response.statusCode}');
 
@@ -199,17 +229,20 @@ class AutheliaStrategy implements AuthStrategy {
           _logger.log('✓ 2FA successful');
         }
 
-        // Extract session cookie from Set-Cookie header
+        // Extract session cookie from Set-Cookie header.
         final cookies = response.headers['set-cookie'];
         if (cookies != null && cookies.isNotEmpty) {
           _logger.log('✓ Received session cookie');
 
-          final sessionCookie = _extractSessionCookie(cookies);
-          if (sessionCookie != null) {
-            _logger.log('✓ Extracted session cookie');
+          final session = _extractSessionCookiePair(cookies);
+          if (session != null) {
+            _logger.log('✓ Extracted session cookie (${session.key})');
             client.close();
             return AuthCredentials('authelia', {
-              'session_cookie': sessionCookie,
+              // Preserve existing key for compatibility.
+              'session_cookie': session.value,
+              // New: cookie name is configurable in Authelia (session.name).
+              'cookie_name': session.key,
               'username': username,
             });
           }
@@ -252,13 +285,13 @@ class AutheliaStrategy implements AuthStrategy {
           final json = jsonDecode(body);
           // Check for common Authelia 2FA response fields
           if (json is Map) {
-            // If status field exists and indicates 2FA required
-            if (json.containsKey('status') && json['status'] != null) {
-              return true; // Authelia typically returns a status object when 2FA is pending
-            }
-            // Check for available_methods or similar fields
-            if (json.containsKey('available_methods')) {
-              return true;
+            // Check for common Authelia 2FA response fields.
+            if (json.containsKey('available_methods')) return true;
+
+            final data = json['data'];
+            if (data is Map) {
+              if (data.containsKey('available_methods') || data.containsKey('methods')) return true;
+              if (data['second_factor'] == true || data['two_factor'] == true) return true;
             }
           }
         } catch (_) {
@@ -275,7 +308,7 @@ class AutheliaStrategy implements AuthStrategy {
       }
 
       // Check if the session cookie looks incomplete/temporary
-      final sessionCookie = _extractSessionCookie(cookies);
+      final sessionCookie = _extractSessionCookiePair(cookies);
       if (sessionCookie == null) {
         _logger.log('Could not extract session cookie - assuming 2FA required');
         return true;
@@ -295,6 +328,7 @@ class AutheliaStrategy implements AuthStrategy {
     AuthCredentials credentials,
   ) async {
     final sessionCookie = credentials.data['session_cookie'] as String?;
+    final cookieName = (credentials.data['cookie_name'] as String?) ?? 'authelia_session';
     if (sessionCookie == null) return false;
 
     try {
@@ -316,7 +350,7 @@ class AutheliaStrategy implements AuthStrategy {
       final response = await http.get(
         verifyUrl,
         headers: {
-          'Cookie': 'authelia_session=$sessionCookie',
+          'Cookie': '$cookieName=$sessionCookie',
         },
       ).timeout(const Duration(seconds: 5));
 
@@ -330,16 +364,18 @@ class AutheliaStrategy implements AuthStrategy {
   @override
   Map<String, dynamic> buildWebSocketHeaders(AuthCredentials credentials) {
     final sessionCookie = credentials.data['session_cookie'] as String;
+    final cookieName = (credentials.data['cookie_name'] as String?) ?? 'authelia_session';
     return {
-      'Cookie': 'authelia_session=$sessionCookie',
+      'Cookie': '$cookieName=$sessionCookie',
     };
   }
 
   @override
   Map<String, String> buildStreamingHeaders(AuthCredentials credentials) {
     final sessionCookie = credentials.data['session_cookie'] as String;
+    final cookieName = (credentials.data['cookie_name'] as String?) ?? 'authelia_session';
     return {
-      'Cookie': 'authelia_session=$sessionCookie',
+      'Cookie': '$cookieName=$sessionCookie',
     };
   }
 
@@ -373,23 +409,23 @@ class AutheliaStrategy implements AuthStrategy {
     return cookies.join('; ');
   }
 
-  /// Extract authelia_session cookie value from Set-Cookie header
-  /// Migrated from auth_service.dart:81-98
-  String? _extractSessionCookie(String setCookieHeader) {
-    final cookies = setCookieHeader.split(',');
-
-    for (final cookie in cookies) {
-      if (cookie.trim().startsWith('authelia_session=')) {
-        final parts = cookie.split(';');
-        if (parts.isNotEmpty) {
-          final value = parts[0].trim();
-          if (value.startsWith('authelia_session=')) {
-            return value.substring('authelia_session='.length);
-          }
-        }
+  /// Extract the configured Authelia session cookie name+value from a Set-Cookie header.
+  /// Authelia allows customizing the cookie name (session.name), so we can't assume authelia_session.
+  MapEntry<String, String>? _extractSessionCookiePair(String setCookieHeader) {
+    // Prefer a cookie whose name contains "session".
+    final re = RegExp(r'(^|,\s*)([A-Za-z0-9_\-]+)=([^;]+)');
+    MapEntry<String, String>? first;
+    for (final m in re.allMatches(setCookieHeader)) {
+      final name = m.group(2);
+      final value = m.group(3);
+      if (name == null || value == null) continue;
+      first ??= MapEntry(name, value);
+      if (name.toLowerCase().contains('session')) {
+        return MapEntry(name, value);
       }
     }
 
-    return null;
+    // Fallback: return the first cookie pair we saw.
+    return first;
   }
 }
