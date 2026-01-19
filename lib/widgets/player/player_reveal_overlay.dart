@@ -8,6 +8,7 @@ import '../../services/settings_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/palette_helper.dart';
 import '../../constants/timings.dart';
+import '../cached_image.dart';
 import '../global_player_overlay.dart';
 import 'player_card.dart';
 
@@ -122,7 +123,8 @@ class PlayerRevealOverlayState extends State<PlayerRevealOverlay>
       if (imageUrl == null) continue;
 
       try {
-        final imageProvider = NetworkImage(imageUrl);
+        final imageProvider = cachedImageProvider(imageUrl);
+        if (imageProvider == null) continue;
         final schemes = await PaletteHelper.extractColorSchemes(imageProvider);
         if (mounted && schemes != null) {
           final colorScheme = isDark ? schemes.$2 : schemes.$1;
