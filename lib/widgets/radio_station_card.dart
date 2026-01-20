@@ -100,10 +100,10 @@ class _RadioStationCardState extends State<RadioStationCard> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             // Radio station name - fixed height container so image size is consistent
             SizedBox(
-              height: 36, // Fixed height for 2 lines of text
+              height: 32, // Fixed height for 2 lines of text
               child: Hero(
                 tag: HeroTags.radioTitle + (widget.radioStation.uri ?? widget.radioStation.itemId) + suffix,
                 child: Material(

@@ -109,7 +109,7 @@ class _PlaylistCardState extends State<PlaylistCard> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             // Playlist title
             Hero(
               tag: HeroTags.playlistTitle + (widget.playlist.uri ?? widget.playlist.itemId) + suffix,

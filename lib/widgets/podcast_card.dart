@@ -115,7 +115,7 @@ class _PodcastCardState extends State<PodcastCard> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             // Podcast title
             Hero(
               tag: HeroTags.podcastTitle + (widget.podcast.uri ?? widget.podcast.itemId) + suffix,

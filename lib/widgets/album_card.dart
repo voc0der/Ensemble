@@ -190,7 +190,7 @@ class _AlbumCardState extends State<AlbumCard> {
                 ),
               ),
             ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           // Album title with year
           Hero(
             tag: HeroTags.albumTitle + (widget.album.uri ?? widget.album.itemId) + suffix,
