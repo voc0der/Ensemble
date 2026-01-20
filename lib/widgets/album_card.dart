@@ -144,6 +144,7 @@ class _AlbumCardState extends State<AlbumCard> {
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Album artwork
             AspectRatio(

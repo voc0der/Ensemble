@@ -75,6 +75,7 @@ class _PodcastCardState extends State<PodcastCard> {
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Podcast artwork - square with rounded corners
             AspectRatio(

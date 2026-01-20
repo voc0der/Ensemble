@@ -61,6 +61,7 @@ class _RadioStationCardState extends State<RadioStationCard> {
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Radio station artwork - circular for radio
             AspectRatio(

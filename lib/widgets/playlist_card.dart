@@ -69,6 +69,7 @@ class _PlaylistCardState extends State<PlaylistCard> {
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Playlist artwork
             AspectRatio(

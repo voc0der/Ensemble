@@ -137,6 +137,7 @@ class _ArtistCardState extends State<ArtistCard> {
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Artist image - circular
             // PERF: Use AspectRatio instead of LayoutBuilder to provide fixed geometry
