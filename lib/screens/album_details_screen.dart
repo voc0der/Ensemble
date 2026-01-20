@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/media_item.dart';
 import '../providers/music_assistant_provider.dart';
 import '../constants/hero_tags.dart';
+import '../core/ui_notify.dart';
 import '../theme/palette_helper.dart';
 import '../theme/theme_provider.dart';
 import '../services/metadata_service.dart';
@@ -193,27 +194,16 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
 
         if (mounted) {
           final isOffline = !maProvider.isConnected;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                isOffline
-                    ? S.of(context)!.actionQueuedForSync
-                    : (_isFavorite ? S.of(context)!.addedToFavorites : S.of(context)!.removedFromFavorites),
-              ),
-              duration: const Duration(seconds: 1),
-            ),
-          );
+          final message = isOffline
+              ? S.of(context)!.actionQueuedForSync
+              : (_isFavorite ? S.of(context)!.addedToFavorites : S.of(context)!.removedFromFavorites);
+          UiNotify.info(message);
         }
       }
     } catch (e) {
       _logger.log('Error toggling favorite: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(S.of(context)!.failedToUpdateFavorite(e.toString())),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        UiNotify.error(S.of(context)!.failedToUpdateFavorite(e.toString()));
       }
     }
   }
@@ -260,12 +250,7 @@ class _AlbumDetailsScreenState extends State<AlbumDetailsScreen> with SingleTick
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(S.of(context)!.addedToLibrary),
-              duration: const Duration(seconds: 1),
-            ),
-          );
+          UiNotify.info(S.of(context)!.addedToLibrary);
         }
 
         _logger.log('Adding album to library: provider=$actualProvider, itemId=$actualItemId');
