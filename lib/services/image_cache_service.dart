@@ -43,23 +43,39 @@ class _AuthenticatedHttpFileService extends HttpFileService {
 
   @override
   Future<FileServiceResponse> get(String url, {Map<String, String>? headers}) async {
-    _httpClient ??= await _createHttpClient();
-    // Re-evaluate mTLS alias on each request so we don't get stuck on a non-mTLS
-    // client created before the user selected/saved their cert.
-    _httpClient = await _refreshHttpClientIfNeeded();
+    try {
+      _httpClient ??= await _createHttpClient();
+      // Re-evaluate mTLS alias on each request so we don't get stuck on a non-mTLS
+      // client created before the user selected/saved their cert.
+      _httpClient = await _refreshHttpClientIfNeeded();
 
-    final authHeaders = await _getAuthHeaders();
-    final allHeaders = {...?headers, ...authHeaders};
-    // Helpful for diagnosing whether images are using the authenticated
-    // cache path (shows up in reverse-proxy logs).
-    allHeaders.putIfAbsent('User-Agent', () => 'EnsembleImage/OkHttp');
+      final authHeaders = await _getAuthHeaders();
+      final allHeaders = {...?headers, ...authHeaders};
+      // Helpful for diagnosing whether images are using the authenticated
+      // cache path (shows up in reverse-proxy logs).
+      allHeaders.putIfAbsent('User-Agent', () => 'EnsembleImage/OkHttp');
 
-    final req = http.Request('GET', Uri.parse(url));
-    req.headers.addAll(allHeaders);
+      final req = http.Request('GET', Uri.parse(url));
+      req.headers.addAll(allHeaders);
 
-    final httpResponse = await _httpClient!.send(req);
+      final httpResponse = await _httpClient!.send(req);
 
-    return HttpGetResponse(httpResponse);
+      return HttpGetResponse(httpResponse);
+    } catch (e) {
+      // Log error but don't crash - return a 503 error response so
+      // CachedNetworkImage can show errorWidget gracefully
+      _logger.debug('🖼️ ImageCache: request failed for $url: $e', context: 'ImageCache');
+
+      // Create a fake error response that flutter_cache_manager can handle
+      final controller = http.StreamedResponse(
+        Stream.value([]),
+        503, // Service Unavailable
+        headers: {'content-type': 'text/plain'},
+        reasonPhrase: 'Image load failed: ${e.toString()}',
+      );
+
+      return HttpGetResponse(controller);
+    }
   }
 
   /// Create HTTP client with mTLS support if needed

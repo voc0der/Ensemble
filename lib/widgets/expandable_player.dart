@@ -959,6 +959,14 @@ class ExpandablePlayerState extends State<ExpandablePlayer>
                         fit: BoxFit.contain,
                         memCacheWidth: 1024,
                         memCacheHeight: 1024,
+                        errorWidget: (context, url, error) => Container(
+                          color: Theme.of(context).colorScheme.surfaceVariant,
+                          child: Icon(
+                            Icons.broken_image_rounded,
+                            size: 64,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ),
                     ),
                   ),
